@@ -1,0 +1,39 @@
+{
+  "intent": {
+    "title": "Investigate elevated p99 latency in checkout-service",
+    "description": "Error rate and latency rose after deploy v184",
+    "environment": "prod",
+    "requested_by": "operator"
+  },
+  "findings": [
+    {
+      "agent_id": "telemetry-agent",
+      "summary": "p99 latency doubled after deploy v184; DB errors correlate with spike",
+      "evidence_refs": ["grafana:checkout-p99", "logs:error-rate"],
+      "confidence": 0.91
+    },
+    {
+      "agent_id": "deploy-agent",
+      "summary": "deploy v184 introduced new DB pool settings 6 minutes before spike",
+      "evidence_refs": ["deploy:v184", "release-notes:v184"],
+      "confidence": 0.87
+    }
+  ],
+  "proposal": {
+    "title": "Rollback checkout-service from v184 to v183",
+    "action_type": "rollback-deploy",
+    "target": "checkout-service",
+    "environment": "prod",
+    "risk": "high",
+    "rationale": "Independent telemetry and deploy findings agree that v184 caused the regression",
+    "rollback_steps": [
+      "set deployment image to v183",
+      "wait for rollout complete",
+      "confirm connection errors drop"
+    ],
+    "health_checks": [
+      { "name": "error-rate", "kind": "always_pass" },
+      { "name": "latency", "kind": "always_pass" }
+    ]
+  }
+}

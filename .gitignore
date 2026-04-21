@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+
+# Secrets / env
+.env
+.env.*
+.env.*.local
+
+# Claude Code per-dev overrides (never commit personal tokens)
+.claude/settings.local.json
+
+# Quorum event log (append-only, recreated locally)
+data/events.jsonl
+data/state_snapshot.json
+
+# Databases (Phase 3 preemption)
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs
+*.log
+
+# Node (console tooling, future)
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Quorum Operator Console</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; background: #0b1020; color: #eef2ff; }
+    h1, h2 { margin-bottom: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .card { background: #141b34; padding: 16px; border-radius: 16px; border: 1px solid #263154; }
+    pre { background: #0f1530; padding: 12px; border-radius: 12px; overflow: auto; max-height: 350px; }
+    button { padding: 10px 14px; border-radius: 10px; border: none; cursor: pointer; }
+    .toolbar { display: flex; gap: 12px; margin-bottom: 16px; }
+    .muted { color: #b6c0df; }
+    .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #263154; margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Quorum Operator Console</h1>
+  <p class="muted">POC console for intents, proposals, votes, executions, rollbacks, and event history.</p>
+
+  <div class="toolbar">
+    <button onclick="seedDemo()">Seed demo incident</button>
+    <button onclick="loadState()">Refresh</button>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Summary</h2>
+      <div id="summary"></div>
+    </div>
+    <div class="card">
+      <h2>Intents</h2>
+      <pre id="intents"></pre>
+    </div>
+    <div class="card">
+      <h2>Proposals</h2>
+      <pre id="proposals"></pre>
+    </div>
+    <div class="card">
+      <h2>Policy decisions</h2>
+      <pre id="policy"></pre>
+    </div>
+    <div class="card">
+      <h2>Executions</h2>
+      <pre id="executions"></pre>
+    </div>
+    <div class="card">
+      <h2>Rollbacks</h2>
+      <pre id="rollbacks"></pre>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2>Event timeline</h2>
+    <pre id="events"></pre>
+  </div>
+
+  <script>
+    async function fetchJson(path, options = {}) {
+      const res = await fetch(path, options);
+      return await res.json();
+    }
+
+    async function seedDemo() {
+      await fetchJson('/api/v1/demo/incident', { method: 'POST' });
+      await loadState();
+    }
+
+    function setText(id, value) {
+      document.getElementById(id).textContent = JSON.stringify(value, null, 2);
+    }
+
+    async function loadState() {
+      const state = await fetchJson('/api/v1/state');
+      const events = await fetchJson('/api/v1/events');
+
+      document.getElementById('summary').innerHTML = `
+        <div class="pill">intents: ${state.intents.length}</div>
+        <div class="pill">findings: ${state.findings.length}</div>
+        <div class="pill">proposals: ${state.proposals.length}</div>
+        <div class="pill">events: ${state.event_count}</div>
+      `;
+
+      setText('intents', state.intents);
+      setText('proposals', state.proposals);
+      setText('policy', state.policy_decisions);
+      setText('executions', state.executions);
+      setText('rollbacks', state.rollbacks);
+      setText('events', events);
+    }
+
+    loadState();
+  </script>
+</body>
+</html>

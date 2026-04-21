@@ -1,0 +1,11 @@
+app:
+  name: quorum
+  environment: local
+  log_path: data/events.jsonl
+
+server:
+  host: 0.0.0.0
+  port: 8080
+
+ui:
+  title: Quorum Operator Console

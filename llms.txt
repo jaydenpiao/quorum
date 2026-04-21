@@ -1,0 +1,28 @@
+# Quorum LLM entrypoint
+
+Primary startup files:
+- INIT.md
+- AGENTS.md
+- docs/REPO_MAP.md
+- docs/ARCHITECTURE.md
+- docs/CURRENT_MODE.md
+
+Key runtime files:
+- apps/api/app/main.py
+- apps/api/app/api/routes.py
+- apps/api/app/domain/models.py
+- apps/api/app/services/event_log.py
+- apps/api/app/services/state_store.py
+- apps/api/app/services/policy_engine.py
+- apps/api/app/services/quorum_engine.py
+- apps/api/app/services/executor.py
+- apps/api/app/services/health_checks.py
+
+Configuration:
+- config/system.yaml
+- config/agents.yaml
+- config/policies.yaml
+
+Examples:
+- examples/demo_incident.json
+- examples/sample_proposal.json

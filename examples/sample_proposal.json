@@ -1,0 +1,20 @@
+{
+  "intent_id": "intent_example123",
+  "agent_id": "deploy-agent",
+  "title": "Rollback checkout-service from v184 to v183",
+  "action_type": "rollback-deploy",
+  "target": "checkout-service",
+  "environment": "prod",
+  "risk": "high",
+  "rationale": "Independent evidence indicates the latest deployment caused elevated error rate and latency",
+  "evidence_refs": ["deploy:v184", "grafana:checkout-p99", "logs:error-rate"],
+  "rollback_steps": [
+    "set deployment image to v183",
+    "wait for rollout complete",
+    "confirm recovery"
+  ],
+  "health_checks": [
+    { "name": "error-rate", "kind": "always_pass" },
+    { "name": "latency", "kind": "always_pass" }
+  ]
+}

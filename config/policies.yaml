@@ -1,0 +1,28 @@
+protected_environments:
+  - prod
+
+denied_action_types:
+  - delete-database
+  - destroy-cluster
+
+risk_rules:
+  low:
+    votes_required: 2
+    requires_human: false
+  medium:
+    votes_required: 2
+    requires_human: false
+  high:
+    votes_required: 2
+    requires_human: true
+  critical:
+    votes_required: 3
+    requires_human: true
+
+environment_overrides:
+  prod:
+    minimum_votes_required: 2
+    force_human_approval: true
+
+rollback:
+  auto_on_failed_health_checks: true

@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(pwd)",
+      "Bash(tree:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(file:*)",
+      "Bash(stat:*)",
+
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote -v)",
+      "Bash(git worktree list:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git config --get:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git restore:*)",
+      "Bash(git stash:*)",
+      "Bash(git pull)",
+      "Bash(git pull --rebase)",
+      "Bash(git push)",
+      "Bash(git push -u:*)",
+      "Bash(git push origin:*)",
+      "Bash(git fetch:*)",
+      "Bash(git init:*)",
+      "Bash(git merge --no-ff:*)",
+      "Bash(git tag:*)",
+
+      "Bash(make dev)",
+      "Bash(make test)",
+      "Bash(make lint)",
+      "Bash(make demo)",
+      "Bash(make reset)",
+
+      "Bash(pytest:*)",
+      "Bash(ruff:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python -m ruff:*)",
+      "Bash(python -m apps.api.app.demo_seed)",
+      "Bash(python -c:*)",
+      "Bash(python3 -c:*)",
+      "Bash(uv:*)",
+      "Bash(pip list)",
+      "Bash(pip show:*)",
+
+      "Bash(curl -s http://127.0.0.1:8080/*)",
+      "Bash(curl -s http://localhost:8080/*)",
+      "Bash(curl -sX GET http://127.0.0.1:8080/*)",
+      "Bash(curl -sX POST http://127.0.0.1:8080/*)",
+      "Bash(curl -s -X GET http://localhost:8080/*)",
+      "Bash(curl -s -X POST http://localhost:8080/*)",
+      "Bash(curl -I http://127.0.0.1:8080/*)",
+
+      "Bash(jq:*)",
+      "Bash(yq:*)",
+
+      "Bash(gh auth status)",
+      "Bash(gh api:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr status)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run watch:*)",
+      "Bash(gh workflow view:*)",
+      "Bash(gh workflow list:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue comment:*)",
+      "Bash(gh repo create:*)",
+      "Bash(gh release list:*)",
+      "Bash(gh release view:*)",
+
+      "Bash(./scripts/validate_merge.sh)",
+      "Bash(./scripts/demo_run.sh)",
+      "Bash(bash scripts/validate_merge.sh)",
+      "Bash(bash scripts/demo_run.sh)",
+      "Bash(bash scripts/bootstrap_local_repo.sh)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~/*)",
+      "Bash(rm -rf /Users:*)",
+      "Bash(rm -rf /System:*)",
+      "Bash(rm -rf /Library:*)",
+      "Bash(rm -rf /bin:*)",
+      "Bash(rm -rf /usr:*)",
+      "Bash(rm -rf /etc:*)",
+      "Bash(rm -rf /tmp)",
+      "Bash(rm -rf *)",
+      "Bash(sudo rm:*)",
+      "Bash(git push --force)",
+      "Bash(git push -f)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(chmod 777:*)",
+      "Bash(chmod -R 777:*)",
+      "Bash(curl:*| bash)",
+      "Bash(curl:*| sh)",
+      "Bash(wget:*| bash)",
+      "Bash(wget:*| sh)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/.claude/settings.local.json)",
+      "Read(**/id_rsa)",
+      "Read(**/id_ed25519)",
+      "Read(**/.ssh/**)",
+      "Read(**/.aws/credentials)",
+      "Read(**/.anthropic/**)"
+    ],
+    "ask": [
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(git branch -D:*)",
+      "Bash(rm -rf .venv)",
+      "Bash(rm -rf data)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=\"$(python3 -c 'import sys,json; print(json.load(sys.stdin).get(\"tool_input\",{}).get(\"file_path\",\"\"))' 2>/dev/null)\"; if [ -n \"$FILE\" ] && echo \"$FILE\" | grep -q '\\.py$' && [ -f \"$FILE\" ]; then ruff format \"$FILE\" >/dev/null 2>&1; ruff check --fix --quiet \"$FILE\" >/dev/null 2>&1 || true; fi",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "FILE=\"$(python3 -c 'import sys,json; print(json.load(sys.stdin).get(\"tool_input\",{}).get(\"file_path\",\"\"))' 2>/dev/null)\"; case \"$FILE\" in *apps/api/app/domain/models.py|*apps/api/app/services/event_log.py|*apps/api/app/services/state_store.py|*config/policies.yaml) echo '[quorum] shared-core touched. Update docs/ARCHITECTURE.md + docs/REPO_MAP.md if behavior changed. Event-log format must stay stable (see AGENTS.md).' >&2 ;; esac",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CMD=\"$(python3 -c 'import sys,json; print(json.load(sys.stdin).get(\"tool_input\",{}).get(\"command\",\"\"))' 2>/dev/null)\"; if printf '%s' \"$CMD\" | grep -qE '(rm -rf /($| )|rm -rf ~($| )|rm -rf \\*|git push --force|git push -f( |$)|> *data/events\\.jsonl|>>data/events\\.jsonl|curl [^|]*\\| *(ba)?sh|wget [^|]*\\| *(ba)?sh|:\\(\\)\\{ *:\\|:& *\\};:)'; then echo 'Blocked by Quorum repo policy: the event log is append-only and destructive/remote-execution patterns are forbidden. See AGENTS.md \"Safety rules\".' >&2; exit 2; fi",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "QUORUM_ENV": "dev",
+    "PYTHONPATH": ".",
+    "QUORUM_LOG_PATH": "data/events.jsonl",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "branch=\"$(git -C \"${CLAUDE_PROJECT_DIR:-.}\" branch --show-current 2>/dev/null || echo no-git)\"; dirty=\"$(git -C \"${CLAUDE_PROJECT_DIR:-.}\" status --porcelain 2>/dev/null | wc -l | tr -d ' ')\"; printf 'quorum | %s | %s dirty | py3.12' \"$branch\" \"$dirty\""
+  }
+}

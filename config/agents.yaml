@@ -1,0 +1,32 @@
+agents:
+  - id: telemetry-agent
+    role: telemetry
+    can_vote: true
+    can_propose: true
+    scope:
+      - metrics
+      - traces
+      - logs
+  - id: deploy-agent
+    role: deployment
+    can_vote: true
+    can_propose: true
+    scope:
+      - deployments
+      - release-history
+      - rollout-analysis
+  - id: code-agent
+    role: code
+    can_vote: true
+    can_propose: true
+    scope:
+      - repo-diffs
+      - config
+      - tests
+  - id: operator
+    role: human
+    can_vote: true
+    can_propose: false
+    scope:
+      - approval
+      - override
