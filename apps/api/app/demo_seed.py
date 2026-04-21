@@ -20,8 +20,11 @@ from apps.api.app.services.state_store import StateStore
 from apps.api.app.services.executor import Executor
 
 
-def seed_demo(log_path: str = "data/events.jsonl") -> dict:
-    event_log = EventLog(log_path)
+def seed_demo(log_path: str = "data/events.jsonl", event_log: EventLog | None = None) -> dict:
+    # Caller can provide an existing EventLog to preserve hash-chain continuity;
+    # otherwise a fresh instance is created (suitable for CLI use).
+    if event_log is None:
+        event_log = EventLog(log_path)
     policy = PolicyEngine("config/policies.yaml")
     quorum = QuorumEngine()
     store = StateStore()
