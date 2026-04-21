@@ -5,7 +5,10 @@ from enum import Enum
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+STRICT_INPUT = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
 def utc_now() -> datetime:
@@ -51,10 +54,12 @@ class HealthCheckKind(str, Enum):
 
 
 class IntentCreate(BaseModel):
-    title: str
-    description: str
-    environment: str = "local"
-    requested_by: str = "operator"
+    model_config = STRICT_INPUT
+
+    title: str = Field(min_length=1, max_length=500)
+    description: str = Field(min_length=1, max_length=4000)
+    environment: str = Field(default="local", max_length=64)
+    requested_by: str = Field(default="operator", max_length=128)
 
 
 class Intent(BaseModel):
@@ -67,11 +72,13 @@ class Intent(BaseModel):
 
 
 class FindingCreate(BaseModel):
-    intent_id: str
-    agent_id: str
-    summary: str
-    evidence_refs: list[str] = Field(default_factory=list)
-    confidence: float = 0.5
+    model_config = STRICT_INPUT
+
+    intent_id: str = Field(max_length=128)
+    agent_id: str = Field(max_length=128)
+    summary: str = Field(min_length=1, max_length=4000)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=50)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
 class Finding(BaseModel):
@@ -111,17 +118,19 @@ class HealthCheckSpec(BaseModel):
 
 
 class ProposalCreate(BaseModel):
-    intent_id: str
-    agent_id: str
-    title: str
-    action_type: str
-    target: str
-    environment: str = "local"
+    model_config = STRICT_INPUT
+
+    intent_id: str = Field(max_length=128)
+    agent_id: str = Field(max_length=128)
+    title: str = Field(min_length=1, max_length=500)
+    action_type: str = Field(min_length=1, max_length=128)
+    target: str = Field(min_length=1, max_length=256)
+    environment: str = Field(default="local", max_length=64)
     risk: RiskLevel = RiskLevel.low
-    rationale: str
-    evidence_refs: list[str] = Field(default_factory=list)
-    rollback_steps: list[str] = Field(default_factory=list)
-    health_checks: list[HealthCheckSpec] = Field(default_factory=list)
+    rationale: str = Field(min_length=1, max_length=4000)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=50)
+    rollback_steps: list[str] = Field(default_factory=list, max_length=50)
+    health_checks: list[HealthCheckSpec] = Field(default_factory=list, max_length=20)
 
 
 class Proposal(BaseModel):
@@ -142,10 +151,12 @@ class Proposal(BaseModel):
 
 
 class VoteCreate(BaseModel):
-    proposal_id: str
-    agent_id: str
+    model_config = STRICT_INPUT
+
+    proposal_id: str = Field(max_length=128)
+    agent_id: str = Field(max_length=128)
     decision: VoteDecision
-    reason: str = ""
+    reason: str = Field(default="", max_length=2000)
 
 
 class Vote(BaseModel):
