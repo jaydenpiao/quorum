@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
 
+from apps.api.app.services.event_log import EventLogTamperError
 from apps.api.app.domain.models import (
     EventEnvelope,
     Finding,
@@ -38,6 +39,21 @@ def state(request: Request) -> dict:
 def events(request: Request) -> list[dict]:
     refresh_state(request)
     return request.app.state.state_store.events
+
+
+@router.get("/events/verify")
+def verify_events(request: Request) -> dict:
+    """Re-walk the event log's hash chain. Returns ok=True or raises 500 with detail."""
+    try:
+        request.app.state.event_log.verify()
+    except EventLogTamperError as exc:
+        raise HTTPException(status_code=500, detail=f"event log tamper detected: {exc}") from exc
+    events = request.app.state.event_log.read_all()
+    return {
+        "ok": True,
+        "event_count": len(events),
+        "last_hash": events[-1].hash if events else None,
+    }
 
 
 @router.post("/intents")
@@ -186,7 +202,8 @@ def execute_proposal(proposal_id: str, payload: ExecutionRequest, request: Reque
 
 @router.post("/demo/incident")
 def demo_incident(request: Request) -> dict:
-    request.app.state.event_log.reset()
-    snapshot = seed_demo(request.app.state.event_log.path.as_posix())
+    event_log = request.app.state.event_log
+    event_log.reset()
+    snapshot = seed_demo(event_log.path.as_posix(), event_log=event_log)
     refresh_state(request)
     return snapshot

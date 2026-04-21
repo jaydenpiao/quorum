@@ -202,3 +202,7 @@ class EventEnvelope(BaseModel):
     entity_id: str
     ts: datetime = Field(default_factory=utc_now)
     payload: dict[str, Any]
+    # Tamper-evidence chain. prev_hash is None for the genesis event.
+    # Both fields are populated by EventLog.append; callers should not set them.
+    prev_hash: str | None = None
+    hash: str | None = None

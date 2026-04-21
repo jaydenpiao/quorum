@@ -21,6 +21,11 @@ observe -> find -> propose -> policy-check -> vote -> approve -> execute -> veri
 2. **Append-Only Event Log**
    - source of truth
    - every state transition becomes an event
+   - **tamper-evident hash chain**: each `EventEnvelope` carries `prev_hash` and
+     `hash` (sha256 of the canonical JSON of
+     `{id, event_type, entity_type, entity_id, ts, payload, prev_hash}`).
+     Startup runs `EventLog.verify()` and refuses to boot on a broken chain.
+     `GET /api/v1/events/verify` re-walks the chain on demand.
    - replayable
 
 3. **State Store**
