@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.app.main import app
-from tests.conftest import AUTH
+from tests._helpers import AUTH
 
 
 @pytest.fixture
