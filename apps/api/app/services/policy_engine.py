@@ -30,7 +30,9 @@ class PolicyEngine:
         env_overrides = self.config.get("environment_overrides", {})
         if proposal.environment in protected_envs:
             override = env_overrides.get(proposal.environment, {})
-            votes_required = max(votes_required, int(override.get("minimum_votes_required", votes_required)))
+            votes_required = max(
+                votes_required, int(override.get("minimum_votes_required", votes_required))
+            )
             if override.get("force_human_approval", False):
                 requires_human = True
             reasons.append(f"environment '{proposal.environment}' is protected")

@@ -15,7 +15,9 @@ class HealthCheckRunner:
 
         if spec.kind == HealthCheckKind.shell:
             if not spec.command:
-                return HealthCheckResult(name=spec.name, passed=False, detail="missing shell command")
+                return HealthCheckResult(
+                    name=spec.name, passed=False, detail="missing shell command"
+                )
             completed = subprocess.run(
                 spec.command,
                 shell=True,

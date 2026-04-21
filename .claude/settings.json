@@ -145,7 +145,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "FILE=\"$(python3 -c 'import sys,json; print(json.load(sys.stdin).get(\"tool_input\",{}).get(\"file_path\",\"\"))' 2>/dev/null)\"; if [ -n \"$FILE\" ] && echo \"$FILE\" | grep -q '\\.py$' && [ -f \"$FILE\" ]; then ruff format \"$FILE\" >/dev/null 2>&1; ruff check --fix --quiet \"$FILE\" >/dev/null 2>&1 || true; fi",
+            "command": "RUFF=\"${CLAUDE_PROJECT_DIR:-.}/.venv/bin/ruff\"; [ -x \"$RUFF\" ] || RUFF=\"$(command -v ruff)\"; FILE=\"$(python3 -c 'import sys,json; print(json.load(sys.stdin).get(\"tool_input\",{}).get(\"file_path\",\"\"))' 2>/dev/null)\"; if [ -n \"$FILE\" ] && [ -n \"$RUFF\" ] && echo \"$FILE\" | grep -q '\\.py$' && [ -f \"$FILE\" ]; then \"$RUFF\" format \"$FILE\" >/dev/null 2>&1; \"$RUFF\" check --fix --quiet \"$FILE\" >/dev/null 2>&1 || true; fi",
             "timeout": 15
           },
           {

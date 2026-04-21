@@ -111,8 +111,18 @@ def seed_demo(log_path: str = "data/events.jsonl") -> dict:
     )
 
     votes = [
-        VoteCreate(proposal_id=proposal.id, agent_id="telemetry-agent", decision="approve", reason="matches telemetry evidence"),
-        VoteCreate(proposal_id=proposal.id, agent_id="code-agent", decision="approve", reason="recent config diff aligns with failure"),
+        VoteCreate(
+            proposal_id=proposal.id,
+            agent_id="telemetry-agent",
+            decision="approve",
+            reason="matches telemetry evidence",
+        ),
+        VoteCreate(
+            proposal_id=proposal.id,
+            agent_id="code-agent",
+            decision="approve",
+            reason="recent config diff aligns with failure",
+        ),
     ]
     all_votes = []
     for vote in votes:
