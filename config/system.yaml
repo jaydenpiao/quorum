@@ -9,3 +9,10 @@ server:
 
 ui:
   title: Quorum Operator Console
+
+http:
+  cors_allowed_origins:
+    - http://127.0.0.1:8080
+    - http://localhost:8080
+  rate_limit_default: "120/minute"
+  rate_limit_demo: "5/minute"

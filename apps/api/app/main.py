@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-import yaml
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+import yaml
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 from apps.api.app.api.routes import router
+from apps.api.app.middleware import SecurityHeadersMiddleware
 from apps.api.app.services.event_log import EventLog, EventLogTamperError
 from apps.api.app.services.executor import Executor
 from apps.api.app.services.policy_engine import PolicyEngine
@@ -20,11 +26,39 @@ def load_yaml(path: str) -> dict:
 
 
 system_config = load_yaml("config/system.yaml")
+http_config = system_config.get("http", {})
+default_rate = http_config.get("rate_limit_default", "120/minute")
+cors_origins = http_config.get(
+    "cors_allowed_origins", ["http://127.0.0.1:8080", "http://localhost:8080"]
+)
+
+limiter = Limiter(key_func=get_remote_address, default_limits=[default_rate])
+
 app = FastAPI(title="Quorum Control Plane", version="0.1.0")
+app.state.limiter = limiter
+
+app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+    max_age=600,
+)
+app.add_middleware(SecurityHeadersMiddleware)
+
+
+@app.exception_handler(RateLimitExceeded)
+def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        content={"detail": f"rate limit exceeded: {exc.detail}"},
+    )
+
 
 event_log = EventLog(system_config["app"]["log_path"])
 # Fail loudly if the persisted log has been modified outside EventLog.
-# A broken chain means the product's audit-trail promise is broken.
 try:
     event_log.verify()
 except EventLogTamperError as _tamper:  # pragma: no cover — exercised via integration
@@ -56,6 +90,12 @@ def root() -> dict:
         "console": "/console",
         "api_base": "/api/v1",
     }
+
+
+@app.get("/health")
+def liveness() -> dict:
+    """Liveness probe — does not touch the event log."""
+    return {"ok": True}
 
 
 @app.get("/console")
