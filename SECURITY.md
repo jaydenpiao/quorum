@@ -46,16 +46,26 @@ Out-of-scope:
 - Denial-of-service via unauthenticated flooding (rate limiting is Phase 2; please flag it as a design issue, not a vulnerability).
 - Findings in third-party dependencies without a Quorum-specific exploit chain — report those upstream and open an informational issue here.
 
-## Known gaps (pre-Phase 2)
+## Known gaps
 
-These are tracked issues, not secrets. The project's current Phase 2 work plan addresses them directly:
+Phase 2 (closed — see `git log --grep 'Phase 2'`):
 
-- `apps/api/app/services/health_checks.py` uses `subprocess.run(..., shell=True)` with command strings from proposal payloads. Shell injection. **Do not deploy pre-Phase-2 Quorum on any reachable network.**
-- All API routes are unauthenticated. `POST /api/v1/demo/incident` resets state and has no auth.
-- The event log has no tamper-evidence (no hash chain, no signatures). Corruption of `data/events.jsonl` is not detectable at startup.
-- No rate limiting, no CORS policy, no security headers on the FastAPI app.
+- ~~Shell-dispatch health checks~~ → replaced with registered typed probes (`http`, `always_pass`, `always_fail`) in PR #7.
+- ~~Unauthenticated API~~ → bearer-token auth on every mutating route (PR #10).
+- ~~Publicly reachable demo/reset endpoint~~ → gated behind `QUORUM_ALLOW_DEMO=1` + auth (PR #10).
+- ~~No event-log tamper-evidence~~ → sha256 hash chain with startup verification and `GET /api/v1/events/verify` (PR #8).
+- ~~No CORS, security headers, or rate limiting~~ → CORS pinned to allowlisted origins, CSP/HSTS/XFO/XCTO/Referrer-Policy/Permissions-Policy added, slowapi rate limit registered (PR #9).
+- ~~Unbounded input payloads~~ → strict pydantic DTOs with `extra='forbid'` and per-field length bounds (PR #9).
 
-If you find a vulnerability *beyond* these — especially in the domain model, policy engine, quorum engine, executor, or future actuators — please report it.
+Open (Phase 2.5 and later):
+
+- Server-side `actor_id` binding — the request body's `actor_id` is still advisory; Phase 2.5 derives it from the authenticated key.
+- argon2id-hashed keys in `config/agents.yaml` in place of the env-var registry; key-rotation tooling.
+- Sign the event hash chain with an ed25519 key so mutations across a compromised single-writer are still detectable.
+- Human-approval workflow for high/critical risk proposals (Phase 4).
+- Real actuators (GitHub App first) with scoped install tokens (Phase 4).
+
+If you find a vulnerability outside this list — especially in the domain model, policy engine, quorum engine, executor, or the hash-chain verifier — please report it.
 
 ## Safe harbor
 
