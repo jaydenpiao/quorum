@@ -38,8 +38,13 @@ observe -> find -> propose -> policy-check -> vote -> approve -> execute -> veri
 
 6. **Executor**
    - runs an approved proposal
-   - evaluates health checks
+   - evaluates health checks via a registered-kind dispatcher (no subprocess path)
    - triggers rollback when needed
+
+   Supported `HealthCheckKind` values: `always_pass`, `always_fail`, `http`
+   (HTTP GET/HEAD probe with expected-status and timeout). Adding a new probe
+   requires extending the enum and adding a branch in `services/health_checks.py`
+   — proposals cannot inject arbitrary command strings.
 
 7. **Operator Console**
    - shows intents, proposals, votes, execution state, and log events

@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 def utc_now() -> datetime:
@@ -47,7 +47,7 @@ class ExecutionStatus(str, Enum):
 class HealthCheckKind(str, Enum):
     always_pass = "always_pass"
     always_fail = "always_fail"
-    shell = "shell"
+    http = "http"
 
 
 class IntentCreate(BaseModel):
@@ -84,10 +84,30 @@ class Finding(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+_UNSAFE_URL_CHARS = frozenset(";`$\n\r\t ")
+
+
 class HealthCheckSpec(BaseModel):
     name: str
     kind: HealthCheckKind = HealthCheckKind.always_pass
-    command: str | None = None
+    # Fields used only when kind == HealthCheckKind.http.
+    url: str | None = None
+    method: Literal["GET", "HEAD"] = "GET"
+    expected_status: int = Field(default=200, ge=100, le=599)
+    timeout_seconds: float = Field(default=5.0, ge=0.1, le=30.0)
+
+    @model_validator(mode="after")
+    def _validate_http_fields(self) -> "HealthCheckSpec":
+        if self.kind is HealthCheckKind.http:
+            if not self.url:
+                raise ValueError("http health check requires a url")
+            if not (self.url.startswith("http://") or self.url.startswith("https://")):
+                raise ValueError("http health check url must use http:// or https://")
+            if any(c in _UNSAFE_URL_CHARS for c in self.url):
+                raise ValueError("http health check url contains unsafe characters")
+            if "$(" in self.url or "`" in self.url:
+                raise ValueError("http health check url contains command-substitution syntax")
+        return self
 
 
 class ProposalCreate(BaseModel):
