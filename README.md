@@ -1,185 +1,138 @@
 # Quorum
 
-Quorum is a production-safe control plane for AI agents that act on real code and infrastructure.
+[![CI](https://github.com/jaydenpiao/quorum/actions/workflows/ci.yml/badge.svg)](https://github.com/jaydenpiao/quorum/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#project-status)
 
-This repository is a **POC scaffold** designed to be easy for AI coding agents to read, modify, and extend.
-It treats agent actions as distributed-systems operations:
+Quorum is a control plane for **safe, auditable, policy-gated, quorum-based execution** by AI agents operating on code and infrastructure.
 
-- specialized agents observe different slices of system state
-- agents produce structured findings and proposals
-- policy gates proposals before mutation
-- a quorum must agree before execution
-- every step is written to an append-only event log
-- post-change health checks determine success
-- rollback is automatic when verification fails
+It is **not** a chat agent. Every mutation flows through:
+
+`Intent → Finding → Proposal → PolicyDecision → Quorum vote → Execution → HealthCheck → (Rollback on failure)`
+
+Every step is appended to a tamper-evident event log. Rollback is first-class. Post-change health verification is mandatory. Safety is the product.
+
+## Project status
+
+**Alpha — not yet security-audited. Not for production use.**
+
+Quorum is actively under development and open to public scrutiny precisely because a control plane with destructive verbs needs that scrutiny. Known limitations and the roadmap for closing them live in [SECURITY.md](SECURITY.md) and [docs/ROADMAP.md](docs/ROADMAP.md). Do not expose a pre-1.0 Quorum deployment to untrusted networks.
 
 ## Why this repo exists
 
-The goal is to make agentic engineering safe enough for:
+Agentic engineering becomes viable when an AI agent's actions are:
 
-- incident investigation
-- rollback coordination
-- deploy safety checks
-- controlled infra changes
-- later, autonomous low-risk execution
+- structured (typed proposals, not free-form text)
+- reviewable (explicit policy + peer votes)
+- observable (append-only event log)
+- reversible (first-class rollback)
+- verified (health checks after every change)
 
-This POC does **not** attempt to solve all of that at once.
-It gives a clean base that an AI coding agent can immediately extend.
+Quorum is the minimal control plane that makes those guarantees real.
 
-## Current POC capabilities
+## Core capabilities (today)
 
-- FastAPI control-plane service
-- append-only JSONL execution log
-- materialized in-memory state via event replay
-- structured models for intents, findings, proposals, votes, executions, and rollbacks
-- YAML-based policy configuration
-- quorum evaluation
-- pluggable health checks
-- automatic rollback when health checks fail
-- static operator console
-- demo incident seeding endpoint
-- branch / worktree / GitHub automation scripts
-- agent initialization markdown in multiple places
+- FastAPI control-plane service with nine typed domain entities (Intent, Finding, Proposal, Vote, PolicyDecision, ExecutionRecord, HealthCheckResult, RollbackRecord, EventEnvelope).
+- Append-only JSONL event log with thread-safe writes.
+- Materialized in-memory state via event replay.
+- YAML-based policy configuration with risk levels, environment overrides, and denied action types.
+- Quorum voting with configurable thresholds.
+- Pluggable health checks with automatic rollback on failure.
+- Operator console (`/console`) with read-only views.
+- Demo incident seeder (`POST /api/v1/demo/incident`) runs the full flow end-to-end.
 
-## Repo map
+## What's next (phased)
 
-Read these files first:
+See [docs/ROADMAP.md](docs/ROADMAP.md). Brief version:
 
-1. `INIT.md` — shortest startup context for any agent
-2. `AGENTS.md` — full repo-wide operating rules
-3. `docs/REPO_MAP.md` — where everything lives
-4. `docs/ARCHITECTURE.md` — system design and diagrams
-5. `docs/PARALLEL_DEVELOPMENT.md` — migration path from single-thread to multi-worktree development
+1. **Phase 2** — tamper-evident event log (hash chain), typed health checks, authenticated API, locked CORS, rate limiting.
+2. **Phase 3** — Dockerfile, Postgres projection, observability (structlog + OpenTelemetry + Prometheus), hardened CI with SBOM.
+3. **Phase 4** — real actuators (GitHub App first), LLM agent adapter via Anthropic SDK, interactive console, human-approval workflows.
+4. **Phase 5** — Fly.io deployment with canonical-log volume and managed Postgres.
+5. **Phase 6** — parallel development via git worktrees per [docs/PARALLEL_DEVELOPMENT.md](docs/PARALLEL_DEVELOPMENT.md).
 
 ## Quick start
 
-### Local run
+Requires Python 3.12+.
+
+### With `uv` (recommended)
 
 ```bash
-cd Quorum
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-uvicorn apps.api.app.main:app --reload --port 8080
+uv sync --extra dev
+uv run uvicorn apps.api.app.main:app --reload --port 8080
+```
+
+### With `venv` + `pip`
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+.venv/bin/uvicorn apps.api.app.main:app --reload --port 8080
+```
+
+### Or just `make`
+
+```bash
+make install    # creates .venv and installs dev deps
+make dev        # runs uvicorn
+make validate   # ruff check + ruff format --check + pytest
 ```
 
 Open:
 
-- API docs: `http://localhost:8080/docs`
-- Operator console: `http://localhost:8080/console`
+- Operator console → http://127.0.0.1:8080/console
+- API docs (OpenAPI) → http://127.0.0.1:8080/docs
 
-### Seed the demo incident
+### Seed the demo
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/demo/incident
+curl -sX POST http://127.0.0.1:8080/api/v1/demo/incident | python3 -m json.tool
 ```
 
 Then inspect:
 
 ```bash
-curl http://localhost:8080/api/v1/state | jq
-curl http://localhost:8080/api/v1/events | jq
+curl -s http://127.0.0.1:8080/api/v1/state  | python3 -m json.tool
+curl -s http://127.0.0.1:8080/api/v1/events | python3 -m json.tool
 ```
 
-## POC walkthrough
+## Reading order for new contributors (human or AI)
 
-### Step 1
-Create an intent such as:
-
-- investigate elevated p99 latency
-- propose rollback after a bad deploy
-- review a low-risk config change
-
-### Step 2
-Specialized agents add findings.
-
-Examples:
-
-- telemetry agent reports error-rate regression
-- deploy agent points to a new release
-- code agent references a suspect diff
-
-### Step 3
-One or more agents create a structured proposal.
-
-A proposal includes:
-
-- action type
-- target
-- risk
-- rationale
-- rollback steps
-- health checks
-- evidence references
-
-### Step 4
-Agents vote on the proposal.
-
-The policy engine computes whether:
-
-- the action is allowed
-- human approval is required
-- the number of votes needed changes by risk and environment
-
-### Step 5
-The executor runs the proposal.
-
-The executor:
-
-- writes an execution-started event
-- simulates the action
-- runs health checks
-- records success or failure
-- triggers rollback on failed verification
+1. [INIT.md](INIT.md) — shortest startup context.
+2. [AGENTS.md](AGENTS.md) — repo-wide operating rules and Definition of Done.
+3. [docs/REPO_MAP.md](docs/REPO_MAP.md) — where everything lives.
+4. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design and mermaid diagrams.
+5. [CONTRIBUTING.md](CONTRIBUTING.md) — how to propose changes.
+6. [docs/PARALLEL_DEVELOPMENT.md](docs/PARALLEL_DEVELOPMENT.md) — single-thread today, worktrees later.
 
 ## Design constraints
 
-This repo is deliberately optimized for AI modification:
+Quorum is deliberately optimized for AI maintainability:
 
-- plain Python, minimal indirection
-- explicit file layout
-- simple JSON/YAML formats
-- human-readable mermaid diagrams
-- no hidden build system magic
-- all important decisions documented in markdown
+- Plain Python, minimal indirection.
+- Explicit file layout — no clever re-exports.
+- Small files with clear names.
+- JSON/YAML over bespoke formats.
+- Mermaid diagrams for every non-trivial flow.
+- All important decisions live in markdown.
 
-## GitHub automation
+## Governance
 
-This environment can manage files, branches, commits, and PRs **inside an existing repository**,
-but it cannot directly create a new GitHub repository from here.
+- **License:** [Apache-2.0](LICENSE) — patent grant included.
+- **Security reports:** see [SECURITY.md](SECURITY.md). Do not open public issues for vulnerabilities.
+- **Contributions:** see [CONTRIBUTING.md](CONTRIBUTING.md). DCO sign-off required (`git commit -s`).
+- **Code of Conduct:** [Contributor Covenant 2.1](CODE_OF_CONDUCT.md).
+- **Code owners:** [.github/CODEOWNERS](.github/CODEOWNERS) protects shared-core files.
 
-To keep the workflow near-fully automated, this repo includes:
+## Claude Code harness
 
-- `scripts/bootstrap_local_repo.sh`
-- `scripts/create_public_github_repo.sh`
-- `scripts/new_worktree.sh`
-- `scripts/validate_merge.sh`
+This repo includes a batteries-included Claude Code setup for AI-driven development:
 
-The intended path is:
+- `.claude/settings.json` — permissions allowlist, safety hooks (ruff autofix, destructive-command block, shared-core warnings), env, statusLine.
+- `.mcp.json` — GitHub, Filesystem, and Sequential-thinking MCP servers.
+- `.claude/agents/` — five role-scoped subagents (backend, console, security-auditor, docs, devops), all running on Opus 4.7.
+- `.claude/skills/` — custom skills: `create-event-type`, `add-actuator`.
+- `.claude/commands/` — slash commands: `/demo`, `/validate`, `/run-dev`, `/new-worktree`.
 
-```bash
-./scripts/bootstrap_local_repo.sh
-./scripts/create_public_github_repo.sh Quorum
-```
-
-That second script uses either:
-
-- `gh repo create`
-- or the GitHub REST API with `GITHUB_TOKEN`
-
-## Development mode
-
-**Right now:** develop on one main thread until the core POC stabilizes.
-
-**Later:** move to parallel worktrees with one task branch per agent or task family.
-
-See `docs/PARALLEL_DEVELOPMENT.md`.
-
-## Suggested next milestones
-
-1. replace demo agents with real model adapters
-2. add actuator plugins for GitHub, Kubernetes, Terraform, and feature flags
-3. persist state in SQLite/Postgres instead of pure replay-only memory
-4. add approval workflows and authenticated operators
-5. add real policy DSL and richer risk scoring
-6. add PR-based merge orchestration and deployment verification
+The intent is that a fresh Claude Code session opened in this repo can drive the product end-to-end with minimal operator friction while still honoring every safety rule in [AGENTS.md](AGENTS.md).
