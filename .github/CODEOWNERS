@@ -1,0 +1,40 @@
+# CODEOWNERS — Quorum
+#
+# These rules enforce review by the listed owners on any PR that touches matching paths.
+# The shared-core rule from docs/PARALLEL_DEVELOPMENT.md is encoded here.
+#
+# Syntax: <path-glob> <owner>...
+# Last matching rule wins.
+
+# Default owner for everything.
+* @jaydenpiao
+
+# Shared-core — event log format, domain model, state store, policy config.
+# Changes here require an explicit migration note per AGENTS.md.
+apps/api/app/domain/models.py          @jaydenpiao
+apps/api/app/services/event_log.py     @jaydenpiao
+apps/api/app/services/state_store.py   @jaydenpiao
+config/policies.yaml                   @jaydenpiao
+
+# Security-sensitive surfaces — review every change.
+apps/api/app/services/health_checks.py @jaydenpiao
+apps/api/app/services/policy_engine.py @jaydenpiao
+apps/api/app/services/quorum_engine.py @jaydenpiao
+apps/api/app/services/executor.py      @jaydenpiao
+
+# Governance docs — changes require explicit review.
+LICENSE                                @jaydenpiao
+SECURITY.md                            @jaydenpiao
+CODE_OF_CONDUCT.md                     @jaydenpiao
+CONTRIBUTING.md                        @jaydenpiao
+AGENTS.md                              @jaydenpiao
+CLAUDE.md                              @jaydenpiao
+
+# Claude Code harness — hooks/permissions affect every future AI commit.
+.claude/                               @jaydenpiao
+.mcp.json                              @jaydenpiao
+
+# CI / release machinery.
+.github/workflows/                     @jaydenpiao
+.github/dependabot.yml                 @jaydenpiao
+.github/CODEOWNERS                     @jaydenpiao

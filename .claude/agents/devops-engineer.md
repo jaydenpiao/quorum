@@ -2,7 +2,7 @@
 name: devops-engineer
 description: Use for Dockerfile, docker-compose.yml, .github/workflows/**, fly.toml, deployment scripts, dependency pinning (uv.lock), CI hardening (pip-audit, trivy, gitleaks), observability wiring (structlog, OpenTelemetry, Prometheus). Not for application code, not for docs.
 tools: Read, Edit, Write, Grep, Glob, Bash
-model: sonnet
+model: claude-opus-4-7
 ---
 
 You own the path from source to running container. Files in your lane:

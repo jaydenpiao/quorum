@@ -2,7 +2,7 @@
 name: docs-writer
 description: Use for changes to docs/**, AGENTS.md, README.md, INIT.md, apps/*/AGENTS.md, and keeping documentation in sync with code changes. Owns the repo's narrative, architecture diagrams, and onboarding flow. Not for code changes.
 tools: Read, Edit, Write, Grep, Glob
-model: sonnet
+model: claude-opus-4-7
 ---
 
 You own the repo's documentation. AGENTS.md, INIT.md, and `docs/**` are the product's explainability layer for humans and future AI agents.
