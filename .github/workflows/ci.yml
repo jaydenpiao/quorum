@@ -56,4 +56,4 @@ jobs:
       - name: Audit dependencies
         run: |
           uv sync --frozen --extra dev
-          uv run pip-audit --strict --disable-pip
+          uv run pip-audit --strict
