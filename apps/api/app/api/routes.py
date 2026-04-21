@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from apps.api.app.services.event_log import EventLogTamperError
+from apps.api.app.demo_seed import seed_demo
 from apps.api.app.domain.models import (
     EventEnvelope,
+    ExecutionRequest,
     Finding,
     FindingCreate,
     Intent,
@@ -13,9 +14,9 @@ from apps.api.app.domain.models import (
     ProposalCreate,
     Vote,
     VoteCreate,
-    ExecutionRequest,
 )
-from apps.api.app.demo_seed import seed_demo
+from apps.api.app.services.auth import demo_allowed, require_agent
+from apps.api.app.services.event_log import EventLogTamperError
 
 router = APIRouter(prefix="/api/v1")
 
@@ -57,7 +58,11 @@ def verify_events(request: Request) -> dict:
 
 
 @router.post("/intents")
-def create_intent(payload: IntentCreate, request: Request) -> dict:
+def create_intent(
+    payload: IntentCreate,
+    request: Request,
+    agent_id: str = Depends(require_agent),
+) -> dict:
     intent = Intent(**payload.model_dump())
     event = EventEnvelope(
         event_type="intent_created",
@@ -71,7 +76,11 @@ def create_intent(payload: IntentCreate, request: Request) -> dict:
 
 
 @router.post("/findings")
-def create_finding(payload: FindingCreate, request: Request) -> dict:
+def create_finding(
+    payload: FindingCreate,
+    request: Request,
+    agent_id: str = Depends(require_agent),
+) -> dict:
     if payload.intent_id not in request.app.state.state_store.intents:
         refresh_state(request)
     if payload.intent_id not in request.app.state.state_store.intents:
@@ -91,7 +100,11 @@ def create_finding(payload: FindingCreate, request: Request) -> dict:
 
 
 @router.post("/proposals")
-def create_proposal(payload: ProposalCreate, request: Request) -> dict:
+def create_proposal(
+    payload: ProposalCreate,
+    request: Request,
+    agent_id: str = Depends(require_agent),
+) -> dict:
     refresh_state(request)
     if payload.intent_id not in request.app.state.state_store.intents:
         raise HTTPException(status_code=404, detail="intent not found")
@@ -124,7 +137,11 @@ def create_proposal(payload: ProposalCreate, request: Request) -> dict:
 
 
 @router.post("/votes")
-def create_vote(payload: VoteCreate, request: Request) -> dict:
+def create_vote(
+    payload: VoteCreate,
+    request: Request,
+    agent_id: str = Depends(require_agent),
+) -> dict:
     refresh_state(request)
     if payload.proposal_id not in request.app.state.state_store.proposals:
         raise HTTPException(status_code=404, detail="proposal not found")
@@ -176,7 +193,12 @@ def create_vote(payload: VoteCreate, request: Request) -> dict:
 
 
 @router.post("/proposals/{proposal_id}/execute")
-def execute_proposal(proposal_id: str, payload: ExecutionRequest, request: Request) -> dict:
+def execute_proposal(
+    proposal_id: str,
+    payload: ExecutionRequest,
+    request: Request,
+    agent_id: str = Depends(require_agent),
+) -> dict:
     refresh_state(request)
     proposal_payload = request.app.state.state_store.proposals.get(proposal_id)
     if not proposal_payload:
@@ -201,7 +223,15 @@ def execute_proposal(proposal_id: str, payload: ExecutionRequest, request: Reque
 
 
 @router.post("/demo/incident")
-def demo_incident(request: Request) -> dict:
+def demo_incident(
+    request: Request,
+    agent_id: str = Depends(require_agent),
+) -> dict:
+    if not demo_allowed():
+        raise HTTPException(
+            status_code=404,
+            detail="demo endpoint disabled; set QUORUM_ALLOW_DEMO=1 to enable",
+        )
     event_log = request.app.state.event_log
     event_log.reset()
     snapshot = seed_demo(event_log.path.as_posix(), event_log=event_log)

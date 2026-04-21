@@ -1,13 +1,14 @@
 from fastapi.testclient import TestClient
 
 from apps.api.app.main import app
+from tests._helpers import AUTH
 
 
 client = TestClient(app)
 
 
 def test_demo_incident_flow():
-    demo = client.post("/api/v1/demo/incident")
+    demo = client.post("/api/v1/demo/incident", headers=AUTH)
     assert demo.status_code == 200
 
     state = client.get("/api/v1/state")
@@ -23,7 +24,7 @@ def test_demo_incident_flow():
 
 
 def test_create_intent_proposal_vote_execute():
-    client.post("/api/v1/demo/incident")  # reset to known state
+    client.post("/api/v1/demo/incident", headers=AUTH)  # reset to known state
 
     intent_resp = client.post(
         "/api/v1/intents",
@@ -33,6 +34,7 @@ def test_create_intent_proposal_vote_execute():
             "environment": "local",
             "requested_by": "operator",
         },
+        headers=AUTH,
     )
     assert intent_resp.status_code == 200
     intent = intent_resp.json()
@@ -52,6 +54,7 @@ def test_create_intent_proposal_vote_execute():
             "rollback_steps": ["restore previous config"],
             "health_checks": [{"name": "smoke", "kind": "always_pass"}],
         },
+        headers=AUTH,
     )
     assert proposal_resp.status_code == 200
     proposal = proposal_resp.json()["proposal"]
@@ -64,6 +67,7 @@ def test_create_intent_proposal_vote_execute():
             "decision": "approve",
             "reason": "Looks safe",
         },
+        headers=AUTH,
     )
     assert vote_1.status_code == 200
 
@@ -75,6 +79,7 @@ def test_create_intent_proposal_vote_execute():
             "decision": "approve",
             "reason": "Ready to apply",
         },
+        headers=AUTH,
     )
     assert vote_2.status_code == 200
 
@@ -85,6 +90,7 @@ def test_create_intent_proposal_vote_execute():
     execute = client.post(
         f"/api/v1/proposals/{proposal['id']}/execute",
         json={"actor_id": "operator"},
+        headers=AUTH,
     )
     assert execute.status_code == 200
     assert execute.json()["status"] == "succeeded"

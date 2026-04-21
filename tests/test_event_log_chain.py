@@ -106,9 +106,10 @@ def test_verify_endpoint_returns_ok_after_demo() -> None:
     from fastapi.testclient import TestClient
 
     from apps.api.app.main import app
+    from tests._helpers import AUTH
 
     client = TestClient(app)
-    client.post("/api/v1/demo/incident")
+    client.post("/api/v1/demo/incident", headers=AUTH)
     response = client.get("/api/v1/events/verify")
     assert response.status_code == 200
     body = response.json()

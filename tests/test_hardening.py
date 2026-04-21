@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.app.main import app
+from tests._helpers import AUTH
 
 
 @pytest.fixture
@@ -65,6 +66,7 @@ def test_intent_create_rejects_extra_field(client: TestClient) -> None:
             "requested_by": "operator",
             "injected_admin_flag": True,
         },
+        headers=AUTH,
     )
     assert response.status_code == 422
 
@@ -73,6 +75,7 @@ def test_intent_create_rejects_oversize_title(client: TestClient) -> None:
     response = client.post(
         "/api/v1/intents",
         json={"title": "x" * 1000, "description": "d"},
+        headers=AUTH,
     )
     assert response.status_code == 422
 
@@ -86,5 +89,6 @@ def test_vote_create_rejects_unknown_decision(client: TestClient) -> None:
             "decision": "maybe",
             "reason": "",
         },
+        headers=AUTH,
     )
     assert response.status_code == 422
