@@ -14,12 +14,20 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+import structlog
+from pydantic import ValidationError
+
 from apps.api.app.api.history import router as history_router
 from apps.api.app.api.routes import router
 from apps.api.app.logging_config import configure_logging
 from apps.api.app.middleware import SecurityHeadersMiddleware
 from apps.api.app.request_context import RequestContextMiddleware
 from apps.api.app.db.engine import make_engine
+from apps.api.app.services.actuators.github import (
+    GitHubAppAuthError,
+    GitHubAppClient,
+    load_github_config,
+)
 from apps.api.app.services.event_log import EventLog, EventLogTamperError
 from apps.api.app.services.executor import Executor
 from apps.api.app.services.policy_engine import PolicyEngine
@@ -30,6 +38,34 @@ from apps.api.app.services.state_store import StateStore
 from apps.api.app.tracing import configure_tracing
 
 configure_logging()
+_log = structlog.get_logger(__name__)
+
+
+def _build_github_client() -> GitHubAppClient | None:
+    """Return a GitHub App client iff config/github.yaml + env key are ready.
+
+    The actuator stays disabled (returns None) on any of:
+      - config/github.yaml missing or invalid
+      - app_id placeholder (validation rejects app_id == 0)
+      - private key env var unset or unreadable
+    Each of these is an expected state on deploys that have not enabled
+    the GitHub actuator, so we log at INFO and continue. Hard failures
+    would turn a configurable feature into a deployment blocker.
+    """
+    try:
+        cfg = load_github_config("config/github.yaml")
+    except FileNotFoundError:
+        _log.info("github_actuator_disabled", reason="config/github.yaml not found")
+        return None
+    except ValidationError as exc:
+        _log.info("github_actuator_disabled", reason=f"config invalid: {exc.error_count()} errors")
+        return None
+
+    try:
+        return GitHubAppClient(cfg)
+    except GitHubAppAuthError as exc:
+        _log.info("github_actuator_disabled", reason=str(exc))
+        return None
 
 
 def load_yaml(path: str) -> dict[str, Any]:
@@ -108,13 +144,15 @@ except EventLogTamperError as _tamper:  # pragma: no cover — exercised via int
 policy_engine = PolicyEngine("config/policies.yaml")
 quorum_engine = QuorumEngine()
 state_store = StateStore()
-executor = Executor(event_log, policy_engine)
+github_client = _build_github_client()
+executor = Executor(event_log, policy_engine, github_client=github_client)
 
 app.state.event_log = event_log
 app.state.policy_engine = policy_engine
 app.state.quorum_engine = quorum_engine
 app.state.state_store = state_store
 app.state.executor = executor
+app.state.github_client = github_client
 # Engine is None when DATABASE_URL is unset — history endpoints return 503 in that mode.
 app.state.pg_engine = _pg_engine
 
