@@ -1,10 +1,17 @@
 """Bearer-token authentication for Quorum's mutating routes.
 
-The registry of valid (plaintext) keys is loaded from the environment variable
-`QUORUM_API_KEYS`, formatted as `agent_id:key,agent_id:key,...`. This is a
-Phase 2 MVP — Phase 2.5 replaces the env-var registry with argon2id hashes
-stored in `config/agents.yaml`, and adds rotation tooling. Until then, keep
-keys high-entropy and short-lived.
+Two registries are consulted in order on each request:
+
+1. **Env-var registry** — `QUORUM_API_KEYS=agent_id:plaintext,...`
+   Compared in constant time via `hmac.compare_digest`. Retained for dev
+   parity and zero-downtime migration.
+
+2. **YAML registry** — `config/agents.yaml`, field `api_key_hash: <argon2id>`
+   Verified via `argon2.PasswordHasher().verify()`. Only entries with a
+   non-empty `api_key_hash` are loaded. This is the Phase 2.5 production path.
+
+A 401 is returned if neither registry matches. The response never reveals
+which registry was consulted, which key was nearly matched, or any plaintext.
 
 Read-only routes remain unauthenticated so the console and liveness probes
 still work without credentials. Only the write routes use `require_agent`.
@@ -15,11 +22,22 @@ from __future__ import annotations
 import hmac
 import os
 from functools import lru_cache
+from pathlib import Path
 
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 _bearer = HTTPBearer(auto_error=False)
+
+# Path to the agents config; overrideable in tests via monkeypatch.
+_AGENTS_YAML_PATH: str = str(Path(__file__).parents[4] / "config" / "agents.yaml")
+
+
+# ---------------------------------------------------------------------------
+# Env-var registry (Phase 2 MVP)
+# ---------------------------------------------------------------------------
 
 
 @lru_cache(maxsize=1)
@@ -45,13 +63,113 @@ def reload_registry() -> None:
     _load_registry.cache_clear()
 
 
+# ---------------------------------------------------------------------------
+# YAML registry (Phase 2.5)
+# ---------------------------------------------------------------------------
+
+
+@lru_cache(maxsize=1)
+def _load_yaml_registry() -> list[tuple[str, str]]:
+    """Return [(agent_id, argon2id_hash), ...] for entries with a non-empty hash.
+
+    Reads _AGENTS_YAML_PATH at call time (cached). Returns an empty list if
+    the file is missing or malformed rather than raising — the env-var registry
+    is the fallback.
+    """
+    import yaml  # local import to keep top-level deps minimal
+
+    path = _AGENTS_YAML_PATH
+    try:
+        with open(path) as fh:
+            data = yaml.safe_load(fh)
+    except (FileNotFoundError, OSError, yaml.YAMLError):
+        return []
+
+    if not isinstance(data, dict):
+        return []
+
+    result: list[tuple[str, str]] = []
+    for agent in data.get("agents", []):
+        agent_id = agent.get("id", "").strip()
+        api_key_hash = agent.get("api_key_hash", "").strip()
+        if agent_id and api_key_hash:
+            result.append((agent_id, api_key_hash))
+    return result
+
+
+def _reload_yaml_registry() -> None:
+    """Force re-read of the YAML registry (useful for tests)."""
+    _load_yaml_registry.cache_clear()
+
+
+def reload_all_registries() -> None:
+    """Force re-read of both registries. Called by tests after monkeypatching."""
+    _load_registry.cache_clear()
+    _load_yaml_registry.cache_clear()
+
+
+# ---------------------------------------------------------------------------
+# Core authentication logic
+# ---------------------------------------------------------------------------
+
+
+def _authenticate_bearer(presented: str) -> str:
+    """Return authenticated agent_id or raise 401.
+
+    Tries env-var registry first (constant-time compare), then YAML hashes
+    (argon2 verify). Never reveals which registry was consulted.
+    """
+    env_registry = _load_registry()
+    yaml_registry = _load_yaml_registry()
+
+    if not env_registry and not yaml_registry:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="no api keys configured; set QUORUM_API_KEYS",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # --- Env-var registry: constant-time compare over all keys ---
+    matched_agent: str | None = None
+    for candidate_key, agent_id in env_registry.items():
+        if hmac.compare_digest(presented, candidate_key):
+            matched_agent = agent_id
+
+    if matched_agent is not None:
+        return matched_agent
+
+    # --- YAML registry: argon2 verify (already constant-time per hash) ---
+    ph = PasswordHasher()
+    for agent_id, stored_hash in yaml_registry:
+        try:
+            if ph.verify(stored_hash, presented):
+                return agent_id
+        except VerifyMismatchError:
+            pass
+        except Exception:  # noqa: BLE001 — other argon2 errors (InvalidHash etc.)
+            pass
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="invalid api key",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# FastAPI dependency
+# ---------------------------------------------------------------------------
+
+
 def require_agent(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> str:
     """Return the authenticated agent_id or raise 401.
 
-    The bearer token is matched in constant time against every registered key
-    so we do not leak which agent_id was nearly matched.
+    The bearer token is checked against the env-var registry first (constant-
+    time compare), then against each argon2id hash in config/agents.yaml.
+    A 401 is raised if no registry matches; the response never reveals which
+    registry was consulted.
     """
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
@@ -60,26 +178,12 @@ def require_agent(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    registry = _load_registry()
-    if not registry:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="no api keys configured; set QUORUM_API_KEYS",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    return _authenticate_bearer(credentials.credentials)
 
-    presented = credentials.credentials
-    matched_agent: str | None = None
-    for candidate_key, agent_id in registry.items():
-        if hmac.compare_digest(presented, candidate_key):
-            matched_agent = agent_id
-    if matched_agent is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid api key",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return matched_agent
+
+# ---------------------------------------------------------------------------
+# Demo flag helper
+# ---------------------------------------------------------------------------
 
 
 def demo_allowed() -> bool:
