@@ -4,6 +4,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#project-status)
+[![coverage: target >= 60%](https://img.shields.io/badge/coverage-%E2%89%A5%2060%25-blue.svg)](#)
 
 Quorum is a control plane for **safe, auditable, policy-gated, quorum-based execution** by AI agents operating on code and infrastructure.
 
@@ -76,7 +77,7 @@ python3.12 -m venv .venv
 ```bash
 make install    # creates .venv and installs dev deps
 make dev        # runs uvicorn
-make validate   # ruff check + ruff format --check + pytest
+make validate   # ruff check + ruff format --check + pytest (enforces coverage floor)
 ```
 
 ### With Docker
