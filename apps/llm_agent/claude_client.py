@@ -71,6 +71,10 @@ class ClaudeClient:
     def config(self) -> LlmAgentConfig:
         return self._config
 
+    @property
+    def system_prompt_text(self) -> str:
+        return self._system_prompt
+
     def supports_effort(self) -> bool:
         """Return True iff the configured model accepts ``output_config.effort``."""
         return self._config.model.startswith(_EFFORT_SUPPORTED_PREFIXES)
@@ -80,6 +84,7 @@ class ClaudeClient:
         *,
         user_content: str,
         max_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
+        tools: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Construct the body kwargs we pass to ``messages.create()``.
 
@@ -106,6 +111,11 @@ class ClaudeClient:
         }
         if self.supports_effort():
             body["output_config"] = {"effort": "high"}
+        if tools:
+            # Tools render at position 0 in the prefix; pass them in a
+            # deterministic order (callers should ship pre-sorted lists)
+            # so the prefix bytes stay stable across ticks.
+            body["tools"] = tools
         return body
 
     def call_messages(
@@ -113,9 +123,10 @@ class ClaudeClient:
         *,
         user_content: str,
         max_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
+        tools: list[dict[str, Any]] | None = None,
     ) -> anthropic.types.Message:
         """Build the request + invoke ``messages.create()``. Returns the raw Message."""
-        body = self.build_request(user_content=user_content, max_tokens=max_tokens)
+        body = self.build_request(user_content=user_content, max_tokens=max_tokens, tools=tools)
         # The SDK's overloaded ``messages.create`` resolves to an ``Any``
         # return when invoked with ``**body`` kwargs; cast to the concrete
         # Message type for callers.
