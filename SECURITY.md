@@ -57,13 +57,13 @@ Phase 2 (closed — see `git log --grep 'Phase 2'`):
 - ~~No CORS, security headers, or rate limiting~~ → CORS pinned to allowlisted origins, CSP/HSTS/XFO/XCTO/Referrer-Policy/Permissions-Policy added, slowapi rate limit registered (PR #9).
 - ~~Unbounded input payloads~~ → strict pydantic DTOs with `extra='forbid'` and per-field length bounds (PR #9).
 
-Phase 2.5 (in progress):
+Phase 2.5 (closed):
 
 - ~~Server-side `actor_id` binding~~ → the authenticated agent is now authoritative for intent/finding/proposal/vote/execute; spoofed `agent_id` returns 403 (PR landing this).
+- ~~argon2id-hashed keys in `config/agents.yaml` in place of the env-var registry; key-rotation tooling~~ → `api_key_hash` field added to `config/agents.yaml`; `apps/api/app/services/auth.py` consults the YAML registry (argon2id verify) after the env-var registry (constant-time compare); `python -m apps.api.app.tools.bootstrap_keys generate/rotate` generates and stores keys without ever persisting plaintext; env-var registry retained as fallback for dev parity.
 
 Open:
 
-- argon2id-hashed keys in `config/agents.yaml` in place of the env-var registry; key-rotation tooling.
 - Sign the event hash chain with an ed25519 key so mutations across a compromised single-writer are still detectable.
 - Human-approval workflow for high/critical risk proposals (Phase 4).
 - Real actuators (GitHub App first) with scoped install tokens (Phase 4).

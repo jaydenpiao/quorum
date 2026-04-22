@@ -1,0 +1,18 @@
+# gitleaks configuration — https://github.com/gitleaks/gitleaks
+#
+# Extends the built-in ruleset with a tight regex allowlist for known-safe
+# test fixtures. Never add real secrets here. Rotate leaked secrets; do not
+# allowlist them.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known-safe test fixtures in tests/test_auth_argon2.py"
+regexes = [
+    '''correct-horse-battery-staple-test-key-32b''',
+    '''fake-test-plaintext''',
+]
+paths = [
+    '''tests/test_auth_argon2\.py$''',
+]

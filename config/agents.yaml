@@ -7,6 +7,9 @@ agents:
       - metrics
       - traces
       - logs
+    # api_key_hash: <argon2id hash — set with: python -m apps.api.app.tools.bootstrap_keys generate --agent-id telemetry-agent>
+    api_key_hash: ""
+
   - id: deploy-agent
     role: deployment
     can_vote: true
@@ -15,6 +18,9 @@ agents:
       - deployments
       - release-history
       - rollout-analysis
+    # api_key_hash: <argon2id hash — set with: python -m apps.api.app.tools.bootstrap_keys generate --agent-id deploy-agent>
+    api_key_hash: ""
+
   - id: code-agent
     role: code
     can_vote: true
@@ -23,6 +29,9 @@ agents:
       - repo-diffs
       - config
       - tests
+    # api_key_hash: <argon2id hash — set with: python -m apps.api.app.tools.bootstrap_keys generate --agent-id code-agent>
+    api_key_hash: ""
+
   - id: operator
     role: human
     can_vote: true
@@ -30,3 +39,5 @@ agents:
     scope:
       - approval
       - override
+    # api_key_hash: <argon2id hash — set with: python -m apps.api.app.tools.bootstrap_keys generate --agent-id operator>
+    api_key_hash: ""
