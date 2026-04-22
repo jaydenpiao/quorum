@@ -55,17 +55,26 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
 
 ## Phase 4 — Real actuators and model orchestration
 
-- ✅ GitHub App actuator (PRs #35 / #36 / #37 / #38): `github.open_pr`
-  end-to-end — typed spec, Git Data REST methods, orchestration,
-  executor dispatch, policy `action_type_rules` merge, actuator-aware
-  rollback, new `rollback_impossible` terminal event. Feature-branch-
-  only; `main`/`master`/`trunk`/`develop`/`release*` rejected at the
+- ✅ GitHub App actuator (PRs #35 / #36 / #37 / #38 / #40):
+  `github.open_pr`, `github.comment_issue`, `github.close_pr`,
+  `github.add_labels` all end-to-end — typed specs, Git Data REST
+  methods, orchestration, executor dispatch via table, policy
+  `action_type_rules` merge, actuator-aware rollback per action, the
+  terminal `rollback_impossible` event. Feature-branch-only;
+  `main` / `master` / `trunk` / `develop` / `release*` rejected at the
   pydantic boundary.
-- ⬜ Remaining actions: `github.comment_issue`, `github.close_pr`,
-  `github.add_labels` (each follows the PR B1 / PR C pattern).
-- ⬜ `HealthCheckKind.github_check_run` (poll CI until complete).
-- ⬜ LLM adapter using the Anthropic SDK with prompt caching; reads
-  event stream, emits findings / proposals.
+- ✅ `HealthCheckKind.github_check_run` (PR #41): poll a commit's
+  check-runs via the App until every run is terminal; actuator-
+  result threading (`context["head_sha"]`) so operators don't need
+  to know the SHA at proposal time.
+- ✅ LLM adapter (PRs #42 / #43 / #44 / #45) via the Anthropic SDK:
+  Claude-backed telemetry agent that reads the event stream and
+  emits findings + low-risk GitHub proposals (`comment_issue` /
+  `add_labels`) through the same authenticated routes as any other
+  caller. Prompt caching on the system prompt, adaptive thinking,
+  per-tick + daily input-token caps. Server-side `allowed_action_types`
+  gate prevents the LLM from escalating into operator-only actions
+  (`open_pr` / `close_pr`).
 - ⬜ Interactive console: forms for intent / finding / proposal / vote;
   SSE stream at `/api/v1/events/stream`.
 - ⬜ Human approval entity + notifier for high / critical risk.
