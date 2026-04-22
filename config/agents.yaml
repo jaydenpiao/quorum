@@ -57,6 +57,14 @@ agents:
       - logs
     # api_key_hash: <argon2id hash — set with: python -m apps.api.app.tools.bootstrap_keys generate --agent-id telemetry-llm-agent>
     api_key_hash: ""
+    # Per-agent action_type allow-list (Phase 4 LLM PR 3). The server
+    # enforces this in POST /api/v1/proposals — a mismatched action_type
+    # returns 403 before the proposal hits the event log. LLM-emitted
+    # proposals stay restricted to low-risk actions; open_pr / close_pr
+    # remain operator-only in v1.
+    allowed_action_types:
+      - github.add_labels
+      - github.comment_issue
     llm:
       provider: anthropic
       # Opus 4.7 is the default per apps/.claude/ project conventions.
