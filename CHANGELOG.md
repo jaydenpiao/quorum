@@ -11,6 +11,18 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **GitHub `open_pr` action (Phase 4 PR B1)** — new `actions.open_pr`
+  orchestrates the Git Data API flow (base branch lookup → blobs →
+  tree → commit → ref → PR) into a single atomic action. Typed
+  `GitHubOpenPrSpec` / `GitHubFileSpec` payloads with UTF-8 byte-size
+  validation, repo-path safety checks, and `extra='forbid'`. Head
+  branch name is derived as `quorum/<proposal_id>` so rollback (PR C)
+  can find it deterministically. `GitHubAppClient` gains `get_branch`,
+  `create_blob`, `create_tree`, `create_commit`, `create_ref`,
+  `create_pull_request`, all routed through the PR A
+  single-retry-on-401 wrapper. Not yet wired into the executor — that
+  dispatch + policy merge + `HealthCheckKind.github_check_run` land
+  in PR B2.
 - **GitHub App actuator scaffold (Phase 4 PR A)** — new
   `apps/api/app/services/actuators/github/` package with `AppJWTSigner`
   (RS256 App JWT minting), `InstallationTokenCache` (per-install token
