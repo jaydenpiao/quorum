@@ -20,6 +20,10 @@ class StateStore:
         self.rollbacks: dict[str, list[dict[str, Any]]] = defaultdict(list)
         # One list per execution_id. Each entry is a health_check_completed payload.
         self.health_check_results: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        # One list per proposal_id. Entries are ``HumanApprovalRequest`` or
+        # ``HumanApprovalOutcome`` payloads; see apply() + the helper
+        # ``proposal_has_granted_approval`` below.
+        self.human_approvals: dict[str, list[dict[str, Any]]] = defaultdict(list)
         self.events: list[dict[str, Any]] = []
 
     def replay(self, events: list[EventEnvelope]) -> None:
@@ -87,6 +91,26 @@ class StateStore:
                     ProposalStatus.rollback_impossible.value
                 )
 
+        elif event.event_type == "human_approval_requested":
+            # Marker event — the request is pending until a granted or
+            # denied event lands in the same bucket.
+            self.human_approvals[payload["proposal_id"]].append(payload)
+
+        elif event.event_type == "human_approval_granted":
+            # Unlock the execute gate for this proposal. No status flip
+            # yet — approval is an *unblock*, not a transition; executor
+            # drives the status to executed / failed / rolled_back.
+            self.human_approvals[payload["proposal_id"]].append(payload)
+
+        elif event.event_type == "human_approval_denied":
+            # Terminal — record the decision and flip the proposal's
+            # status so queries by status see this distinct state.
+            self.human_approvals[payload["proposal_id"]].append(payload)
+            if payload["proposal_id"] in self.proposals:
+                self.proposals[payload["proposal_id"]]["status"] = (
+                    ProposalStatus.approval_denied.value
+                )
+
     def snapshot(self) -> dict[str, Any]:
         return {
             "intents": list(self.intents.values()),
@@ -97,6 +121,7 @@ class StateStore:
             "executions": self.executions,
             "rollbacks": self.rollbacks,
             "health_check_results": self.health_check_results,
+            "human_approvals": self.human_approvals,
             "event_count": len(self.events),
         }
 
@@ -106,3 +131,16 @@ class StateStore:
             "approve": sum(1 for v in votes if v["decision"] == VoteDecision.approve.value),
             "reject": sum(1 for v in votes if v["decision"] == VoteDecision.reject.value),
         }
+
+    def proposal_has_granted_approval(self, proposal_id: str) -> bool:
+        """Return True iff a granted approval is on record for this proposal.
+
+        A subsequent denial does not overwrite a prior grant — routes
+        reject re-decisions with 409 before they reach the event log —
+        so the reducer can answer "has the gate been unlocked?" with
+        a simple membership test.
+        """
+        return any(
+            entry.get("decision") == "granted"
+            for entry in self.human_approvals.get(proposal_id, [])
+        )

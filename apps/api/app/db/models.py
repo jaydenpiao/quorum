@@ -136,6 +136,27 @@ class RollbackRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
+class HumanApprovalRow(Base):
+    """One row per ``human_approval_*`` event.
+
+    ``status`` distinguishes the kinds (``requested`` / ``granted`` /
+    ``denied``). The PK is the event's own id, so one proposal can
+    have a request row + a decision row — both keyed by different ids,
+    both filterable by ``proposal_id``.
+    """
+
+    __tablename__ = "human_approvals"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    proposal_id: Mapped[str] = mapped_column(String(128), index=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    proposer_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    approver_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    reason: Mapped[str] = mapped_column(String(2000), default="")
+    reasons: Mapped[list[Any]] = mapped_column(JSONB, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
 class EventProjectedRow(Base):
     """One row per event ever applied. Enables idempotency + reconciliation.
 

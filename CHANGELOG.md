@@ -11,6 +11,21 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **Human approval entity + three new event types** — `requires_human=true`
+  on a `policy_decision` now has real enforcement teeth. Three new event
+  types: `human_approval_requested` (emitted immediately after
+  `policy_evaluated` when policy demands a human), `human_approval_granted`,
+  `human_approval_denied`. New DTO + records (`ApprovalCreate`,
+  `HumanApprovalRequest`, `HumanApprovalOutcome`) + `ApprovalDecision` enum.
+  New route `POST /api/v1/approvals/{proposal_id}` — decision locked to
+  the authenticated agent (actor-binding rule), 404 on unknown proposal,
+  422 when the proposal doesn't need approval, 409 on re-decisions. New
+  terminal `ProposalStatus.approval_denied`. Execute-time gate in
+  `POST /api/v1/proposals/{id}/execute` — proposals with
+  `requires_human=true` return 403 until a `granted` approval is on
+  record. Full projection through the state store + Postgres
+  (`human_approvals` table, Alembic migration 0004); dispatch-completeness
+  regression test extended. 11 new end-to-end + reducer tests.
 - **LLM adapter `create_proposal` + allow-list enforcement (Phase 4 LLM PR 3)** —
   Second tool for the telemetry LLM agent: `create_proposal` with an
   enum-restricted `action_type` (only `github.comment_issue` and
