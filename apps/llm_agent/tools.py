@@ -110,16 +110,23 @@ FINDING_TOOL_SCHEMA: dict[str, Any] = {
 # create_proposal
 # ---------------------------------------------------------------------------
 
-# v1 action-type allow-list for LLM-emitted proposals. Hard-coded in the
-# tool schema enum so Claude cannot propose an action outside this set,
-# and also enforced **server-side** (see apps/api/app/services/auth.py →
-# allowed_action_types + apps/api/app/api/routes.py) so a client bypass
-# still returns 403. Two mutually-supporting gates.
+# Union of action types any LLM-driven agent may propose. The tool-schema
+# enum gate is a UX / prompt-discipline boundary: it narrows what Claude
+# can pick from. The **security** gate is per-agent, server-side —
+# ``allowed_action_types`` in ``config/agents.yaml`` (loaded by
+# ``apps/api/app/services/auth.py`` and enforced in
+# ``apps/api/app/api/routes.py``). An agent whose allow-list omits a
+# value here will 403 if it tries to use it, even if the schema lets
+# Claude request it.
 #
-# open_pr and close_pr stay operator-only in v1 — they're the
-# higher-blast-radius actions. Revisit per the "voter role timing"
-# open question in docs/design/llm-adapter.md.
+# Per-role subsets (v1):
+# - ``telemetry-llm-agent`` → ``github.add_labels``, ``github.comment_issue``
+# - ``deploy-llm-agent``    → ``fly.deploy`` (Phase 5)
+#
+# open_pr / close_pr remain operator-only — see the "voter role timing"
+# open question in ``docs/design/llm-adapter.md``.
 LLM_ALLOWED_PROPOSAL_ACTION_TYPES: tuple[str, ...] = (
+    "fly.deploy",
     "github.add_labels",
     "github.comment_issue",
 )
@@ -127,11 +134,12 @@ LLM_ALLOWED_PROPOSAL_ACTION_TYPES: tuple[str, ...] = (
 PROPOSAL_TOOL_SCHEMA: dict[str, Any] = {
     "name": "create_proposal",
     "description": (
-        "Propose a low-risk, reviewable action against a GitHub target. "
-        "The proposal is quorum-voted before execution — your call here "
-        "submits it, nothing more. In v1 only "
-        + " / ".join(LLM_ALLOWED_PROPOSAL_ACTION_TYPES)
-        + " are allowed; open_pr / close_pr remain operator-only."
+        "Propose a reviewable action. The proposal is policy- and quorum-"
+        "gated before execution; your call here submits it, nothing "
+        "more. Your own allowed subset of action_types is narrower than "
+        "this schema's enum — the server enforces per-agent "
+        "allowed_action_types and returns 403 on a mismatch. Use the "
+        "action types listed in your role's system prompt."
     ),
     "input_schema": {
         "type": "object",
