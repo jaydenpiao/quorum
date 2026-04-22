@@ -10,9 +10,17 @@ services:
       # Copy .env.example to .env and fill in your values.
       # This file is NOT committed — it holds local dev secrets.
       - .env
+    environment:
+      # Override to make the api talk to the compose-scoped postgres by
+      # default when DATABASE_URL is not supplied from .env. Leave empty
+      # to keep NoOpProjector behavior.
+      DATABASE_URL: ${DATABASE_URL:-}
     volumes:
       # Persist the append-only event log across container restarts.
       - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c",
@@ -21,3 +29,28 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  # Postgres is scaffolded for the Phase 3 capstone projection (see
+  # docs/design/postgres-projection.md). The api service runs fine without
+  # it today — with DATABASE_URL unset, the NoOpProjector is used and this
+  # container goes unused. PR B replaces NoOpProjector with a real
+  # PostgresProjector that writes here.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: quorum
+      POSTGRES_PASSWORD: quorum
+      POSTGRES_DB: quorum
+    ports:
+      - "5432:5432"
+    volumes:
+      - quorum-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quorum -d quorum"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  quorum-pg:

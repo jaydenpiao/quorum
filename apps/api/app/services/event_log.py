@@ -5,7 +5,12 @@ import json
 from pathlib import Path
 from threading import Lock
 
+import structlog
+
 from apps.api.app.domain.models import EventEnvelope
+from apps.api.app.services.projector import NoOpProjector, Projector
+
+_log = structlog.get_logger(__name__)
 
 
 class EventLogTamperError(RuntimeError):
@@ -42,13 +47,16 @@ def compute_event_hash(envelope: EventEnvelope, prev_hash: str | None) -> str:
 
 
 class EventLog:
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, projector: Projector | None = None) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = Lock()
         if not self.path.exists():
             self.path.touch()
         self._last_hash: str | None = self._read_last_hash()
+        # Projector is called after every successful append. Default is a
+        # no-op; real Postgres projection is added in a later PR.
+        self.projector: Projector = projector or NoOpProjector()
 
     def _read_last_hash(self) -> str | None:
         """Recover the in-memory `last_hash` cache by scanning the file tail."""
@@ -72,6 +80,11 @@ class EventLog:
 
         Returns the stored envelope with `prev_hash` and `hash` populated.
         Callers must use the returned envelope if they need those fields.
+
+        The projector is called **after** the JSONL write succeeds. If the
+        projector raises, the exception is logged and swallowed: the JSONL
+        is the canonical source of truth, so a projector failure is a
+        degraded-read-model signal, not a data-integrity event.
         """
         with self.lock:
             prev_hash = self._last_hash
@@ -82,7 +95,21 @@ class EventLog:
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(line + "\n")
             self._last_hash = event_hash
-            return event
+
+        # Projector is called outside the lock so a slow projector never
+        # blocks other writers. The envelope is immutable after return here.
+        try:
+            self.projector.apply(event)
+        except Exception as exc:  # noqa: BLE001 — by design; never revert the log write
+            _log.warning(
+                "projector_apply_failed",
+                event_id=event.id,
+                event_type=event.event_type,
+                projector=type(self.projector).__name__,
+                error=repr(exc),
+            )
+
+        return event
 
     def read_all(self) -> list[EventEnvelope]:
         events: list[EventEnvelope] = []
