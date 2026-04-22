@@ -11,6 +11,24 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **LLM adapter `create_finding` end-to-end (Phase 4 LLM PR 2)** —
+  `apps/llm_agent/tools.py` ships the typed JSON-Schema tool definition
+  for `create_finding` + a `dispatch_tool_use()` function that turns a
+  Claude `ToolUseBlock` into an authenticated POST to
+  `/api/v1/findings`. `ClaudeClient.build_request()` / `.call_messages()`
+  grew a `tools=` kwarg (deterministic order; prompt-caching-stable).
+  `run_tick()` now actually calls Claude, records actual
+  `usage.input_tokens` to the budget, dispatches returned `tool_use`
+  blocks via the Quorum client, and handles `stop_reason="refusal"`
+  (cursor still advances; no tool dispatch). Per-tool outcomes surface
+  in the new `llm_tool_dispatch_completed` structlog event + on the
+  returned `TickOutcome`. System prompt at
+  `apps/llm_agent/prompts/telemetry-agent.md` expanded to a
+  production-usable role brief (quorum primer, tool-use discipline,
+  secret-handling, tick-level safety rules). No LLM events are written
+  to `data/events.jsonl` and no prompt/response content lands in
+  structlog — only metadata (model, token counts, latency, tool-call
+  names).
 - **LLM adapter scaffold (Phase 4 LLM PR 1)** — new `apps/llm_agent/`
   package that will drive Claude-backed agents (starting with
   `telemetry-llm-agent`) as proposers inside Quorum. Runs as its own OS
