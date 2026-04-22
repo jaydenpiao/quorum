@@ -11,6 +11,21 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **GitHub actuator wired into the executor (Phase 4 PR B2)** —
+  `Executor` now dispatches on `proposal.action_type`. `github.*`
+  proposals route to the PR B1 actuator; non-github action types keep
+  the existing simulated-execution path. `Proposal` gains a typed
+  `payload: dict[str, Any]` (JSON-size capped at 256 KiB) and
+  `ExecutionRecord` gains `result` (the actuator's return blob,
+  replayable from events). Policy engine merges a new
+  `action_type_rules` section from `config/policies.yaml` — MAX of
+  `votes_required`, OR of `requires_human`, can only tighten the
+  risk-level default. `config/policies.yaml` ships a
+  `github.open_pr: {votes_required: 2, requires_human: false}` default.
+  `main.py` conditionally constructs a `GitHubAppClient` on startup iff
+  `config/github.yaml` has a non-placeholder `app_id` and the private
+  key is available; otherwise the actuator stays disabled and
+  `github.*` proposals fail fast with a clear dispatch error.
 - **GitHub `open_pr` action (Phase 4 PR B1)** — new `actions.open_pr`
   orchestrates the Git Data API flow (base branch lookup → blobs →
   tree → commit → ref → PR) into a single atomic action. Typed
