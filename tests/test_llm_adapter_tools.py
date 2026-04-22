@@ -217,3 +217,139 @@ def test_result_is_frozen() -> None:
     )
     with pytest.raises((AttributeError, TypeError)):
         r.ok = False  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# create_proposal tool (PR 3)
+# ---------------------------------------------------------------------------
+
+
+from apps.llm_agent.tools import (  # noqa: E402
+    LLM_ALLOWED_PROPOSAL_ACTION_TYPES,
+    PROPOSAL_TOOL_SCHEMA,
+)
+
+
+def test_proposal_tool_schema_is_complete() -> None:
+    schema = PROPOSAL_TOOL_SCHEMA
+    assert schema["name"] == "create_proposal"
+    props = schema["input_schema"]["properties"]
+    for field in (
+        "intent_id",
+        "title",
+        "action_type",
+        "target",
+        "rationale",
+        "payload",
+    ):
+        assert field in props, f"missing {field}"
+    assert set(schema["input_schema"]["required"]) == {
+        "intent_id",
+        "title",
+        "action_type",
+        "target",
+        "rationale",
+        "payload",
+    }
+    assert "agent_id" not in props, "server-side actor binding sets agent_id"
+
+
+def test_proposal_action_type_enum_matches_allow_list() -> None:
+    """The schema enum and the allow-list constant must stay in sync."""
+    enum = PROPOSAL_TOOL_SCHEMA["input_schema"]["properties"]["action_type"]["enum"]
+    assert sorted(enum) == sorted(LLM_ALLOWED_PROPOSAL_ACTION_TYPES)
+    # High-blast-radius actions are NOT in the list.
+    assert "github.open_pr" not in enum
+    assert "github.close_pr" not in enum
+
+
+def test_dispatch_create_proposal_happy_path(quorum: QuorumApiClient) -> None:
+    block = _FakeToolUse(
+        id="toolu_p1",
+        name="create_proposal",
+        input={
+            "intent_id": "intent_x",
+            "title": "label stale PR",
+            "action_type": "github.add_labels",
+            "target": "owner/repo#5",
+            "rationale": "no activity for 30d",
+            "payload": {
+                "owner": "owner",
+                "repo": "repo",
+                "issue_number": 5,
+                "labels": ["stale"],
+            },
+        },
+    )
+
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post("http://localhost:8080/api/v1/proposals").mock(
+            return_value=httpx.Response(200, json={"id": "proposal_xyz"})
+        )
+        result = dispatch_tool_use(block, quorum)  # type: ignore[arg-type]
+
+    assert result.ok is True
+    assert result.tool_name == "create_proposal"
+    assert result.quorum_entity_id == "proposal_xyz"
+    assert route.call_count == 1
+
+
+def test_dispatch_create_proposal_rejects_disallowed_action_type(
+    quorum: QuorumApiClient,
+) -> None:
+    """Client-side allow-list must reject before hitting Quorum."""
+    block = _FakeToolUse(
+        id="toolu_forbidden",
+        name="create_proposal",
+        input={
+            "intent_id": "intent_x",
+            "title": "open PR",
+            "action_type": "github.open_pr",  # NOT in allow-list
+            "target": "owner/repo",
+            "rationale": "because",
+            "payload": {},
+        },
+    )
+
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post("http://localhost:8080/api/v1/proposals")
+        result = dispatch_tool_use(block, quorum)  # type: ignore[arg-type]
+
+    assert result.ok is False
+    assert "not allowed" in result.detail
+    assert route.call_count == 0, "client-side reject — never contacts Quorum"
+
+
+def test_dispatch_create_proposal_handles_server_403(
+    quorum: QuorumApiClient,
+) -> None:
+    """Even if the client-side enum lets something through, the
+    server's allowed_action_types gate is the authoritative one."""
+    block = _FakeToolUse(
+        id="toolu_srv_403",
+        name="create_proposal",
+        input={
+            "intent_id": "intent_x",
+            "title": "add label",
+            "action_type": "github.add_labels",
+            "target": "owner/repo#1",
+            "rationale": "x",
+            "payload": {
+                "owner": "owner",
+                "repo": "repo",
+                "issue_number": 1,
+                "labels": ["bug"],
+            },
+        },
+    )
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.post("http://localhost:8080/api/v1/proposals").mock(
+            return_value=httpx.Response(
+                403, json={"detail": "action_type 'github.add_labels' not allowed"}
+            )
+        )
+        result = dispatch_tool_use(block, quorum)  # type: ignore[arg-type]
+
+    assert result.ok is False
+    assert result.api_status_code == 403
