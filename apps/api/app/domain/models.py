@@ -87,6 +87,9 @@ class HealthCheckKind(str, Enum):
     always_pass = "always_pass"
     always_fail = "always_fail"
     http = "http"
+    # Poll a commit's check-runs via the GitHub App actuator until every
+    # run is terminal. Used by `github.open_pr` to block execution on CI.
+    github_check_run = "github_check_run"
 
 
 class IntentCreate(BaseModel):
@@ -139,10 +142,22 @@ class HealthCheckSpec(BaseModel):
     url: str | None = None
     method: Literal["GET", "HEAD"] = "GET"
     expected_status: int = Field(default=200, ge=100, le=599)
-    timeout_seconds: float = Field(default=5.0, ge=0.1, le=30.0)
+    # Wall-clock budget for the check. Bounded up to 30 min so
+    # github_check_run can wait for CI; http probes still validate
+    # a tighter ceiling in their own branch of ``_validate_kind_fields``.
+    timeout_seconds: float = Field(default=5.0, ge=0.1, le=1800.0)
+    # Fields used only when kind == HealthCheckKind.github_check_run.
+    # github_commit_sha is optional — the executor may inject it from
+    # the actuator result at runtime (e.g. OpenPrResult.head_sha), so
+    # the operator doesn't need to know the SHA at proposal time.
+    github_owner: str | None = None
+    github_repo: str | None = None
+    github_commit_sha: str | None = None
+    github_check_name: str | None = None
+    poll_interval_seconds: float = Field(default=5.0, ge=0.5, le=60.0)
 
     @model_validator(mode="after")
-    def _validate_http_fields(self) -> "HealthCheckSpec":
+    def _validate_kind_fields(self) -> "HealthCheckSpec":
         if self.kind is HealthCheckKind.http:
             if not self.url:
                 raise ValueError("http health check requires a url")
@@ -152,6 +167,15 @@ class HealthCheckSpec(BaseModel):
                 raise ValueError("http health check url contains unsafe characters")
             if "$(" in self.url or "`" in self.url:
                 raise ValueError("http health check url contains command-substitution syntax")
+            if self.timeout_seconds > 30.0:
+                raise ValueError("http health check timeout_seconds must be <= 30")
+        elif self.kind is HealthCheckKind.github_check_run:
+            if not self.github_owner or not self.github_repo:
+                raise ValueError("github_check_run requires github_owner and github_repo")
+            if self.timeout_seconds < 10.0:
+                raise ValueError(
+                    "github_check_run timeout_seconds must be >= 10 (CI rarely finishes faster)"
+                )
         return self
 
 
