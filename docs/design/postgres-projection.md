@@ -178,14 +178,20 @@ New file: `apps/api/app/services/projector.py`
 
 ```python
 class Projector(Protocol):
-    async def apply(self, event: EventEnvelope) -> None: ...
-    async def reconcile_from(
-        self, log_path: str, start_id: str | None = None
-    ) -> int: ...
+    def apply(self, event: EventEnvelope) -> None: ...
+    # reconcile_from() lands in PR C alongside the remaining entities.
 ```
 
 `apply` processes a single `EventEnvelope` and writes the resulting row(s) to Postgres.
-`reconcile_from` reads the JSONL from `log_path`, optionally starting after `start_id`, applies each event in order, and returns the number of events processed.
+
+**Sync-vs-async deviation from the original design (as of PR B):**
+`Projector.apply` is **synchronous**, not async. The original design called for
+`async def apply`, but `EventLog.append` is sync and has multiple sync callers
+(`demo_seed`, `executor`), so flipping the projector to async in one PR would
+force the whole log API async. SQLAlchemy 2.0 sync + `psycopg[binary]` + the
+built-in connection pool is enough for current throughput. If PG write latency
+ever dominates, we add an async drain worker fed by a sync `apply` rather than
+flipping the whole log API. Revisit after PR D.
 
 ### Implementations
 
@@ -195,7 +201,8 @@ Used in all tests that do not opt in to Postgres, and in dev when `DATABASE_URL`
 Zero dependencies beyond the protocol.
 
 **`PostgresProjector`** — the production implementation.
-Uses SQLAlchemy 2.0 async engine with `asyncpg` as the driver.
+Uses SQLAlchemy 2.0 (sync) with `psycopg[binary]` v3 as the driver (see
+"Sync-vs-async deviation" above).
 Each `apply` call runs in a transaction:
 1. Upsert the entity row (using `INSERT ... ON CONFLICT (id) DO UPDATE`).
 2. Update `events_projected` to record `last_event_id` and `last_event_hash`.
