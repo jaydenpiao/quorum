@@ -28,25 +28,39 @@ observe -> find -> propose -> policy-check -> vote -> approve -> execute -> veri
      `GET /api/v1/events/verify` re-walks the chain on demand.
    - replayable
    - **Projector hook**: after every successful append, `EventLog` calls
-     `projector.apply(event)` with the enriched envelope. Default is a
-     `NoOpProjector`; future PRs wire a Postgres-backed projector for a
-     derived read model. A projector failure is logged and swallowed — the
-     JSONL write is never reverted. See `docs/design/postgres-projection.md`.
+     `projector.apply(event)` with the enriched envelope. `NoOpProjector`
+     is the default; when `DATABASE_URL` is set, `PostgresProjector` writes
+     the event and its derived entity row via `INSERT ... ON CONFLICT`
+     upserts. A projector failure is logged and swallowed — the JSONL
+     write is never reverted. See `docs/design/postgres-projection.md`.
+   - **Reconciliation**: `python -m apps.api.app.tools.reconcile` re-applies
+     the full JSONL to the projection (idempotent, order-preserving).
+     Useful after a projector outage or when bringing up a fresh PG.
 
 3. **State Store**
-   - rebuilds current state from the log
-   - used by API and console
+   - rebuilds current state from the log (replay-based, in-memory)
+   - used by `/api/v1/state` and `/api/v1/events` — always available,
+     no external dependencies
 
-4. **Policy Engine**
+4. **Postgres projection (optional read-model)**
+   - activated when `DATABASE_URL` is set
+   - upserted row-per-entity; keyed on natural `<prefix>_<12hex>` IDs
+   - consumed by the `/api/v1/history/*` endpoints for query-friendly
+     reads (filter by agent, status, environment, etc. with pagination);
+     history endpoints return **503** when `DATABASE_URL` is unset
+   - eventually consistent with the JSONL — writes always go through
+     `EventLog.append` first, and the JSONL stays authoritative
+
+5. **Policy Engine**
    - checks whether a proposal is allowed
    - decides whether human approval is required
    - decides required quorum size
 
-5. **Quorum Engine**
+6. **Quorum Engine**
    - counts votes
    - marks proposals approved or blocked
 
-6. **Executor**
+7. **Executor**
    - runs an approved proposal
    - evaluates health checks via a registered-kind dispatcher (no subprocess path)
    - triggers rollback when needed
@@ -56,10 +70,10 @@ observe -> find -> propose -> policy-check -> vote -> approve -> execute -> veri
    requires extending the enum and adding a branch in `services/health_checks.py`
    — proposals cannot inject arbitrary command strings.
 
-7. **Operator Console**
+8. **Operator Console**
    - shows intents, proposals, votes, execution state, and log events
 
-8. **Observability**
+9. **Observability**
    - `/metrics` endpoint exposes Prometheus-format histograms and counters via
      `prometheus-fastapi-instrumentator`
    - public (no auth) so external Prometheus scrapers can reach it
