@@ -36,12 +36,14 @@ Quorum is the minimal control plane that makes those guarantees real.
 ## Core capabilities (today)
 
 - FastAPI control-plane service with nine typed domain entities (Intent, Finding, Proposal, Vote, PolicyDecision, ExecutionRecord, HealthCheckResult, RollbackRecord, EventEnvelope).
-- Append-only JSONL event log with thread-safe writes.
-- Materialized in-memory state via event replay.
-- YAML-based policy configuration with risk levels, environment overrides, and denied action types.
+- Append-only JSONL event log with sha256 hash chain; tamper-evidence verified on startup and on demand.
+- Materialized in-memory state via event replay; Postgres projection as an optional derived read-model.
+- YAML-based policy configuration with risk levels, environment overrides, denied action types, and per-action-type rule overrides.
 - Quorum voting with configurable thresholds.
-- Pluggable health checks with automatic rollback on failure.
+- Pluggable typed health checks (incl. `github_check_run` polling) with automatic rollback on failure.
 - Operator console (`/console`) with read-only views.
+- **GitHub App actuator** (Phase 4): `open_pr` / `comment_issue` / `close_pr` / `add_labels` with actuator-aware rollback and a terminal `rollback_impossible` event when a mutation cannot be undone.
+- **LLM adapter** (Phase 4): Claude-backed telemetry agent runs as its own process, observes the event stream, emits structured findings + low-risk GitHub proposals through the same authenticated routes as any other caller. Per-agent `allowed_action_types` cap + prompt caching + budget-capped token usage.
 - Demo incident seeder (`POST /api/v1/demo/incident`) runs the full flow end-to-end.
 
 ## What's next (phased)
@@ -116,6 +118,33 @@ Then inspect:
 curl -s http://127.0.0.1:8080/api/v1/state  | python3 -m json.tool
 curl -s http://127.0.0.1:8080/api/v1/events | python3 -m json.tool
 ```
+
+### Run the LLM adapter (optional)
+
+A Claude-backed telemetry agent that watches the event stream and
+emits structured findings + low-risk GitHub proposals. See
+[`docs/design/llm-adapter.md`](docs/design/llm-adapter.md) for the
+full design.
+
+```bash
+# 1. Seed adapter credentials
+export ANTHROPIC_API_KEY=sk-ant-...
+export QUORUM_API_KEYS="telemetry-llm-agent:<plaintext>"
+
+# 2. Generate the matching argon2id hash and store it in config/agents.yaml
+python -m apps.api.app.tools.bootstrap_keys generate --agent-id telemetry-llm-agent
+
+# 3. Start Quorum in one terminal, the adapter in another
+make dev                                                       # Quorum on :8080
+python -m apps.llm_agent.run --agent-id telemetry-llm-agent    # adapter polls :8080
+```
+
+The adapter reads `config/agents.yaml`'s `llm:` block for model,
+caps, and the system-prompt reference. Token usage is capped per-tick
+and per-day with atomic JSON checkpoints under `data/llm_usage/`.
+Adapter-emitted proposals are server-side capped by
+`allowed_action_types` in the same config — LLM agents can only
+propose `github.comment_issue` and `github.add_labels` in v1.
 
 ## Reading order for new contributors (human or AI)
 
