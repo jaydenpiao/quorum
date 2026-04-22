@@ -79,6 +79,24 @@ make dev        # runs uvicorn
 make validate   # ruff check + ruff format --check + pytest
 ```
 
+### With Docker
+
+```bash
+# 1. Create a local .env from the template and fill in your values.
+cp .env.example .env
+# Edit .env: set QUORUM_API_KEYS=<agent_id>:<your_key> and optionally QUORUM_ALLOW_DEMO=true
+
+# 2. Build and start the API container.
+docker compose up --build
+```
+
+The container publishes port **8080** and mounts `./data` as a persistent volume
+so the append-only event log (`data/events.jsonl`) survives container restarts.
+
+Environment variables are loaded from `.env` (never committed — see `.env.example`
+for the template). In production, inject secrets via `fly secrets set` or your
+orchestrator's secret store.
+
 Open:
 
 - Operator console → http://127.0.0.1:8080/console

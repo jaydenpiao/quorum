@@ -20,6 +20,8 @@ coverage.xml
 .env
 .env.*
 .env.*.local
+# Template is safe to commit — it contains no real secrets
+!.env.example
 
 # Claude Code per-dev overrides (never commit personal tokens)
 .claude/settings.local.json
