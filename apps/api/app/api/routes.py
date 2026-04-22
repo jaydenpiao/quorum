@@ -25,6 +25,25 @@ def refresh_state(request: Request) -> None:
     request.app.state.state_store.replay(request.app.state.event_log.read_all())
 
 
+def _enforce_agent(body_agent_id: str | None, authenticated_agent_id: str) -> str:
+    """Return the agent_id to persist.
+
+    If the request body includes an agent_id, it must match the authenticated
+    agent exactly — otherwise 403. If omitted (or empty string), fall back to
+    the authenticated agent. This closes the spoof surface: a valid key for
+    agent A can no longer claim authorship as agent B.
+    """
+    if body_agent_id and body_agent_id != authenticated_agent_id:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"agent_id mismatch: body claims '{body_agent_id}' but the "
+                f"authenticated agent is '{authenticated_agent_id}'"
+            ),
+        )
+    return authenticated_agent_id
+
+
 @router.get("/health")
 def health() -> dict:
     return {"ok": True}
@@ -63,7 +82,10 @@ def create_intent(
     request: Request,
     agent_id: str = Depends(require_agent),
 ) -> dict:
-    intent = Intent(**payload.model_dump())
+    data = payload.model_dump()
+    # Server-side identity always wins over whatever the client sent.
+    data["requested_by"] = agent_id
+    intent = Intent(**data)
     event = EventEnvelope(
         event_type="intent_created",
         entity_type="intent",
@@ -81,12 +103,16 @@ def create_finding(
     request: Request,
     agent_id: str = Depends(require_agent),
 ) -> dict:
+    bound_agent = _enforce_agent(payload.agent_id, agent_id)
+
     if payload.intent_id not in request.app.state.state_store.intents:
         refresh_state(request)
     if payload.intent_id not in request.app.state.state_store.intents:
         raise HTTPException(status_code=404, detail="intent not found")
 
-    finding = Finding(**payload.model_dump())
+    data = payload.model_dump()
+    data["agent_id"] = bound_agent
+    finding = Finding(**data)
     request.app.state.event_log.append(
         EventEnvelope(
             event_type="finding_created",
@@ -105,11 +131,15 @@ def create_proposal(
     request: Request,
     agent_id: str = Depends(require_agent),
 ) -> dict:
+    bound_agent = _enforce_agent(payload.agent_id, agent_id)
+
     refresh_state(request)
     if payload.intent_id not in request.app.state.state_store.intents:
         raise HTTPException(status_code=404, detail="intent not found")
 
-    proposal = Proposal(**payload.model_dump())
+    data = payload.model_dump()
+    data["agent_id"] = bound_agent
+    proposal = Proposal(**data)
     request.app.state.event_log.append(
         EventEnvelope(
             event_type="proposal_created",
@@ -142,11 +172,16 @@ def create_vote(
     request: Request,
     agent_id: str = Depends(require_agent),
 ) -> dict:
+    # Spoof check precedes existence check so 403 wins over 404.
+    bound_agent = _enforce_agent(payload.agent_id, agent_id)
+
     refresh_state(request)
     if payload.proposal_id not in request.app.state.state_store.proposals:
         raise HTTPException(status_code=404, detail="proposal not found")
 
-    vote = Vote(**payload.model_dump())
+    data = payload.model_dump()
+    data["agent_id"] = bound_agent
+    vote = Vote(**data)
     request.app.state.event_log.append(
         EventEnvelope(
             event_type="proposal_voted",
@@ -217,7 +252,10 @@ def execute_proposal(
     if proposal.status != "approved":
         raise HTTPException(status_code=409, detail="proposal must be approved before execution")
 
-    result = request.app.state.executor.execute(proposal, actor_id=payload.actor_id)
+    # Server-side actor is always the authenticated agent.
+    # The ExecutionRequest body is retained for backwards compatibility but its
+    # `actor_id` is advisory and ignored here.
+    result = request.app.state.executor.execute(proposal, actor_id=agent_id)
     refresh_state(request)
     return result
 
