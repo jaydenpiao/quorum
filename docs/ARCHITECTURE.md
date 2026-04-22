@@ -54,6 +54,16 @@ observe -> find -> propose -> policy-check -> vote -> approve -> execute -> veri
 7. **Operator Console**
    - shows intents, proposals, votes, execution state, and log events
 
+8. **Observability**
+   - `/metrics` endpoint exposes Prometheus-format histograms and counters via
+     `prometheus-fastapi-instrumentator`
+   - public (no auth) so external Prometheus scrapers can reach it
+   - excluded from rate limiting and from its own self-scrape counter
+   - not bundled — a separate Prometheus server is expected to scrape it
+   - pairs with structured JSON logs (`apps/api/app/logging_config.py`) and
+     per-request `X-Request-ID` headers (`apps/api/app/request_context.py`)
+     for end-to-end tracing
+
 ## Authentication and actor identity
 
 ### Overview

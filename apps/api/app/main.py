@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -55,6 +56,22 @@ app.add_middleware(SecurityHeadersMiddleware)
 # its contextvars (request_id, method, path) are bound before any other
 # middleware runs and stay available for downstream loggers.
 app.add_middleware(RequestContextMiddleware)
+
+# Prometheus metrics — public, no auth, excluded from rate-limit accounting.
+# Must come after all add_middleware() calls so the /metrics route is
+# registered after SlowAPIMiddleware and therefore not subject to rate limits.
+# excluded_handlers=["/metrics"] prevents self-scrape hits from polluting
+# the http_requests_total counter.
+Instrumentator(
+    should_group_status_codes=True,
+    should_ignore_untemplated=True,
+    excluded_handlers=["/metrics"],
+).instrument(app).expose(
+    app,
+    endpoint="/metrics",
+    include_in_schema=False,
+    should_gzip=True,
+)
 
 
 @app.exception_handler(RateLimitExceeded)
