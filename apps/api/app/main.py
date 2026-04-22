@@ -14,6 +14,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+from apps.api.app.api.history import router as history_router
 from apps.api.app.api.routes import router
 from apps.api.app.logging_config import configure_logging
 from apps.api.app.middleware import SecurityHeadersMiddleware
@@ -114,8 +115,11 @@ app.state.policy_engine = policy_engine
 app.state.quorum_engine = quorum_engine
 app.state.state_store = state_store
 app.state.executor = executor
+# Engine is None when DATABASE_URL is unset — history endpoints return 503 in that mode.
+app.state.pg_engine = _pg_engine
 
 app.include_router(router)
+app.include_router(history_router)
 app.mount("/console-static", StaticFiles(directory="apps/console"), name="console-static")
 
 
