@@ -11,6 +11,19 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **LLM adapter `create_proposal` + allow-list enforcement (Phase 4 LLM PR 3)** —
+  Second tool for the telemetry LLM agent: `create_proposal` with an
+  enum-restricted `action_type` (only `github.comment_issue` and
+  `github.add_labels` — the low-risk actions). `open_pr` / `close_pr`
+  remain operator-only. Server-side gate in `POST /api/v1/proposals`
+  enforces the same allow-list via a new `allowed_action_types` field
+  in `config/agents.yaml`; an agent emitting a proposal outside its
+  list gets 403 before the event log sees it. Two independent gates
+  (client enum + server check) so a tampered client cannot escalate.
+  `run.py` distinguishes `TickBudgetExceeded` (normal poll-interval
+  back-off) from `DailyBudgetExceeded` (1-hour back-off until the
+  counter rolls at UTC midnight). System prompt expanded to describe
+  both tools plus the "no open_pr / no close_pr" rule.
 - **LLM adapter `create_finding` end-to-end (Phase 4 LLM PR 2)** —
   `apps/llm_agent/tools.py` ships the typed JSON-Schema tool definition
   for `create_finding` + a `dispatch_tool_use()` function that turns a

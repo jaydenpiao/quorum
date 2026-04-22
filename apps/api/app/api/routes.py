@@ -17,7 +17,11 @@ from apps.api.app.domain.models import (
     Vote,
     VoteCreate,
 )
-from apps.api.app.services.auth import demo_allowed, require_agent
+from apps.api.app.services.auth import (
+    allowed_action_types_for,
+    demo_allowed,
+    require_agent,
+)
 from apps.api.app.services.event_log import EventLogTamperError
 
 router = APIRouter(prefix="/api/v1")
@@ -134,6 +138,22 @@ def create_proposal(
     agent_id: str = Depends(require_agent),
 ) -> dict[str, Any]:
     bound_agent = _enforce_agent(payload.agent_id, agent_id)
+
+    # Per-agent action_type allow-list (LLM PR 3). Returns None for
+    # unrestricted agents (human operators, pre-existing agents); a
+    # tuple for agents that explicitly scope their proposals. We reject
+    # with 403 **before** the event log sees the proposal — a blocked
+    # attempt is not a mutation.
+    allowed = allowed_action_types_for(bound_agent)
+    if allowed is not None and payload.action_type not in allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"agent {bound_agent!r} is not permitted to propose "
+                f"action_type {payload.action_type!r}; "
+                f"allowed: {list(allowed)}"
+            ),
+        )
 
     refresh_state(request)
     if payload.intent_id not in request.app.state.state_store.intents:

@@ -106,6 +106,60 @@ def reload_all_registries() -> None:
     """Force re-read of both registries. Called by tests after monkeypatching."""
     _load_registry.cache_clear()
     _load_yaml_registry.cache_clear()
+    _load_allowed_action_types.cache_clear()
+
+
+# ---------------------------------------------------------------------------
+# Per-agent action_type allow-list (Phase 4 LLM PR 3)
+# ---------------------------------------------------------------------------
+#
+# Agents with an ``allowed_action_types`` field in ``config/agents.yaml``
+# can only submit proposals whose ``action_type`` matches the list. Agents
+# without the field are unrestricted (existing human + operator behaviour).
+# The check happens in the ``POST /api/v1/proposals`` route before the
+# event log sees the proposal — a mismatch is a 403, not an event.
+
+
+@lru_cache(maxsize=1)
+def _load_allowed_action_types() -> dict[str, tuple[str, ...]]:
+    """Return ``{agent_id: (allowed_action_type, ...)}`` for agents that set the field."""
+    import yaml  # local import to keep top-level deps minimal
+
+    path = _AGENTS_YAML_PATH
+    try:
+        with open(path) as fh:
+            data = yaml.safe_load(fh)
+    except (FileNotFoundError, OSError, yaml.YAMLError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+
+    result: dict[str, tuple[str, ...]] = {}
+    for agent in data.get("agents", []):
+        agent_id = (agent.get("id") or "").strip()
+        raw = agent.get("allowed_action_types")
+        if not agent_id or not isinstance(raw, list):
+            continue
+        cleaned: list[str] = []
+        for item in raw:
+            if isinstance(item, str) and item:
+                cleaned.append(item)
+        result[agent_id] = tuple(cleaned)
+    return result
+
+
+def allowed_action_types_for(agent_id: str) -> tuple[str, ...] | None:
+    """Return the per-agent action-type allow-list, or None for unrestricted.
+
+    - None → agent has no ``allowed_action_types`` field; any action_type
+      the policy engine accepts is fair game.
+    - tuple() → agent explicitly allows zero actions; every proposal
+      from this agent is rejected with 403.
+    - non-empty tuple → proposals whose action_type is in the tuple are
+      allowed through; others are rejected with 403.
+    """
+    registry = _load_allowed_action_types()
+    return registry.get(agent_id)
 
 
 # ---------------------------------------------------------------------------
