@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from apps.api.app.domain.models import (
     EventEnvelope,
     ExecutionRecord,
@@ -19,7 +21,7 @@ class Executor:
         self.policy_engine = policy_engine
         self.check_runner = HealthCheckRunner()
 
-    def execute(self, proposal: Proposal, actor_id: str) -> dict:
+    def execute(self, proposal: Proposal, actor_id: str) -> dict[str, Any]:
         started = ExecutionRecord(
             proposal_id=proposal.id,
             actor_id=actor_id,
