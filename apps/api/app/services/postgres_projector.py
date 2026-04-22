@@ -35,6 +35,7 @@ from apps.api.app.db.models import (
     ExecutionRow,
     FindingRow,
     HealthCheckResultRow,
+    HumanApprovalRow,
     IntentRow,
     PolicyDecisionRow,
     ProposalRow,
@@ -408,6 +409,71 @@ def _handle_health_check_completed(session: Session, event: EventEnvelope) -> No
     session.execute(stmt)
 
 
+def _upsert_approval(session: Session, event: EventEnvelope, *, status: str) -> None:
+    """Project a human_approval_* event into the ``human_approvals`` table.
+
+    Request rows carry ``proposer_id`` + ``reasons``; decision rows
+    carry ``approver_id`` + ``reason``. Both branches use the event id
+    as the primary key so a request + its decision are two distinct
+    rows filtered by ``proposal_id``.
+    """
+    p = event.payload
+    if status == "requested":
+        values = {
+            "id": p["id"],
+            "proposal_id": p["proposal_id"],
+            "status": status,
+            "proposer_id": p.get("proposer_id"),
+            "approver_id": None,
+            "reason": "",
+            "reasons": p.get("reasons", []),
+            "created_at": p["created_at"],
+        }
+    else:
+        values = {
+            "id": p["id"],
+            "proposal_id": p["proposal_id"],
+            "status": status,
+            "proposer_id": None,
+            "approver_id": p.get("approver_id"),
+            "reason": p.get("reason", ""),
+            "reasons": [],
+            "created_at": p["created_at"],
+        }
+    stmt = pg_insert(HumanApprovalRow).values(**values)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["id"],
+        set_={
+            c: stmt.excluded[c]
+            for c in (
+                "proposal_id",
+                "status",
+                "proposer_id",
+                "approver_id",
+                "reason",
+                "reasons",
+                "created_at",
+            )
+        },
+    )
+    session.execute(stmt)
+
+
+def _handle_human_approval_requested(session: Session, event: EventEnvelope) -> None:
+    _upsert_approval(session, event, status="requested")
+
+
+def _handle_human_approval_granted(session: Session, event: EventEnvelope) -> None:
+    _upsert_approval(session, event, status="granted")
+    # Grant does NOT flip proposal status — execution drives the status
+    # to executed / failed / rolled_back from the approved state.
+
+
+def _handle_human_approval_denied(session: Session, event: EventEnvelope) -> None:
+    _upsert_approval(session, event, status="denied")
+    _update_proposal_status(session, event.payload["proposal_id"], "approval_denied")
+
+
 _ENTITY_HANDLERS = {
     "intent_created": _handle_intent_created,
     "finding_created": _handle_finding_created,
@@ -423,4 +489,7 @@ _ENTITY_HANDLERS = {
     "rollback_started": _handle_rollback_started,
     "rollback_completed": _handle_rollback_completed,
     "rollback_impossible": _handle_rollback_impossible,
+    "human_approval_requested": _handle_human_approval_requested,
+    "human_approval_granted": _handle_human_approval_granted,
+    "human_approval_denied": _handle_human_approval_denied,
 }

@@ -81,6 +81,9 @@ def test_dispatch_table_covers_all_expected_event_types() -> None:
         "rollback_started",
         "rollback_completed",
         "rollback_impossible",
+        "human_approval_requested",
+        "human_approval_granted",
+        "human_approval_denied",
     }
     registered = set(postgres_projector._ENTITY_HANDLERS.keys())
     missing = expected - registered
