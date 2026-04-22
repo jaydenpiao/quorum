@@ -75,3 +75,33 @@ agents:
       per_tick_token_cap: 50000       # single tick cap
       poll_interval_seconds: 30.0     # adapter tick cadence
       max_events_per_tick: 100        # per-tick event window
+
+  # Phase 5 deploy-agent. Watches the event stream for newly-pushed
+  # container images and proposes a `fly.deploy` action carrying the
+  # image digest. The proposal still goes through the full policy
+  # path (2 votes + requires_human, per config/policies.yaml) before
+  # the executor shells to `fly deploy`.
+  - id: deploy-llm-agent
+    role: deployment
+    can_vote: false        # proposer only, same pattern as telemetry-llm-agent
+    can_propose: true
+    scope:
+      - deployments
+      - release-history
+    # api_key_hash: <argon2id hash — set with: python -m apps.api.app.tools.bootstrap_keys generate --agent-id deploy-llm-agent>
+    api_key_hash: ""
+    # Allow-list is a single action; any other action_type returns 403
+    # server-side. Narrower than the tool-schema enum on purpose.
+    allowed_action_types:
+      - fly.deploy
+    llm:
+      provider: anthropic
+      model: claude-opus-4-7
+      system_prompt_ref: prompts/deploy-agent.md
+      # Deploy-agent ticks are sparse (only when an image pushes), so
+      # the per-tick cap can stay modest and the daily cap can be
+      # smaller than telemetry's.
+      daily_token_cap: 500000         # ~$2.50/day worst case on Opus 4.7
+      per_tick_token_cap: 30000
+      poll_interval_seconds: 60.0     # longer poll — deploys are rare
+      max_events_per_tick: 50
