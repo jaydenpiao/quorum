@@ -138,7 +138,9 @@ class Executor:
     ) -> None:
         self.event_log = event_log
         self.policy_engine = policy_engine
-        self.check_runner = HealthCheckRunner()
+        # HealthCheckRunner gets the same github_client so ``github_check_run``
+        # specs can poll a commit's check-runs through the configured App.
+        self.check_runner = HealthCheckRunner(github_client=github_client)
         self.github_client = github_client
 
     # ------------------------------------------------------------------
@@ -182,7 +184,10 @@ class Executor:
 
         health_results: list[HealthCheckResult] = []
         for spec in proposal.health_checks:
-            result = self.check_runner.run(spec)
+            # Thread the actuator's typed result (e.g. OpenPrResult.head_sha)
+            # into the check runner so github_check_run specs can pick it
+            # up without the operator knowing the SHA at proposal time.
+            result = self.check_runner.run(spec, context=action_result)
             self.event_log.append(
                 EventEnvelope(
                     event_type="health_check_completed",

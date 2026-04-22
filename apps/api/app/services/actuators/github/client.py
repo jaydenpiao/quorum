@@ -549,6 +549,35 @@ class GitHubAppClient:
                 return
             raise
 
+    # -- REST methods used by HealthCheckKind.github_check_run ---------------
+
+    def list_commit_check_runs(
+        self,
+        installation_id: int,
+        owner: str,
+        repo: str,
+        commit_sha: str,
+    ) -> list[dict[str, Any]]:
+        """Return all check-runs for a commit. Empty list on 200 with no runs.
+
+        Response shape: GitHub wraps the array in ``{"total_count": N,
+        "check_runs": [...]}``, so this method unwraps to the array.
+        """
+        data = self._request(
+            installation_id,
+            "GET",
+            f"/repos/{owner}/{repo}/commits/{commit_sha}/check-runs",
+            expected=(200,),
+        )
+        raw_runs = data.get("check_runs")
+        if not isinstance(raw_runs, list):
+            return []
+        runs: list[dict[str, Any]] = []
+        for entry in raw_runs:
+            if isinstance(entry, dict):
+                runs.append(entry)
+        return runs
+
     # -- lifecycle -----------------------------------------------------------
 
     def close(self) -> None:

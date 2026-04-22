@@ -522,3 +522,62 @@ def test_executor_dispatches_add_labels(
 
     assert outcome["status"] == "succeeded"
     assert outcome["result"]["labels_added"] == ["stale"]
+
+
+# ---------------------------------------------------------------------------
+# PR E: open_pr + github_check_run health check threading
+# ---------------------------------------------------------------------------
+
+
+def test_open_pr_then_github_check_run_uses_actuator_head_sha(
+    event_log: EventLog, policy: PolicyEngine, gh_client: GitHubAppClient
+) -> None:
+    """The executor should thread OpenPrResult.head_sha into the check runner
+    as ``context["head_sha"]`` so the check-runs poll hits the right commit
+    without the operator knowing the SHA at proposal time."""
+    executor = Executor(event_log, policy, github_client=gh_client)
+    proposal = _open_pr_proposal()
+    proposal = proposal.model_copy(
+        update={
+            "health_checks": [
+                HealthCheckSpec.model_validate(
+                    {
+                        "name": "ci",
+                        "kind": HealthCheckKind.github_check_run,
+                        "github_owner": "jaydenpiao",
+                        "github_repo": "quorum",
+                        "timeout_seconds": 15.0,
+                        "poll_interval_seconds": 0.5,
+                    }
+                )
+            ]
+        }
+    )
+
+    # Swap the runner's sleep_fn to a no-op so the test doesn't actually sleep.
+    executor.check_runner._sleep = lambda _: None  # type: ignore[assignment]  # noqa: SLF001
+
+    with respx.mock(assert_all_called=False) as mock:
+        _setup_happy_path(mock)
+        # The check runner hits the head_sha produced by open_pr ("commit_xyz").
+        mock.get(
+            "https://api.github.com/repos/jaydenpiao/quorum/commits/commit_xyz/check-runs"
+        ).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "total_count": 1,
+                    "check_runs": [{"name": "ci", "status": "completed", "conclusion": "success"}],
+                },
+            )
+        )
+
+        outcome = executor.execute(proposal, actor_id="code-agent")
+
+    assert outcome["status"] == "succeeded"
+    assert outcome["result"]["head_sha"] == "commit_xyz"
+    types = [e.event_type for e in event_log.read_all()]
+    assert types[-1] == "execution_succeeded"
+    hcc = next(e for e in event_log.read_all() if e.event_type == "health_check_completed")
+    assert hcc.payload["passed"] is True
+    assert hcc.payload["kind"] == "github_check_run"
