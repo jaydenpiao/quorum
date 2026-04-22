@@ -1,0 +1,43 @@
+# Version control
+.git
+.gitignore
+
+# Virtual environments — never bake the local venv into the image
+.venv
+
+# Test and dev tooling — excluded from the runtime image
+tests/
+docs/
+
+# Claude / AI tooling
+.claude/
+.mcp.json
+
+# GitHub workflows — not needed at runtime
+.github/
+
+# Persistent data — the event log is volume-mounted, not baked in
+data/events.jsonl
+
+# Python bytecode and caches
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# JS / frontend build artifacts
+node_modules/
+
+# macOS noise
+.DS_Store
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local secrets — never commit, never bake in
+.env
