@@ -70,4 +70,5 @@ def configure_logging(level: str | None = None) -> None:
 
 def get_logger(name: str = "quorum") -> structlog.BoundLogger:
     """Return a structlog BoundLogger with ``logger=name`` bound into context."""
-    return structlog.get_logger().bind(logger=name)
+    bound: structlog.BoundLogger = structlog.get_logger().bind(logger=name)
+    return bound

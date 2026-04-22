@@ -1,17 +1,21 @@
 from __future__ import annotations
 
+from typing import Any
+
 from apps.api.app.domain.models import (
     EventEnvelope,
     Finding,
     FindingCreate,
+    HealthCheckKind,
+    HealthCheckSpec,
     Intent,
     IntentCreate,
     Proposal,
     ProposalCreate,
+    RiskLevel,
     Vote,
     VoteCreate,
-    HealthCheckSpec,
-    HealthCheckKind,
+    VoteDecision,
 )
 from apps.api.app.services.event_log import EventLog
 from apps.api.app.services.policy_engine import PolicyEngine
@@ -20,7 +24,9 @@ from apps.api.app.services.state_store import StateStore
 from apps.api.app.services.executor import Executor
 
 
-def seed_demo(log_path: str = "data/events.jsonl", event_log: EventLog | None = None) -> dict:
+def seed_demo(
+    log_path: str = "data/events.jsonl", event_log: EventLog | None = None
+) -> dict[str, Any]:
     # Caller can provide an existing EventLog to preserve hash-chain continuity;
     # otherwise a fresh instance is created (suitable for CLI use).
     if event_log is None:
@@ -80,7 +86,7 @@ def seed_demo(log_path: str = "data/events.jsonl", event_log: EventLog | None = 
         action_type="rollback-deploy",
         target="checkout-service",
         environment="prod",
-        risk="high",
+        risk=RiskLevel.high,
         rationale="Independent telemetry and deploy findings agree that v184 caused the regression",
         evidence_refs=["deploy:v184", "grafana:checkout-p99"],
         rollback_steps=[
@@ -117,28 +123,28 @@ def seed_demo(log_path: str = "data/events.jsonl", event_log: EventLog | None = 
         VoteCreate(
             proposal_id=proposal.id,
             agent_id="telemetry-agent",
-            decision="approve",
+            decision=VoteDecision.approve,
             reason="matches telemetry evidence",
         ),
         VoteCreate(
             proposal_id=proposal.id,
             agent_id="code-agent",
-            decision="approve",
+            decision=VoteDecision.approve,
             reason="recent config diff aligns with failure",
         ),
     ]
-    all_votes = []
+    all_votes: list[dict[str, Any]] = []
     for vote in votes:
-        obj = Vote(**vote.model_dump())
+        vote_obj = Vote(**vote.model_dump())
         event_log.append(
             EventEnvelope(
                 event_type="proposal_voted",
                 entity_type="vote",
-                entity_id=obj.id,
-                payload=obj.model_dump(mode="json"),
+                entity_id=vote_obj.id,
+                payload=vote_obj.model_dump(mode="json"),
             )
         )
-        all_votes.append(obj.model_dump(mode="json"))
+        all_votes.append(vote_obj.model_dump(mode="json"))
 
     if quorum.is_approved(all_votes, decision):
         event_log.append(
