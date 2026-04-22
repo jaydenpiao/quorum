@@ -11,6 +11,23 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **Remaining GitHub actions (Phase 4 PR D)** — `github.comment_issue`,
+  `github.close_pr`, `github.add_labels`, each with typed spec, result,
+  orchestration function, and idempotent rollback (delete comment,
+  reopen PR, remove-only-what-we-added labels). `GitHubAppClient` gains
+  `create_issue_comment`, `delete_issue_comment`, `reopen_pull_request`,
+  `list_issue_labels`, `add_issue_labels`, `remove_issue_label` plus a
+  `_list_request` helper for JSON-array endpoints. Executor switches
+  from hardcoded action_type branches to per-action dispatch tables
+  (`_ACTION_DISPATCH` / `_ROLLBACK_DISPATCH`) — adding a new action is
+  now a three-line change here plus a spec + action function in the
+  actuator subpackage. `rollback_close_pr` surfaces
+  `RollbackImpossibleError` when the PR was merged between close and
+  rollback. `add_labels` pre-lists existing labels and captures only
+  the diff as `labels_added`, so rollback never removes labels that
+  were already present. `config/policies.yaml` ships default
+  `action_type_rules` for all three new actions
+  (`comment_issue`/`add_labels` require 1 vote; `close_pr` requires 2).
 - **Actuator-aware rollback + `rollback_impossible` event (Phase 4 PR C)** —
   the executor now dispatches rollback for `github.*` proposals to a
   matching actuator function (currently `rollback_open_pr`: closes the

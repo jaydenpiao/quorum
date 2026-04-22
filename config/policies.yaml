@@ -31,6 +31,15 @@ action_type_rules:
   github.open_pr:
     votes_required: 2
     requires_human: false
+  github.close_pr:
+    votes_required: 2
+    requires_human: false
+  github.comment_issue:
+    votes_required: 1
+    requires_human: false
+  github.add_labels:
+    votes_required: 1
+    requires_human: false
 
 rollback:
   auto_on_failed_health_checks: true

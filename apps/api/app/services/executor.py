@@ -14,20 +14,21 @@ side-effects against the outside world. The sequence is always:
    ``execution_failed`` + (optionally) rollback events, then return.
 5. Otherwise emit ``execution_succeeded``.
 
-Rollback path (PR C):
+Rollback path:
 
-- Non-github action types keep the pre-PR-B2 behaviour — emit
-  ``rollback_started`` + ``rollback_completed`` carrying
-  ``proposal.rollback_steps``.
+- Non-github action types emit ``rollback_started`` +
+  ``rollback_completed`` carrying ``proposal.rollback_steps``.
 - ``github.*`` proposals with a captured actuator result dispatch to
-  the matching actuator rollback function (e.g. ``rollback_open_pr``).
-  - On success → ``rollback_completed``.
-  - On ``RollbackImpossibleError`` → ``rollback_impossible`` with the
-    actuator's reason + state. The proposal ends in the terminal
-    ``rollback_impossible`` status and a human must reconcile.
-  - On any other actuator error mid-rollback → ``rollback_impossible``
-    with a scrubbed reason, so the audit trail reflects a stuck state
-    rather than silently swallowing the failure.
+  the matching actuator rollback function via the per-action-type
+  ``_ROLLBACK_DISPATCH`` table. On success → ``rollback_completed``
+  (payload carries an ``actuator_summary``). On
+  ``RollbackImpossibleError`` or any other actuator error mid-rollback
+  → ``rollback_impossible`` — the proposal lands in
+  ``ProposalStatus.rollback_impossible`` and a human reconciles.
+
+Dispatch tables (``_ACTION_DISPATCH`` / ``_ROLLBACK_DISPATCH``) keep the
+per-action wiring in one place so adding a new action is a three-line
+change here plus a spec + action function in the actuator subpackage.
 
 The actuator subpackage never emits events — per ``AGENTS.md`` only the
 executor does. Actuator errors are translated here into scrubbed
@@ -37,9 +38,10 @@ private-key or token material cannot leak into the event log.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from apps.api.app.domain.models import (
     EventEnvelope,
@@ -51,14 +53,26 @@ from apps.api.app.domain.models import (
     RollbackRecord,
 )
 from apps.api.app.services.actuators.github import (
+    AddLabelsResult,
+    ClosePrResult,
+    CommentIssueResult,
     GitHubActionError,
+    GitHubAddLabelsSpec,
     GitHubApiError,
     GitHubAppAuthError,
     GitHubAppClient,
+    GitHubClosePrSpec,
+    GitHubCommentIssueSpec,
     GitHubOpenPrSpec,
     OpenPrResult,
     RollbackImpossibleError,
+    add_labels,
+    close_pr,
+    comment_issue,
     open_pr,
+    rollback_add_labels,
+    rollback_close_pr,
+    rollback_comment_issue,
     rollback_open_pr,
 )
 from apps.api.app.services.event_log import EventLog
@@ -76,6 +90,42 @@ class ExecutorDispatchError(RuntimeError):
 
 
 _GITHUB_PREFIX = "github."
+
+
+# Per-action_type dispatch: each entry pairs the payload spec model with
+# an orchestration wrapper. Wrappers accept the client, the validated
+# spec, and the proposal id (kept on all actions for API symmetry even
+# when only ``open_pr`` derives state from it).
+_ActionFn = Callable[[GitHubAppClient, Any, str], BaseModel]
+_ACTION_DISPATCH: dict[str, tuple[type[BaseModel], _ActionFn]] = {
+    "github.open_pr": (
+        GitHubOpenPrSpec,
+        lambda client, spec, pid: open_pr(client, spec, proposal_id=pid),
+    ),
+    "github.comment_issue": (
+        GitHubCommentIssueSpec,
+        lambda client, spec, pid: comment_issue(client, spec, proposal_id=pid),
+    ),
+    "github.close_pr": (
+        GitHubClosePrSpec,
+        lambda client, spec, pid: close_pr(client, spec, proposal_id=pid),
+    ),
+    "github.add_labels": (
+        GitHubAddLabelsSpec,
+        lambda client, spec, pid: add_labels(client, spec, proposal_id=pid),
+    ),
+}
+
+# Per-action_type rollback dispatch: result model + rollback fn. Keyed
+# by the same action_type as the forward dispatch so the executor can
+# look up how to undo whatever it just ran.
+_RollbackFn = Callable[[GitHubAppClient, Any], dict[str, Any]]
+_ROLLBACK_DISPATCH: dict[str, tuple[type[BaseModel], _RollbackFn]] = {
+    "github.open_pr": (OpenPrResult, rollback_open_pr),
+    "github.comment_issue": (CommentIssueResult, rollback_comment_issue),
+    "github.close_pr": (ClosePrResult, rollback_close_pr),
+    "github.add_labels": (AddLabelsResult, rollback_add_labels),
+}
 
 
 class Executor:
@@ -111,9 +161,6 @@ class Executor:
             )
         )
 
-        # Step 2: dispatch to the actuator. If dispatch fails we emit
-        # execution_failed immediately and skip health checks — there is
-        # nothing healthy to verify if the mutation itself did not land.
         try:
             action_result = self._dispatch_action(proposal)
         except ExecutorDispatchError as exc:
@@ -133,7 +180,6 @@ class Executor:
                 result={},
             )
 
-        # Step 3: health checks.
         health_results: list[HealthCheckResult] = []
         for spec in proposal.health_checks:
             result = self.check_runner.run(spec)
@@ -204,15 +250,17 @@ class Executor:
                 "config/github.yaml app_id)"
             )
 
-        if action_type == "github.open_pr":
-            spec = GitHubOpenPrSpec.model_validate(proposal.payload)
-            result = open_pr(self.github_client, spec, proposal_id=proposal.id)
-            return result.model_dump(mode="json")
+        entry = _ACTION_DISPATCH.get(action_type)
+        if entry is None:
+            raise ExecutorDispatchError(
+                f"action_type '{action_type}' is not yet implemented; "
+                f"supported github actions: {sorted(_ACTION_DISPATCH.keys())}"
+            )
 
-        raise ExecutorDispatchError(
-            f"action_type '{action_type}' is not yet implemented; "
-            "supported github actions in this release: github.open_pr"
-        )
+        spec_cls, action_fn = entry
+        spec = spec_cls.model_validate(proposal.payload)
+        result_model = action_fn(self.github_client, spec, proposal.id)
+        return result_model.model_dump(mode="json")
 
     # ------------------------------------------------------------------
     # Failure + rollback path
@@ -265,13 +313,7 @@ class Executor:
         actor_id: str,
         result: dict[str, Any],
     ) -> dict[str, Any]:
-        """Emit rollback_started, then either rollback_completed or
-        rollback_impossible depending on actuator outcome.
-
-        Returns the payload of the terminal rollback event.
-        """
-        # Always emit rollback_started so the timeline is consistent
-        # whether the rollback path is text-only or actuator-driven.
+        """Emit rollback_started, then rollback_completed or rollback_impossible."""
         started = RollbackRecord(
             proposal_id=proposal.id,
             actor_id=actor_id,
@@ -287,32 +329,27 @@ class Executor:
             )
         )
 
-        # Decide whether to run an actuator-aware rollback. The
-        # preconditions: (1) we have a github client configured, (2) the
-        # proposal's action_type is github.* and one we know how to
-        # revert, (3) the ExecutionRecord.result parses into the
-        # expected actuator result type.
-        actuator_rollback_attempted = False
-        if self.github_client is not None and proposal.action_type == "github.open_pr" and result:
+        # Actuator-aware rollback path: requires a client, a dispatch
+        # entry for the action_type, and a non-empty captured result.
+        rollback_entry = _ROLLBACK_DISPATCH.get(proposal.action_type)
+        if self.github_client is not None and rollback_entry is not None and result:
+            result_cls, rollback_fn = rollback_entry
             try:
-                parsed = OpenPrResult.model_validate(result)
+                parsed = result_cls.model_validate(result)
             except ValidationError as exc:
-                # Unexpected shape on a github.open_pr execution record —
-                # safer to emit rollback_impossible than pretend the text
-                # rollback undid the PR.
                 return self._emit_rollback_impossible(
                     proposal=proposal,
                     actor_id=actor_id,
                     reason=(
-                        "github.open_pr execution result did not match OpenPrResult "
-                        f"schema ({exc.error_count()} errors); manual reconcile required"
+                        f"{proposal.action_type} execution result did not match "
+                        f"{result_cls.__name__} schema ({exc.error_count()} errors); "
+                        "manual reconcile required"
                     ),
                     actuator_state=result,
                 )
 
-            actuator_rollback_attempted = True
             try:
-                rollback_summary = rollback_open_pr(self.github_client, parsed)
+                rollback_summary = rollback_fn(self.github_client, parsed)
             except RollbackImpossibleError as exc:
                 return self._emit_rollback_impossible(
                     proposal=proposal,
@@ -328,8 +365,6 @@ class Executor:
                     actuator_state=parsed.model_dump(mode="json"),
                 )
 
-            # Actuator rollback succeeded — emit the terminal completed
-            # event so the state store marks the proposal rolled_back.
             completed = RollbackRecord(
                 proposal_id=proposal.id,
                 actor_id=actor_id,
@@ -349,12 +384,7 @@ class Executor:
             )
             return completed.model_dump(mode="json")
 
-        # Text-only rollback path (unchanged behaviour for non-github or
-        # when the dispatch itself failed with no result captured).
-        if actuator_rollback_attempted:
-            # Unreachable — control flow covers both paths above.
-            raise RuntimeError("unreachable: actuator rollback branch did not return")
-
+        # Text-only rollback path (non-github or no captured result).
         completed = RollbackRecord(
             proposal_id=proposal.id,
             actor_id=actor_id,

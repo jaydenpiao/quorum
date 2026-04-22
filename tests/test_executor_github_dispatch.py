@@ -359,3 +359,166 @@ def test_github_open_pr_success_then_health_check_fails(
     completed = next(e for e in event_log.read_all() if e.event_type == "rollback_completed")
     assert completed.payload["actuator_summary"]["pr_action"] == "closed"
     assert completed.payload["actuator_summary"]["branch_deleted"] == f"quorum/{proposal.id}"
+
+
+# ---------------------------------------------------------------------------
+# PR D: dispatch for the remaining github actions
+# ---------------------------------------------------------------------------
+
+
+def _comment_proposal() -> Proposal:
+    return Proposal(
+        intent_id="intent_abc",
+        agent_id="code-agent",
+        title="leave note",
+        action_type="github.comment_issue",
+        target="jaydenpiao/quorum#88",
+        rationale="flag for operator",
+        rollback_steps=["delete comment"],
+        payload={
+            "owner": "jaydenpiao",
+            "repo": "quorum",
+            "issue_number": 88,
+            "body": "flagged by quorum",
+        },
+        status=ProposalStatus.approved,
+    )
+
+
+def test_executor_dispatches_comment_issue(
+    event_log: EventLog, policy: PolicyEngine, gh_client: GitHubAppClient
+) -> None:
+    executor = Executor(event_log, policy, github_client=gh_client)
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.post("https://api.github.com/app/installations/7/access_tokens").mock(
+            return_value=_token_response()
+        )
+        mock.post("https://api.github.com/repos/jaydenpiao/quorum/issues/88/comments").mock(
+            return_value=httpx.Response(
+                201,
+                json={
+                    "id": 777,
+                    "html_url": "https://github.com/jaydenpiao/quorum/issues/88#issuecomment-777",
+                },
+            )
+        )
+
+        outcome = executor.execute(_comment_proposal(), actor_id="code-agent")
+
+    assert outcome["status"] == "succeeded"
+    assert outcome["result"]["comment_id"] == 777
+
+
+def _close_pr_proposal() -> Proposal:
+    return Proposal(
+        intent_id="intent_abc",
+        agent_id="code-agent",
+        title="retire stale PR",
+        action_type="github.close_pr",
+        target="jaydenpiao/quorum#17",
+        rationale="superseded",
+        rollback_steps=["reopen PR"],
+        payload={"owner": "jaydenpiao", "repo": "quorum", "pr_number": 17},
+        status=ProposalStatus.approved,
+    )
+
+
+def test_executor_dispatches_close_pr_with_actuator_rollback(
+    event_log: EventLog, policy: PolicyEngine, gh_client: GitHubAppClient
+) -> None:
+    """Dispatch succeeds → health check fails → rollback reopens the PR."""
+    executor = Executor(event_log, policy, github_client=gh_client)
+    proposal = _close_pr_proposal()
+    proposal = proposal.model_copy(
+        update={"health_checks": [HealthCheckSpec(name="x", kind=HealthCheckKind.always_fail)]}
+    )
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.post("https://api.github.com/app/installations/7/access_tokens").mock(
+            return_value=_token_response()
+        )
+        # Action: get_pr (open) → patch state=closed.
+        get_responses = iter(
+            [
+                httpx.Response(
+                    200,
+                    json={
+                        "state": "open",
+                        "merged": False,
+                        "html_url": "https://github.com/jaydenpiao/quorum/pull/17",
+                    },
+                ),
+                # rollback pre-check: PR is now closed, not merged.
+                httpx.Response(200, json={"state": "closed", "merged": False}),
+            ]
+        )
+        mock.get("https://api.github.com/repos/jaydenpiao/quorum/pulls/17").mock(
+            side_effect=lambda *_a, **_k: next(get_responses)
+        )
+        # Action close + rollback reopen both PATCH same endpoint.
+        patch_responses = iter(
+            [
+                httpx.Response(
+                    200,
+                    json={
+                        "state": "closed",
+                        "merged": False,
+                        "html_url": "https://github.com/jaydenpiao/quorum/pull/17",
+                    },
+                ),
+                httpx.Response(200, json={"state": "open", "merged": False}),
+            ]
+        )
+        mock.patch("https://api.github.com/repos/jaydenpiao/quorum/pulls/17").mock(
+            side_effect=lambda *_a, **_k: next(patch_responses)
+        )
+
+        outcome = executor.execute(proposal, actor_id="code-agent")
+
+    assert outcome["status"] == "failed"
+    types = [e.event_type for e in event_log.read_all()]
+    assert "rollback_completed" in types
+    completed = next(e for e in event_log.read_all() if e.event_type == "rollback_completed")
+    assert completed.payload["actuator_summary"]["pr_action"] == "reopened"
+
+
+def _add_labels_proposal() -> Proposal:
+    return Proposal(
+        intent_id="intent_abc",
+        agent_id="code-agent",
+        title="tag stale",
+        action_type="github.add_labels",
+        target="jaydenpiao/quorum#55",
+        rationale="stale for 30d",
+        rollback_steps=["remove stale label"],
+        payload={
+            "owner": "jaydenpiao",
+            "repo": "quorum",
+            "issue_number": 55,
+            "labels": ["stale"],
+        },
+        status=ProposalStatus.approved,
+    )
+
+
+def test_executor_dispatches_add_labels(
+    event_log: EventLog, policy: PolicyEngine, gh_client: GitHubAppClient
+) -> None:
+    executor = Executor(event_log, policy, github_client=gh_client)
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.post("https://api.github.com/app/installations/7/access_tokens").mock(
+            return_value=_token_response()
+        )
+        mock.get("https://api.github.com/repos/jaydenpiao/quorum/issues/55/labels").mock(
+            return_value=httpx.Response(200, json=[])
+        )
+        mock.post("https://api.github.com/repos/jaydenpiao/quorum/issues/55/labels").mock(
+            return_value=httpx.Response(200, json=[{"name": "stale", "color": "aaa"}])
+        )
+
+        outcome = executor.execute(_add_labels_proposal(), actor_id="code-agent")
+
+    assert outcome["status"] == "succeeded"
+    assert outcome["result"]["labels_added"] == ["stale"]

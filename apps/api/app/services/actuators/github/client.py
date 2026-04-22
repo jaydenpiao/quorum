@@ -159,6 +159,54 @@ class GitHubAppClient:
             return {}
         return cast(dict[str, Any], response.json())
 
+    def _list_request(
+        self,
+        installation_id: int,
+        method: str,
+        path: str,
+        *,
+        json_body: dict[str, Any] | None = None,
+        expected: tuple[int, ...] = (200, 201),
+    ) -> list[Any]:
+        """Variant of ``_request`` for endpoints that return JSON arrays.
+
+        GitHub's ``/issues/{n}/labels`` (both GET and POST) returns an
+        array of label objects rather than a dict. All the transport +
+        auth-retry + error-translation plumbing is identical — only the
+        body-type cast differs.
+        """
+        url = f"{self._base_url}{path}"
+
+        def do(token: str) -> httpx.Response:
+            try:
+                return self._http.request(
+                    method,
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/vnd.github+json",
+                        "X-GitHub-Api-Version": "2022-11-28",
+                    },
+                    json=json_body,
+                )
+            except httpx.HTTPError as exc:
+                return httpx.Response(599, json={"message": type(exc).__name__})
+
+        response = self.installation_token_with_retry(installation_id, do)
+
+        if response.status_code not in expected:
+            message = _extract_message(response)
+            raise GitHubApiError(
+                method=method,
+                url=url,
+                status_code=response.status_code,
+                message=message,
+            )
+
+        if response.status_code == 204 or not response.content:
+            return []
+        return cast(list[Any], response.json())
+
     # -- REST methods used by actions.open_pr --------------------------------
 
     def get_branch(
@@ -358,6 +406,146 @@ class GitHubAppClient:
             # malformed paths. Treat both as idempotent success — there
             # is nothing to undo.
             if exc.status_code in (404, 422):
+                return
+            raise
+
+    # -- REST methods used by actions.comment_issue / close_pr / add_labels --
+
+    def create_issue_comment(
+        self,
+        installation_id: int,
+        owner: str,
+        repo: str,
+        issue_number: int,
+        body: str,
+    ) -> dict[str, Any]:
+        """Post a comment to an issue or PR. Returns the new comment JSON.
+
+        GitHub treats PRs as issues for comments, so this works for both.
+        Callers pull ``id`` (for rollback) and ``html_url`` from the result.
+        """
+        return self._request(
+            installation_id,
+            "POST",
+            f"/repos/{owner}/{repo}/issues/{issue_number}/comments",
+            json_body={"body": body},
+            expected=(201,),
+        )
+
+    def delete_issue_comment(
+        self,
+        installation_id: int,
+        owner: str,
+        repo: str,
+        comment_id: int,
+    ) -> None:
+        """Delete an issue/PR comment by id. Idempotent on 404.
+
+        Note the endpoint is ``/repos/.../issues/comments/{id}`` — no
+        ``issue_number`` segment — matching GitHub's REST convention.
+        """
+        try:
+            self._request(
+                installation_id,
+                "DELETE",
+                f"/repos/{owner}/{repo}/issues/comments/{comment_id}",
+                expected=(204,),
+            )
+        except GitHubApiError as exc:
+            if exc.status_code == 404:
+                return
+            raise
+
+    def reopen_pull_request(
+        self,
+        installation_id: int,
+        owner: str,
+        repo: str,
+        pr_number: int,
+    ) -> dict[str, Any]:
+        """PATCH the PR back to ``state="open"``.
+
+        GitHub returns 422 "Cannot reopen a merged pull request" if the
+        PR was merged. The rollback action catches that and translates
+        it into ``RollbackImpossibleError``.
+        """
+        return self._request(
+            installation_id,
+            "PATCH",
+            f"/repos/{owner}/{repo}/pulls/{pr_number}",
+            json_body={"state": "open"},
+            expected=(200,),
+        )
+
+    def list_issue_labels(
+        self,
+        installation_id: int,
+        owner: str,
+        repo: str,
+        issue_number: int,
+    ) -> list[str]:
+        """Return the current label names on an issue/PR, in repo order."""
+        response = self._list_request(
+            installation_id,
+            "GET",
+            f"/repos/{owner}/{repo}/issues/{issue_number}/labels",
+            expected=(200,),
+        )
+        names: list[str] = []
+        for entry in response:
+            if isinstance(entry, dict):
+                name = entry.get("name")
+                if isinstance(name, str) and name:
+                    names.append(name)
+        return names
+
+    def add_issue_labels(
+        self,
+        installation_id: int,
+        owner: str,
+        repo: str,
+        issue_number: int,
+        labels: list[str],
+    ) -> list[str]:
+        """Add the given labels and return the issue's full label list after.
+
+        GitHub's behaviour is additive — labels already present stay.
+        Duplicates in ``labels`` are ignored server-side. Returns names
+        of all labels now on the issue (in repo order).
+        """
+        response = self._list_request(
+            installation_id,
+            "POST",
+            f"/repos/{owner}/{repo}/issues/{issue_number}/labels",
+            json_body={"labels": labels},
+            expected=(200,),
+        )
+        names: list[str] = []
+        for entry in response:
+            if isinstance(entry, dict):
+                name = entry.get("name")
+                if isinstance(name, str) and name:
+                    names.append(name)
+        return names
+
+    def remove_issue_label(
+        self,
+        installation_id: int,
+        owner: str,
+        repo: str,
+        issue_number: int,
+        label_name: str,
+    ) -> None:
+        """Remove one label by name. Idempotent on 404."""
+        try:
+            self._request(
+                installation_id,
+                "DELETE",
+                f"/repos/{owner}/{repo}/issues/{issue_number}/labels/{label_name}",
+                expected=(200,),
+            )
+        except GitHubApiError as exc:
+            if exc.status_code == 404:
                 return
             raise
 
