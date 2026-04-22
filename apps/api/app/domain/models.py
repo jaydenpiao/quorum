@@ -63,6 +63,12 @@ class ProposalStatus(str, Enum):
     executed = "executed"
     failed = "failed"
     rolled_back = "rolled_back"
+    # Terminal state when the mutation ran, at least one health check
+    # failed, *and* rollback could not undo the side-effects (e.g. the
+    # PR was merged out-of-band before rollback fired). Distinct from
+    # `rolled_back` so operators can query for stuck, human-require
+    # proposals directly.
+    rollback_impossible = "rollback_impossible"
 
 
 class VoteDecision(str, Enum):
@@ -252,6 +258,24 @@ class RollbackRecord(BaseModel):
     actor_id: str
     steps: list[str] = Field(default_factory=list)
     status: Literal["started", "completed"] = "started"
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class RollbackImpossibleRecord(BaseModel):
+    """Terminal record for when the executor could not undo a mutation.
+
+    Emitted as a ``rollback_impossible`` event. ``reason`` is a short,
+    operator-readable string (never contains tokens or keys). The
+    ``actuator_state`` carries whatever the actuator returned before
+    the rollback attempt — enough context for a human to reconcile by
+    hand (e.g. a closed-PR URL, a lingering branch name).
+    """
+
+    id: str = Field(default_factory=lambda: new_id("rollimp"))
+    proposal_id: str
+    actor_id: str
+    reason: str = Field(min_length=1, max_length=2000)
+    actuator_state: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
 
 
