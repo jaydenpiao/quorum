@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from pathlib import Path
 from threading import Lock
 
@@ -9,6 +10,8 @@ import structlog
 
 from apps.api.app.domain.models import EventEnvelope
 from apps.api.app.services.projector import NoOpProjector, Projector
+
+EventCallback = Callable[[EventEnvelope], None]
 
 _log = structlog.get_logger(__name__)
 
@@ -57,6 +60,12 @@ class EventLog:
         # Projector is called after every successful append. Default is a
         # no-op; real Postgres projection is added in a later PR.
         self.projector: Projector = projector or NoOpProjector()
+        # Pub/sub for live consumers (SSE stream, future tail-tools).
+        # Invoked after fsync + projector so subscribers only see events
+        # that have landed canonically. Subscriber failures are logged
+        # + swallowed — a bad subscriber never blocks the append path.
+        self._subscribers: list[EventCallback] = []
+        self._subscribers_lock = Lock()
 
     def _read_last_hash(self) -> str | None:
         """Recover the in-memory `last_hash` cache by scanning the file tail."""
@@ -109,6 +118,23 @@ class EventLog:
                 error=repr(exc),
             )
 
+        # Notify live subscribers. Snapshot the subscriber list under the
+        # lock so concurrent subscribe/unsubscribe doesn't race with the
+        # iteration; invoke callbacks outside the lock so a slow
+        # subscriber can't block writers.
+        with self._subscribers_lock:
+            callbacks = list(self._subscribers)
+        for cb in callbacks:
+            try:
+                cb(event)
+            except Exception as exc:  # noqa: BLE001 — subscriber failure is not our problem
+                _log.warning(
+                    "event_log_subscriber_failed",
+                    event_id=event.id,
+                    event_type=event.event_type,
+                    error=repr(exc),
+                )
+
         return event
 
     def read_all(self) -> list[EventEnvelope]:
@@ -145,3 +171,31 @@ class EventLog:
         with self.lock:
             self.path.write_text("", encoding="utf-8")
             self._last_hash = None
+
+    def subscribe(self, callback: EventCallback) -> Callable[[], None]:
+        """Register a callback that fires for every event `append()` stores.
+
+        Returns an ``unsubscribe()`` closure — call it to deregister.
+        Callbacks are invoked after the JSONL write fsyncs and the
+        projector runs, so a subscriber can trust that any envelope it
+        sees has landed canonically. Failures inside a callback are
+        logged + swallowed; they never surface into the append path.
+
+        Thread-safe: multiple subscribers + concurrent subscribe/
+        unsubscribe are supported. The callback runs on the same thread
+        that called ``append()`` (no scheduling / no threadpool), so
+        subscribers needing async delivery should hand off via their
+        own queue.
+        """
+        with self._subscribers_lock:
+            self._subscribers.append(callback)
+
+        def unsubscribe() -> None:
+            with self._subscribers_lock:
+                try:
+                    self._subscribers.remove(callback)
+                except ValueError:
+                    # Already removed (double-unsubscribe) — harmless.
+                    pass
+
+        return unsubscribe
