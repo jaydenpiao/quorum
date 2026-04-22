@@ -1,4 +1,4 @@
-.PHONY: dev test lint format validate typecheck coverage-html demo reset venv install
+.PHONY: dev test lint format validate typecheck coverage-html demo reset venv install sbom
 
 # Prefer the project's .venv if it exists; otherwise fall back to PATH tools.
 VENV := .venv
@@ -49,3 +49,8 @@ typecheck:
 
 reset:
 	rm -f data/events.jsonl data/state_snapshot.json
+
+sbom:
+	@command -v syft >/dev/null || { echo "syft not installed; brew install syft"; exit 1; }
+	syft packages dir:. -o spdx-json=quorum-dev.spdx.json
+	@echo "wrote quorum-dev.spdx.json"
