@@ -106,10 +106,103 @@ FINDING_TOOL_SCHEMA: dict[str, Any] = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# create_proposal
+# ---------------------------------------------------------------------------
+
+# v1 action-type allow-list for LLM-emitted proposals. Hard-coded in the
+# tool schema enum so Claude cannot propose an action outside this set,
+# and also enforced **server-side** (see apps/api/app/services/auth.py →
+# allowed_action_types + apps/api/app/api/routes.py) so a client bypass
+# still returns 403. Two mutually-supporting gates.
+#
+# open_pr and close_pr stay operator-only in v1 — they're the
+# higher-blast-radius actions. Revisit per the "voter role timing"
+# open question in docs/design/llm-adapter.md.
+LLM_ALLOWED_PROPOSAL_ACTION_TYPES: tuple[str, ...] = (
+    "github.add_labels",
+    "github.comment_issue",
+)
+
+PROPOSAL_TOOL_SCHEMA: dict[str, Any] = {
+    "name": "create_proposal",
+    "description": (
+        "Propose a low-risk, reviewable action against a GitHub target. "
+        "The proposal is quorum-voted before execution — your call here "
+        "submits it, nothing more. In v1 only "
+        + " / ".join(LLM_ALLOWED_PROPOSAL_ACTION_TYPES)
+        + " are allowed; open_pr / close_pr remain operator-only."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "intent_id": {
+                "type": "string",
+                "maxLength": 128,
+                "description": (
+                    "The intent this proposal serves. Copy from an "
+                    "intent_created event in the stream."
+                ),
+            },
+            "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500,
+                "description": "Short, operator-readable title.",
+            },
+            "action_type": {
+                "type": "string",
+                "enum": list(LLM_ALLOWED_PROPOSAL_ACTION_TYPES),
+                "description": (
+                    "One of the allowed action types. Attempting a "
+                    "value outside the enum returns 403 server-side."
+                ),
+            },
+            "target": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "description": (
+                    "Canonical target string, e.g. 'owner/repo#123' for "
+                    "an issue or PR. Matches the payload below."
+                ),
+            },
+            "rationale": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000,
+                "description": (
+                    "Why this action is warranted. Operators reviewing "
+                    "the proposal will read this; be factual and "
+                    "evidence-grounded."
+                ),
+            },
+            "rollback_steps": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 50,
+                "description": (
+                    "Plain-text rollback instructions the actuator will automate where possible."
+                ),
+            },
+            "payload": {
+                "type": "object",
+                "description": (
+                    "Action-type-specific payload. Shape depends on "
+                    "action_type; see the Quorum docs for each. "
+                    "Invalid payloads return 422."
+                ),
+            },
+        },
+        "required": ["intent_id", "title", "action_type", "target", "rationale", "payload"],
+    },
+}
+
+
 # Ordered tool list. Sorted by name so body bytes are stable across
 # ticks — prompt caching depends on exact-byte prefix match.
 TOOL_SCHEMAS: list[dict[str, Any]] = sorted(
-    [FINDING_TOOL_SCHEMA],
+    [FINDING_TOOL_SCHEMA, PROPOSAL_TOOL_SCHEMA],
     key=lambda t: t["name"],
 )
 
@@ -202,6 +295,58 @@ def _dispatch_create_finding(
     )
 
 
+def _dispatch_create_proposal(
+    tool_use_id: str,
+    tool_input: dict[str, Any],
+    quorum: QuorumApiClient,
+) -> ToolDispatchResult:
+    # Client-side allow-list check. The server enforces the same list
+    # via allowed_action_types (agents.yaml), but gating here too gives
+    # a faster failure path that doesn't bill a round trip.
+    requested_action = tool_input.get("action_type")
+    if requested_action not in LLM_ALLOWED_PROPOSAL_ACTION_TYPES:
+        return ToolDispatchResult(
+            tool_name="create_proposal",
+            tool_use_id=tool_use_id,
+            ok=False,
+            detail=(
+                f"action_type {requested_action!r} is not allowed for LLM-emitted "
+                f"proposals; allowed: {list(LLM_ALLOWED_PROPOSAL_ACTION_TYPES)}"
+            ),
+        )
+
+    try:
+        response = quorum.create_proposal(tool_input)
+    except QuorumApiError as exc:
+        return ToolDispatchResult(
+            tool_name="create_proposal",
+            tool_use_id=tool_use_id,
+            ok=False,
+            detail=f"quorum rejected proposal: {exc.status_code}: {exc.message}",
+            api_status_code=exc.status_code,
+        )
+
+    proposal_id = response.get("id") if isinstance(response, dict) else None
+    if not isinstance(proposal_id, str) or not proposal_id:
+        return ToolDispatchResult(
+            tool_name="create_proposal",
+            tool_use_id=tool_use_id,
+            ok=False,
+            detail="quorum accepted the proposal but returned no id",
+            api_status_code=200,
+        )
+
+    return ToolDispatchResult(
+        tool_name="create_proposal",
+        tool_use_id=tool_use_id,
+        ok=True,
+        detail=f"created proposal {proposal_id}",
+        api_status_code=200,
+        quorum_entity_id=proposal_id,
+    )
+
+
 _HANDLERS: dict[str, _Handler] = {
     "create_finding": _dispatch_create_finding,
+    "create_proposal": _dispatch_create_proposal,
 }
