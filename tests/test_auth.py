@@ -73,6 +73,126 @@ def test_valid_key_returns_agent_id() -> None:
     assert registry["operator-key-dev"] == "test-operator"
 
 
+def test_spoofed_agent_id_in_finding_rejected(client: TestClient) -> None:
+    """Phase 2.5: the authenticated agent cannot claim authorship as a different agent."""
+    # First, create an intent so the finding has somewhere to attach.
+    intent_resp = client.post(
+        "/api/v1/intents",
+        json={"title": "t", "description": "d"},
+        headers=AUTH,
+    )
+    assert intent_resp.status_code == 200
+    intent_id = intent_resp.json()["id"]
+
+    # Bearer key is operator-key-dev -> test-operator. Body claims a different agent.
+    response = client.post(
+        "/api/v1/findings",
+        json={
+            "intent_id": intent_id,
+            "agent_id": "telemetry-agent",  # spoof — auth key belongs to test-operator
+            "summary": "spoofed",
+        },
+        headers=AUTH,
+    )
+    assert response.status_code == 403
+    assert "agent_id" in response.json()["detail"].lower()
+
+
+def test_spoofed_agent_id_in_proposal_rejected(client: TestClient) -> None:
+    intent_resp = client.post(
+        "/api/v1/intents",
+        json={"title": "t", "description": "d"},
+        headers=AUTH,
+    )
+    intent_id = intent_resp.json()["id"]
+
+    response = client.post(
+        "/api/v1/proposals",
+        json={
+            "intent_id": intent_id,
+            "agent_id": "deploy-agent",  # spoof
+            "title": "x",
+            "action_type": "config-change",
+            "target": "svc",
+            "rationale": "because",
+            "health_checks": [{"name": "s", "kind": "always_pass"}],
+        },
+        headers=AUTH,
+    )
+    assert response.status_code == 403
+
+
+def test_spoofed_agent_id_in_vote_rejected(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/votes",
+        json={
+            "proposal_id": "p_fake",
+            "agent_id": "deploy-agent",  # spoof attempt
+            "decision": "approve",
+            "reason": "",
+        },
+        headers=AUTH,
+    )
+    # 403 for spoofed agent_id takes precedence over 404 for non-existent proposal.
+    assert response.status_code == 403
+
+
+def test_matching_agent_id_accepted(client: TestClient) -> None:
+    """If the body's agent_id matches the authenticated agent, the request proceeds."""
+    intent_resp = client.post(
+        "/api/v1/intents",
+        json={"title": "t", "description": "d"},
+        headers=AUTH,
+    )
+    intent_id = intent_resp.json()["id"]
+
+    response = client.post(
+        "/api/v1/findings",
+        json={
+            "intent_id": intent_id,
+            "agent_id": "test-operator",  # matches AUTH's key
+            "summary": "legit",
+        },
+        headers=AUTH,
+    )
+    assert response.status_code == 200
+    assert response.json()["agent_id"] == "test-operator"
+
+
+def test_omitted_agent_id_falls_back_to_authenticated(client: TestClient) -> None:
+    """A request without an agent_id in the body is filled from the authenticated key."""
+    intent_resp = client.post(
+        "/api/v1/intents",
+        json={"title": "t", "description": "d"},
+        headers=AUTH,
+    )
+    intent_id = intent_resp.json()["id"]
+
+    response = client.post(
+        "/api/v1/findings",
+        json={"intent_id": intent_id, "summary": "no agent in body"},
+        headers=AUTH,
+    )
+    assert response.status_code == 200
+    # Server stamps the authenticated agent.
+    assert response.json()["agent_id"] == "test-operator"
+
+
+def test_intent_requested_by_set_from_auth(client: TestClient) -> None:
+    """Intents record the authenticated agent as `requested_by`, overriding any body value."""
+    response = client.post(
+        "/api/v1/intents",
+        json={
+            "title": "t",
+            "description": "d",
+            "requested_by": "someone-else",  # server-side truth wins
+        },
+        headers=AUTH,
+    )
+    assert response.status_code == 200
+    assert response.json()["requested_by"] == "test-operator"
+
+
 def test_empty_registry_rejects_all(monkeypatch: pytest.MonkeyPatch) -> None:
     """When no keys are configured, the server rejects every request with 401."""
     monkeypatch.setenv("QUORUM_API_KEYS", "")

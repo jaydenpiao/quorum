@@ -1,10 +1,18 @@
 from fastapi.testclient import TestClient
 
 from apps.api.app.main import app
-from tests._helpers import AUTH
+from tests._helpers import AUTH, TEST_CODE_KEY, TEST_TELEMETRY_KEY
 
 
 client = TestClient(app)
+
+# Phase 2.5 binds actor_id to the authenticated agent. To post as a specific
+# agent, use that agent's key. The conftest registers:
+#   test-operator   -> operator-key-dev
+#   telemetry-agent -> telemetry-key-dev
+#   code-agent      -> code-key-dev
+AUTH_CODE = {"Authorization": f"Bearer {TEST_CODE_KEY}"}
+AUTH_TELEMETRY = {"Authorization": f"Bearer {TEST_TELEMETRY_KEY}"}
 
 
 def test_demo_incident_flow():
@@ -54,7 +62,7 @@ def test_create_intent_proposal_vote_execute():
             "rollback_steps": ["restore previous config"],
             "health_checks": [{"name": "smoke", "kind": "always_pass"}],
         },
-        headers=AUTH,
+        headers=AUTH_CODE,
     )
     assert proposal_resp.status_code == 200
     proposal = proposal_resp.json()["proposal"]
@@ -67,7 +75,7 @@ def test_create_intent_proposal_vote_execute():
             "decision": "approve",
             "reason": "Looks safe",
         },
-        headers=AUTH,
+        headers=AUTH_TELEMETRY,
     )
     assert vote_1.status_code == 200
 
@@ -75,11 +83,11 @@ def test_create_intent_proposal_vote_execute():
         "/api/v1/votes",
         json={
             "proposal_id": proposal["id"],
-            "agent_id": "deploy-agent",
+            "agent_id": "code-agent",
             "decision": "approve",
             "reason": "Ready to apply",
         },
-        headers=AUTH,
+        headers=AUTH_CODE,
     )
     assert vote_2.status_code == 200
 

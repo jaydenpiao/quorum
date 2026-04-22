@@ -57,9 +57,12 @@ Phase 2 (closed — see `git log --grep 'Phase 2'`):
 - ~~No CORS, security headers, or rate limiting~~ → CORS pinned to allowlisted origins, CSP/HSTS/XFO/XCTO/Referrer-Policy/Permissions-Policy added, slowapi rate limit registered (PR #9).
 - ~~Unbounded input payloads~~ → strict pydantic DTOs with `extra='forbid'` and per-field length bounds (PR #9).
 
-Open (Phase 2.5 and later):
+Phase 2.5 (in progress):
 
-- Server-side `actor_id` binding — the request body's `actor_id` is still advisory; Phase 2.5 derives it from the authenticated key.
+- ~~Server-side `actor_id` binding~~ → the authenticated agent is now authoritative for intent/finding/proposal/vote/execute; spoofed `agent_id` returns 403 (PR landing this).
+
+Open:
+
 - argon2id-hashed keys in `config/agents.yaml` in place of the env-var registry; key-rotation tooling.
 - Sign the event hash chain with an ed25519 key so mutations across a compromised single-writer are still detectable.
 - Human-approval workflow for high/critical risk proposals (Phase 4).

@@ -75,7 +75,9 @@ class FindingCreate(BaseModel):
     model_config = STRICT_INPUT
 
     intent_id: str = Field(max_length=128)
-    agent_id: str = Field(max_length=128)
+    # Optional because the server binds the authenticated agent if omitted;
+    # if provided it must match the authenticated agent (enforced in routes).
+    agent_id: str | None = Field(default=None, max_length=128)
     summary: str = Field(min_length=1, max_length=4000)
     evidence_refs: list[str] = Field(default_factory=list, max_length=50)
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
@@ -121,7 +123,7 @@ class ProposalCreate(BaseModel):
     model_config = STRICT_INPUT
 
     intent_id: str = Field(max_length=128)
-    agent_id: str = Field(max_length=128)
+    agent_id: str | None = Field(default=None, max_length=128)
     title: str = Field(min_length=1, max_length=500)
     action_type: str = Field(min_length=1, max_length=128)
     target: str = Field(min_length=1, max_length=256)
@@ -154,7 +156,7 @@ class VoteCreate(BaseModel):
     model_config = STRICT_INPUT
 
     proposal_id: str = Field(max_length=128)
-    agent_id: str = Field(max_length=128)
+    agent_id: str | None = Field(default=None, max_length=128)
     decision: VoteDecision
     reason: str = Field(default="", max_length=2000)
 
