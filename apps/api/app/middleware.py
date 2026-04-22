@@ -18,11 +18,12 @@ _SECURITY_HEADERS = {
     "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
 }
 
-# Console is a single same-origin HTML page with an inline script for now.
-# Phase 4 extracts the script to a static file and tightens this further.
+# Console JS is served as a static file at /console-static/app.js.
+# 'unsafe-inline' for script-src has been removed; inline CSS is still
+# permitted via style-src and will be cleaned up in a separate PR.
 _CSP = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline'; "
+    "script-src 'self'; "
     "style-src 'self' 'unsafe-inline'; "
     "img-src 'self' data:; "
     "connect-src 'self'; "

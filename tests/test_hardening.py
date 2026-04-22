@@ -21,7 +21,20 @@ def test_security_headers_present_on_root(client: TestClient) -> None:
     assert response.headers.get("X-Frame-Options") == "DENY"
     assert response.headers.get("Referrer-Policy") == "no-referrer"
     assert "max-age" in response.headers.get("Strict-Transport-Security", "")
-    assert "default-src 'self'" in response.headers.get("Content-Security-Policy", "")
+    csp = response.headers.get("Content-Security-Policy", "")
+    assert "default-src 'self'" in csp
+
+
+def test_csp_script_src_no_unsafe_inline(client: TestClient) -> None:
+    """script-src must not allow 'unsafe-inline' — console JS is a static file."""
+    response = client.get("/")
+    csp = response.headers.get("Content-Security-Policy", "")
+    # Locate the script-src directive and confirm 'unsafe-inline' is absent.
+    directives = {d.strip() for d in csp.split(";")}
+    script_src = next((d for d in directives if d.startswith("script-src")), "")
+    assert "'unsafe-inline'" not in script_src, (
+        f"script-src must not contain 'unsafe-inline'; got CSP: {csp}"
+    )
 
 
 def test_security_headers_on_api_route(client: TestClient) -> None:

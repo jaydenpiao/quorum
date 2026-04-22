@@ -20,8 +20,8 @@
   <p class="muted">POC console for intents, proposals, votes, executions, rollbacks, and event history.</p>
 
   <div class="toolbar">
-    <button onclick="seedDemo()">Seed demo incident</button>
-    <button onclick="loadState()">Refresh</button>
+    <button id="btn-seed">Seed demo incident</button>
+    <button id="btn-refresh">Refresh</button>
   </div>
 
   <div class="grid">
@@ -56,41 +56,6 @@
     <pre id="events"></pre>
   </div>
 
-  <script>
-    async function fetchJson(path, options = {}) {
-      const res = await fetch(path, options);
-      return await res.json();
-    }
-
-    async function seedDemo() {
-      await fetchJson('/api/v1/demo/incident', { method: 'POST' });
-      await loadState();
-    }
-
-    function setText(id, value) {
-      document.getElementById(id).textContent = JSON.stringify(value, null, 2);
-    }
-
-    async function loadState() {
-      const state = await fetchJson('/api/v1/state');
-      const events = await fetchJson('/api/v1/events');
-
-      document.getElementById('summary').innerHTML = `
-        <div class="pill">intents: ${state.intents.length}</div>
-        <div class="pill">findings: ${state.findings.length}</div>
-        <div class="pill">proposals: ${state.proposals.length}</div>
-        <div class="pill">events: ${state.event_count}</div>
-      `;
-
-      setText('intents', state.intents);
-      setText('proposals', state.proposals);
-      setText('policy', state.policy_decisions);
-      setText('executions', state.executions);
-      setText('rollbacks', state.rollbacks);
-      setText('events', events);
-    }
-
-    loadState();
-  </script>
+  <script defer src="/console-static/app.js"></script>
 </body>
 </html>
