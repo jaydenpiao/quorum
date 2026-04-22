@@ -24,5 +24,13 @@ environment_overrides:
     minimum_votes_required: 2
     force_human_approval: true
 
+# Per-action_type overrides. These *tighten* risk-level rules (MAX of
+# votes_required, OR of requires_human) — they never loosen them. An
+# unknown action_type falls back to the risk-level rule above.
+action_type_rules:
+  github.open_pr:
+    votes_required: 2
+    requires_human: false
+
 rollback:
   auto_on_failed_health_checks: true

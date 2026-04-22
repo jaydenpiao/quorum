@@ -1,14 +1,44 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, UTC
 from enum import Enum
 from typing import Any, Literal
 from uuid import uuid4
 
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 STRICT_INPUT = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+# Max JSON-serialized size of a proposal's action payload. Bounds how large
+# an event log entry can grow when a proposal is persisted; oversize payloads
+# must either split across proposals or reference content out-of-band. Chosen
+# so typical patches (a handful of small/medium source files) fit, while
+# still keeping individual log lines tractable for replay.
+MAX_PROPOSAL_PAYLOAD_BYTES = 262144  # 256 KiB
+
+
+def _validated_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return ``payload`` after cheaply enforcing a JSON-size cap.
+
+    Raises ``ValueError`` if the payload does not round-trip through
+    ``json.dumps`` (non-serializable values) or if its serialized size
+    exceeds ``MAX_PROPOSAL_PAYLOAD_BYTES``.
+    """
+    try:
+        encoded = json.dumps(payload, default=str, separators=(",", ":"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"proposal payload is not JSON-serializable: {type(exc).__name__}"
+        ) from exc
+    if len(encoded.encode("utf-8")) > MAX_PROPOSAL_PAYLOAD_BYTES:
+        raise ValueError(
+            f"proposal payload exceeds {MAX_PROPOSAL_PAYLOAD_BYTES} bytes when JSON-encoded; "
+            "split the proposal or move file contents out-of-band"
+        )
+    return payload
 
 
 def utc_now() -> datetime:
@@ -133,6 +163,12 @@ class ProposalCreate(BaseModel):
     evidence_refs: list[str] = Field(default_factory=list, max_length=50)
     rollback_steps: list[str] = Field(default_factory=list, max_length=50)
     health_checks: list[HealthCheckSpec] = Field(default_factory=list, max_length=20)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _check_payload_size(self) -> ProposalCreate:
+        _validated_payload(self.payload)
+        return self
 
 
 class Proposal(BaseModel):
@@ -148,8 +184,14 @@ class Proposal(BaseModel):
     evidence_refs: list[str] = Field(default_factory=list)
     rollback_steps: list[str] = Field(default_factory=list)
     health_checks: list[HealthCheckSpec] = Field(default_factory=list)
+    payload: dict[str, Any] = Field(default_factory=dict)
     status: ProposalStatus = ProposalStatus.pending
     created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def _check_payload_size(self) -> Proposal:
+        _validated_payload(self.payload)
+        return self
 
 
 class VoteCreate(BaseModel):
@@ -198,6 +240,9 @@ class ExecutionRecord(BaseModel):
     status: ExecutionStatus
     health_checks: list[HealthCheckResult] = Field(default_factory=list)
     detail: str = ""
+    # Typed artifact returned by the actuator (e.g. ``OpenPrResult.model_dump``).
+    # Empty dict for simulated executions with no actuator dispatch.
+    result: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
 
 
