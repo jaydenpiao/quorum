@@ -1,4 +1,4 @@
-.PHONY: dev test lint format validate coverage-html demo reset venv install
+.PHONY: dev test lint format validate typecheck coverage-html demo reset venv install
 
 # Prefer the project's .venv if it exists; otherwise fall back to PATH tools.
 VENV := .venv
@@ -43,6 +43,9 @@ coverage-html:
 
 demo:
 	$(PY) -m apps.api.app.demo_seed
+
+typecheck:
+	$(VENV)/bin/mypy
 
 reset:
 	rm -f data/events.jsonl data/state_snapshot.json
