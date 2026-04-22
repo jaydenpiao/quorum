@@ -312,12 +312,16 @@ design-doc PR requires the operator to do anything.
 1. **Region.** `iad` (Ashburn) covers Anthropic + GitHub + Neon-us-east
    at low-ms. `ord` or `sea` are defensible for developer-latency
    reasons. Lean: `iad`.
-2. **`flyctl` binary vs Fly Machines API.** Shelling out to `flyctl`
-   inside the actuator is 30 lines of code but adds ~30 MB to the
-   Docker image. Calling the Machines API directly (GraphQL over
-   `httpx`) keeps the image clean but is ~200 lines. Lean: Machines
-   API — fewer moving parts in the container, and we already use
-   `httpx` for the GitHub actuator.
+2. **`flyctl` binary vs Fly Machines API.** ~~Lean: Machines API.~~
+   **Decided in PR #52 (actuator implementation): `flyctl` subprocess.**
+   Implementing the deploy flow against Fly's API required both
+   GraphQL (releases) and REST (machines), doubling surface area over
+   the original ~200-line estimate. Shelling out to `fly deploy`
+   stayed bounded (~80 LOC client + ~90 LOC actions) and is trivially
+   stubbable in tests via `monkeypatch.setattr(subprocess, "run", ...)`
+   — same pattern as `respx` for the GitHub client. The ~30 MB image
+   cost is acceptable for alpha; we can flip to the API later without
+   changing spec or event shape.
 3. **Scale-to-zero vs always-on.** Staging → scale-to-zero (cold-start
    on first request is fine). Prod → **always-on** because the
    operator console holds long-lived SSE connections

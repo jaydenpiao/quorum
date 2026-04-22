@@ -23,6 +23,7 @@ from apps.api.app.logging_config import configure_logging
 from apps.api.app.middleware import SecurityHeadersMiddleware
 from apps.api.app.request_context import RequestContextMiddleware
 from apps.api.app.db.engine import make_engine
+from apps.api.app.services.actuators.fly import FlyClient
 from apps.api.app.services.actuators.github import (
     GitHubAppAuthError,
     GitHubAppClient,
@@ -145,7 +146,17 @@ policy_engine = PolicyEngine("config/policies.yaml")
 quorum_engine = QuorumEngine()
 state_store = StateStore()
 github_client = _build_github_client()
-executor = Executor(event_log, policy_engine, github_client=github_client)
+# FlyClient is a subprocess wrapper; constructing it is free and the
+# binary presence check happens only at `fly.deploy` execute time. Keep
+# it always-on so the deploy dispatch path is never silently disabled
+# by a boot-order issue.
+fly_client = FlyClient()
+executor = Executor(
+    event_log,
+    policy_engine,
+    github_client=github_client,
+    fly_client=fly_client,
+)
 
 app.state.event_log = event_log
 app.state.policy_engine = policy_engine
