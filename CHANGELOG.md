@@ -11,6 +11,24 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **LLM adapter scaffold (Phase 4 LLM PR 1)** — new `apps/llm_agent/`
+  package that will drive Claude-backed agents (starting with
+  `telemetry-llm-agent`) as proposers inside Quorum. Runs as its own OS
+  process per agent; talks to the Quorum API over HTTP under the
+  agent's argon2id-hashed credentials — no in-process coupling with the
+  control plane. PR 1 ships scaffolding only: `LlmAgentConfig` parses
+  the new `llm:` sub-block from `config/agents.yaml`; `LlmBudget`
+  enforces per-tick + daily input-token caps with atomic JSON
+  checkpoints under `data/llm_usage/`; `ClaudeClient` builds Messages
+  API request bodies with prompt caching (`cache_control: ephemeral`),
+  adaptive thinking, and `output_config.effort=high` (omitted on models
+  that reject it); `QuorumApiClient` wraps bearer-authenticated calls
+  to `/api/v1/events`, `/api/v1/findings`, `/api/v1/proposals`; and a
+  `run_tick()` + `python -m apps.llm_agent.run` CLI wire everything
+  together. **No live Claude calls yet** — the tick builds the request
+  body and advances its event cursor; PR 2 flips on `create_finding`
+  and PR 3 adds `create_proposal` + cost-cap hard-enforcement. New
+  runtime dep: `anthropic>=0.45.0`.
 - **`HealthCheckKind.github_check_run` (Phase 4 PR E)** — a new health
   check that polls `GET /repos/{owner}/{repo}/commits/{sha}/check-runs`
   via the configured GitHub App until every check run reaches a
