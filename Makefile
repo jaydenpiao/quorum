@@ -1,4 +1,4 @@
-.PHONY: dev test lint format validate demo reset venv install
+.PHONY: dev test lint format validate coverage-html demo reset venv install
 
 # Prefer the project's .venv if it exists; otherwise fall back to PATH tools.
 VENV := .venv
@@ -36,7 +36,10 @@ format:
 validate:
 	$(RUFF) check .
 	$(RUFF) format --check .
-	$(PYTEST) -q
+	$(PYTEST) --cov-fail-under=60 -q
+
+coverage-html:
+	$(PYTEST) --cov=apps --cov-report=html
 
 demo:
 	$(PY) -m apps.api.app.demo_seed
