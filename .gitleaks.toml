@@ -1,0 +1,14 @@
+# gitleaks configuration — https://github.com/gitleaks/gitleaks
+#
+# Extends the built-in ruleset with a tight allowlist for test fixtures that
+# gitleaks' `generic-api-key` rule flags as false positives. Never add real
+# secrets to this allowlist. Real secrets should be rotated, not allowlisted.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Test fixtures in tests/test_auth_argon2.py are not real secrets"
+paths = [
+    '''tests/test_auth_argon2\.py''',
+]
