@@ -153,6 +153,10 @@ class GitHubAppClient:
                 message=message,
             )
 
+        # 204 No Content (common on DELETE) has no body; callers that only
+        # care about success can ignore the empty dict.
+        if response.status_code == 204 or not response.content:
+            return {}
         return cast(dict[str, Any], response.json())
 
     # -- REST methods used by actions.open_pr --------------------------------
@@ -298,6 +302,64 @@ class GitHubAppClient:
             json_body={"title": title, "head": head, "base": base, "body": body},
             expected=(201,),
         )
+
+    # -- REST methods used by actions.rollback_open_pr -----------------------
+
+    def get_pull_request(
+        self, installation_id: int, owner: str, repo: str, pr_number: int
+    ) -> dict[str, Any]:
+        """Fetch PR state + merged flag. Raises GitHubApiError on 404.
+
+        Callers use ``state`` ("open"/"closed") and ``merged`` (bool) to
+        decide whether a rollback attempt is still meaningful.
+        """
+        return self._request(
+            installation_id,
+            "GET",
+            f"/repos/{owner}/{repo}/pulls/{pr_number}",
+            expected=(200,),
+        )
+
+    def close_pull_request(
+        self, installation_id: int, owner: str, repo: str, pr_number: int
+    ) -> dict[str, Any]:
+        """PATCH the PR to ``state="closed"``. Safe to call on already-closed PRs.
+
+        Returns the updated PR JSON. A PR that was merged will return 200
+        with ``merged=True``; the rollback action checks that separately
+        via ``get_pull_request`` before attempting the close.
+        """
+        return self._request(
+            installation_id,
+            "PATCH",
+            f"/repos/{owner}/{repo}/pulls/{pr_number}",
+            json_body={"state": "closed"},
+            expected=(200,),
+        )
+
+    def delete_ref(self, installation_id: int, owner: str, repo: str, ref: str) -> None:
+        """Delete a ref (e.g. ``heads/quorum/<id>``). 204 on success.
+
+        ``ref`` is the path *after* ``refs/``, matching the GitHub REST
+        convention. 422 (ref not found) is idempotent and gets swallowed
+        here so rollback can be run twice without a noisy failure — the
+        caller just sees success.
+        """
+        try:
+            self._request(
+                installation_id,
+                "DELETE",
+                f"/repos/{owner}/{repo}/git/refs/{ref}",
+                expected=(204,),
+            )
+        except GitHubApiError as exc:
+            # GitHub returns 422 "Reference does not exist" rather than
+            # 404 when the branch was already deleted. 404 appears for
+            # malformed paths. Treat both as idempotent success — there
+            # is nothing to undo.
+            if exc.status_code in (404, 422):
+                return
+            raise
 
     # -- lifecycle -----------------------------------------------------------
 

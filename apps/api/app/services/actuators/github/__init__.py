@@ -1,19 +1,22 @@
 """GitHub App actuator.
 
-Two layers of scope so far:
+Layers of scope:
 
 - **PR A** — auth scaffold: App JWT signing, installation-token cache,
   single-retry-on-401 wrapper, config loader.
-- **PR B1** (this PR) — the first action: ``github.open_pr``. Adds the
-  typed spec (``GitHubOpenPrSpec``) + result (``OpenPrResult``), the Git
-  Data REST methods on ``GitHubAppClient``, and the ``open_pr``
-  orchestration function in ``actions``. Not yet wired into the
-  executor — PR B2 dispatches on ``action_type``.
+- **PR B1** — the first action: ``github.open_pr``. Typed spec
+  (``GitHubOpenPrSpec``) + result (``OpenPrResult``), Git Data REST
+  methods, ``open_pr`` orchestration.
+- **PR B2** — executor dispatch on ``action_type``.
+- **PR C** (this PR) — ``rollback_open_pr`` + ``RollbackImpossibleError``,
+  plus the ``rollback_impossible`` event type in the domain layer.
 """
 
 from apps.api.app.services.actuators.github.actions import (
     GitHubActionError,
+    RollbackImpossibleError,
     open_pr,
+    rollback_open_pr,
 )
 from apps.api.app.services.actuators.github.auth import (
     AppJWTSigner,
@@ -50,7 +53,9 @@ __all__ = [
     "GitHubOpenPrSpec",
     "InstallationTokenCache",
     "OpenPrResult",
+    "RollbackImpossibleError",
     "derive_head_branch",
     "load_github_config",
     "open_pr",
+    "rollback_open_pr",
 ]
