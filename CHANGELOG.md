@@ -11,6 +11,15 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **GitHub App actuator scaffold (Phase 4 PR A)** — new
+  `apps/api/app/services/actuators/github/` package with `AppJWTSigner`
+  (RS256 App JWT minting), `InstallationTokenCache` (per-install token
+  cache with 60s refresh margin + single-retry 401 renewal),
+  `GitHubAppClient`, and typed config loader for a new `config/github.yaml`.
+  Private key loaded from `QUORUM_GITHUB_APP_PRIVATE_KEY` or
+  `QUORUM_GITHUB_APP_PRIVATE_KEY_PATH` env. No action dispatch yet — the
+  executor wiring and first action (`github.open_pr`) land in PR B. New
+  runtime deps: `pyjwt`, `cryptography`. New dev dep: `respx`.
 - **`health_check_completed` event emission** — the executor now emits one
   `health_check_completed` event per check between `execution_started` and
   the terminal `execution_succeeded`/`execution_failed`. Closes the

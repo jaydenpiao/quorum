@@ -1,0 +1,27 @@
+# Configuration for the GitHub App actuator (Phase 4).
+#
+# This file is committed and MUST NOT contain secrets.
+# Placeholder values below must be filled in out-of-band per deploy:
+#
+#   1. Register a GitHub App and install it on the target repo(s).
+#   2. Set `app.app_id` to the numeric App ID from the App settings page.
+#   3. For each install, record `owner`, `repo`, and the numeric
+#      `installation_id` from the install URL.
+#   4. Provide the App private key via env:
+#        QUORUM_GITHUB_APP_PRIVATE_KEY        (PEM string), or
+#        QUORUM_GITHUB_APP_PRIVATE_KEY_PATH   (path to PEM on disk)
+#
+# Loaded by apps.api.app.services.actuators.github.specs.load_github_config.
+# Not yet read at app startup — PR B wires this into main.py.
+
+app:
+  app_id: 0                # placeholder — set per deploy
+  installations:
+    - owner: jaydenpiao
+      repo: quorum-actuator-fixtures
+      installation_id: 0   # placeholder — set per deploy
+
+limits:
+  max_files_per_pr: 200
+  max_file_bytes: 65536
+  poll_interval_seconds: 5
