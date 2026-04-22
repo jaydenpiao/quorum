@@ -69,11 +69,21 @@ class ProposalStatus(str, Enum):
     # `rolled_back` so operators can query for stuck, human-require
     # proposals directly.
     rollback_impossible = "rollback_impossible"
+    # Terminal state when the policy engine required human approval and
+    # a human explicitly denied it. Distinct from ``blocked`` (which
+    # happens when votes fail quorum) so operators can tell the two
+    # apart in a single query.
+    approval_denied = "approval_denied"
 
 
 class VoteDecision(str, Enum):
     approve = "approve"
     reject = "reject"
+
+
+class ApprovalDecision(str, Enum):
+    granted = "granted"
+    denied = "denied"
 
 
 class ExecutionStatus(str, Enum):
@@ -301,6 +311,51 @@ class RollbackImpossibleRecord(BaseModel):
     reason: str = Field(min_length=1, max_length=2000)
     actuator_state: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
+
+
+# ---------------------------------------------------------------------------
+# Human approval entity
+# ---------------------------------------------------------------------------
+
+
+class HumanApprovalRequest(BaseModel):
+    """Emitted when policy requires a human decision before execution.
+
+    The request is a marker event — no decision yet. Operators fulfil
+    it by POSTing to ``/api/v1/approvals/{proposal_id}`` which emits
+    one of ``human_approval_granted`` / ``human_approval_denied``.
+    """
+
+    id: str = Field(default_factory=lambda: new_id("approval_req"))
+    proposal_id: str
+    # The actor whose proposal needs approval. Useful for audit
+    # filtering ("show me everything awaiting approval for code-agent").
+    proposer_id: str
+    # Reasons from the policy decision that triggered the request,
+    # copied in so operators see the *why* without joining tables.
+    reasons: list[str] = Field(default_factory=list, max_length=50)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class HumanApprovalOutcome(BaseModel):
+    """Recorded decision on a previously-requested approval."""
+
+    id: str = Field(default_factory=lambda: new_id("approval_out"))
+    proposal_id: str
+    # Identity of the authenticated operator/agent who decided.
+    approver_id: str
+    decision: ApprovalDecision
+    reason: str = Field(default="", max_length=2000)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class ApprovalCreate(BaseModel):
+    """POST body for ``/api/v1/approvals/{proposal_id}``."""
+
+    model_config = STRICT_INPUT
+
+    decision: ApprovalDecision
+    reason: str = Field(default="", max_length=2000)
 
 
 class EventEnvelope(BaseModel):
