@@ -11,6 +11,20 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **Actuator-aware rollback + `rollback_impossible` event (Phase 4 PR C)** —
+  the executor now dispatches rollback for `github.*` proposals to a
+  matching actuator function (currently `rollback_open_pr`: closes the
+  PR via `PATCH state=closed` and deletes the branch via `DELETE
+  /git/refs/heads/...`, both idempotent on 404/422). When the actuator
+  cannot undo the mutation (e.g. the PR was merged out-of-band), the
+  executor emits a new terminal **`rollback_impossible`** event with a
+  human-readable `reason` plus an `actuator_state` blob, and the
+  proposal lands in the new `ProposalStatus.rollback_impossible`.
+  Reducer, `PostgresProjector` handler, dispatch-completeness regression
+  guard, state-store replay test, and a full integration test ("open PR
+  succeeds → health check fails → PR already merged → rollback_impossible")
+  all ship together. Non-github proposals keep their pre-PR-C text-only
+  rollback behaviour unchanged.
 - **GitHub actuator wired into the executor (Phase 4 PR B2)** —
   `Executor` now dispatches on `proposal.action_type`. `github.*`
   proposals route to the PR B1 actuator; non-github action types keep

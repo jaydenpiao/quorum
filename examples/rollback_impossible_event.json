@@ -1,0 +1,25 @@
+{
+  "_comment": "Example rollback_impossible event (Phase 4 PR C). Emitted when the executor's actuator-aware rollback cannot undo a mutation — here, a GitHub PR that was merged between open and rollback. The proposal ends in ProposalStatus.rollback_impossible and a human must reconcile by reverting the merge.",
+  "id": "evt_fe23a1c49b01",
+  "event_type": "rollback_impossible",
+  "entity_type": "rollback_impossible",
+  "entity_id": "rollimp_90aa11bb22cc",
+  "ts": "2026-04-22T17:18:04.123456+00:00",
+  "prev_hash": "ab29...redacted",
+  "hash": "cd7f...redacted",
+  "payload": {
+    "id": "rollimp_90aa11bb22cc",
+    "proposal_id": "proposal_abc123def456",
+    "actor_id": "code-agent",
+    "reason": "pull request #42 has been merged; rollback cannot undo a merge",
+    "actuator_state": {
+      "owner": "jaydenpiao",
+      "repo": "quorum",
+      "pr_number": 42,
+      "pr_url": "https://github.com/jaydenpiao/quorum/pull/42",
+      "head_branch": "quorum/proposal_abc123def456",
+      "merged": true
+    },
+    "created_at": "2026-04-22T17:18:04.123456+00:00"
+  }
+}

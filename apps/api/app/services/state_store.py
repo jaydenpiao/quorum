@@ -78,6 +78,15 @@ class StateStore:
             if payload["proposal_id"] in self.proposals:
                 self.proposals[payload["proposal_id"]]["status"] = ProposalStatus.rolled_back.value
 
+        elif event.event_type == "rollback_impossible":
+            # Distinct terminal state — the mutation happened, the rollback
+            # attempt failed, and a human now owns the reconcile.
+            self.rollbacks[payload["proposal_id"]].append(payload)
+            if payload["proposal_id"] in self.proposals:
+                self.proposals[payload["proposal_id"]]["status"] = (
+                    ProposalStatus.rollback_impossible.value
+                )
+
     def snapshot(self) -> dict[str, Any]:
         return {
             "intents": list(self.intents.values()),

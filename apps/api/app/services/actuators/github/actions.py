@@ -3,9 +3,9 @@
 Each function takes a ``GitHubAppClient`` plus a typed spec and returns a
 typed result record. They are pure orchestration — all HTTP lives in
 ``client.py``, all input validation lives in ``specs.py``. The executor
-(wired in PR B2) takes the result record and wraps it in
-``execution_started`` / ``execution_succeeded`` / ``execution_failed``
-event envelopes per ``AGENTS.md`` logging rules.
+takes the result record and wraps it in ``execution_started`` /
+``execution_succeeded`` / ``execution_failed`` event envelopes per
+``AGENTS.md`` logging rules.
 
 Safety posture for ``open_pr``:
 
@@ -19,9 +19,24 @@ Safety posture for ``open_pr``:
   (``MAX_FILES_PER_PR`` / ``MAX_FILE_BYTES``) **and** cross-checked
   against ``config.limits`` here so operators can tighten — but not
   loosen — the defaults.
+
+Rollback semantics for ``rollback_open_pr`` (PR C):
+
+- ``get_pull_request`` first — if ``merged=True`` we cannot undo the
+  merge; we raise ``RollbackImpossibleError`` with enough state for a
+  human to find and revert manually.
+- If the PR is still open, ``close_pull_request``. If already closed,
+  skip (idempotent).
+- Always attempt ``delete_ref`` for ``heads/<head_branch>``; the client
+  swallows 404 / 422 so a re-run is idempotent.
+- A client-side 404 on the GET means the PR itself is gone (rare —
+  someone deleted it manually). Treat as already-rolled-back and
+  proceed to the branch delete.
 """
 
 from __future__ import annotations
+
+from typing import Any
 
 from apps.api.app.services.actuators.github.client import GitHubApiError, GitHubAppClient
 from apps.api.app.services.actuators.github.specs import (
@@ -37,6 +52,20 @@ class GitHubActionError(RuntimeError):
     Distinct from ``GitHubApiError`` (raw API error) so callers can tell
     "we rejected this before hitting GitHub" from "GitHub rejected it".
     """
+
+
+class RollbackImpossibleError(RuntimeError):
+    """Raised when an actuator rollback cannot complete and a human must take over.
+
+    Carries an ``actuator_state`` dict of the known last-good state so
+    the executor can attach it to the ``rollback_impossible`` event
+    payload for operator review.
+    """
+
+    def __init__(self, reason: str, *, actuator_state: dict[str, Any] | None = None) -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.actuator_state = actuator_state or {}
 
 
 def open_pr(
@@ -157,6 +186,8 @@ def open_pr(
         raise GitHubActionError("pull-request response missing 'html_url'")
 
     return OpenPrResult(
+        owner=owner,
+        repo=repo,
         pr_number=pr_number,
         pr_url=pr_url,
         head_branch=head_branch,
@@ -165,3 +196,80 @@ def open_pr(
         commit_sha=commit_sha,
         files_written=[f.path for f in spec.files],
     )
+
+
+def rollback_open_pr(
+    client: GitHubAppClient,
+    result: OpenPrResult,
+) -> dict[str, Any]:
+    """Reverse a successful ``open_pr`` action.
+
+    Best-effort but well-defined: close the PR (if open), delete the
+    branch (idempotent on 404/422). If the PR has been merged out-of-
+    band we cannot roll back and raise ``RollbackImpossibleError``
+    with enough state for a human to locate and revert the merge.
+
+    Returns a summary dict describing what was actually done (closed/
+    already_closed, deleted/already_gone/skipped).
+    """
+    installation = client.config.installation_for(result.owner, result.repo)
+    if installation is None:
+        raise RollbackImpossibleError(
+            f"no installation configured for {result.owner}/{result.repo}; "
+            "config/github.yaml must list this repo before rollback can run",
+            actuator_state=result.model_dump(mode="json"),
+        )
+
+    installation_id = installation.installation_id
+    owner = result.owner
+    repo = result.repo
+    pr_number = result.pr_number
+    head_branch = result.head_branch
+
+    pr_state: str | None = None
+    pr_merged: bool = False
+    pr_present = True
+    try:
+        pr = client.get_pull_request(installation_id, owner, repo, pr_number)
+        pr_state = pr.get("state") if isinstance(pr.get("state"), str) else None
+        pr_merged = bool(pr.get("merged"))
+    except GitHubApiError as exc:
+        if exc.status_code == 404:
+            # PR vanished — treat as already-rolled-back for the PR step,
+            # but still try to clean up the branch below.
+            pr_present = False
+        else:
+            raise
+
+    if pr_merged:
+        raise RollbackImpossibleError(
+            f"pull request #{pr_number} has been merged; rollback cannot undo a merge",
+            actuator_state={
+                "owner": owner,
+                "repo": repo,
+                "pr_number": pr_number,
+                "pr_url": result.pr_url,
+                "head_branch": head_branch,
+                "merged": True,
+            },
+        )
+
+    pr_action: str
+    if not pr_present:
+        pr_action = "skipped_missing"
+    elif pr_state == "closed":
+        pr_action = "already_closed"
+    else:
+        client.close_pull_request(installation_id, owner, repo, pr_number)
+        pr_action = "closed"
+
+    # delete_ref already swallows 404 / 422, so a re-run is idempotent.
+    client.delete_ref(installation_id, owner, repo, f"heads/{head_branch}")
+
+    return {
+        "pr_action": pr_action,
+        "branch_deleted": head_branch,
+        "owner": owner,
+        "repo": repo,
+        "pr_number": pr_number,
+    }

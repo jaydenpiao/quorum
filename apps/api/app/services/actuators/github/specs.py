@@ -192,11 +192,15 @@ class OpenPrResult(BaseModel):
     """Typed result of a successful ``github.open_pr`` action.
 
     Stored on the ``ExecutionRecord`` so rollback and auditors can find
-    the PR without re-querying GitHub.
+    the PR without re-querying GitHub. ``owner`` + ``repo`` are
+    duplicated from the spec (rather than parsed out of ``pr_url``) so
+    rollback does not depend on a stable URL format.
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    owner: str = Field(min_length=1, max_length=128)
+    repo: str = Field(min_length=1, max_length=128)
     pr_number: int = Field(ge=1)
     pr_url: str = Field(min_length=1, max_length=512)
     head_branch: str = Field(min_length=1, max_length=256)

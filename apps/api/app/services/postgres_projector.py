@@ -353,6 +353,31 @@ def _handle_rollback_completed(session: Session, event: EventEnvelope) -> None:
     _update_proposal_status(session, event.payload["proposal_id"], "rolled_back")
 
 
+def _handle_rollback_impossible(session: Session, event: EventEnvelope) -> None:
+    """Project the new terminal event into a rollbacks row + proposal status.
+
+    We reuse the existing ``rollbacks`` table with ``status="impossible"``.
+    ``steps`` is empty and the human-readable ``reason`` + actuator state
+    live on the envelope in ``events_projected`` — operators who need the
+    detail query the envelope there.
+    """
+    p = event.payload
+    stmt = pg_insert(RollbackRow).values(
+        id=p["id"],
+        proposal_id=p["proposal_id"],
+        actor_id=p["actor_id"],
+        steps=[],
+        status="impossible",
+        created_at=p["created_at"],
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["id"],
+        set_={c: stmt.excluded[c] for c in ("steps", "status", "created_at")},
+    )
+    session.execute(stmt)
+    _update_proposal_status(session, p["proposal_id"], "rollback_impossible")
+
+
 def _handle_health_check_completed(session: Session, event: EventEnvelope) -> None:
     p = event.payload
     stmt = pg_insert(HealthCheckResultRow).values(
@@ -397,4 +422,5 @@ _ENTITY_HANDLERS = {
     "health_check_completed": _handle_health_check_completed,
     "rollback_started": _handle_rollback_started,
     "rollback_completed": _handle_rollback_completed,
+    "rollback_impossible": _handle_rollback_impossible,
 }

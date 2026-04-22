@@ -80,6 +80,7 @@ def test_dispatch_table_covers_all_expected_event_types() -> None:
         "health_check_completed",
         "rollback_started",
         "rollback_completed",
+        "rollback_impossible",
     }
     registered = set(postgres_projector._ENTITY_HANDLERS.keys())
     missing = expected - registered

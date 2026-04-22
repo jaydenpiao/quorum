@@ -251,6 +251,58 @@ sequenceDiagram
     X->>L: execution_failed
 ```
 
+Rollback has two terminal variants:
+
+- `rollback_completed` — steps were applied (text-only path) or the
+  actuator successfully undid its mutation (e.g. closed the PR,
+  deleted the branch).
+- `rollback_impossible` — the mutation happened, rollback was
+  attempted, but the state could not be restored (e.g. the PR was
+  merged out-of-band). The proposal ends in
+  `ProposalStatus.rollback_impossible` and a human must reconcile.
+
+## Actuators
+
+An **actuator** is an adapter that turns an approved proposal into a
+real-world mutation against a specific external system. As of Phase 4,
+the only built-in actuator is **GitHub** (`apps/api/app/services/actuators/github/`).
+
+Contract:
+
+- Each supported action is a string key on `Proposal.action_type`
+  (`github.open_pr`, `github.comment_issue`, …). Unknown action types
+  fail fast at dispatch time.
+- Proposal carries a typed `payload: dict[str, Any]` capped at 256 KiB
+  JSON-serialized. The actuator validates the payload into a pydantic
+  spec model (e.g. `GitHubOpenPrSpec`) before touching the network.
+- On success, the actuator returns a typed result model
+  (e.g. `OpenPrResult`). The executor serializes it into the
+  `ExecutionRecord.result` blob so replay-from-events reconstructs
+  the same state.
+- Rollback is actuator-aware: for `github.*` proposals with a captured
+  result, the executor calls a matching rollback function
+  (`rollback_open_pr` — close PR + delete branch). The rollback is
+  idempotent; calling it twice is safe.
+- When rollback cannot undo the mutation (e.g. the PR was merged
+  out-of-band), the actuator raises `RollbackImpossibleError`. The
+  executor then emits a terminal **`rollback_impossible`** event
+  carrying a `reason` and the known `actuator_state`; the proposal
+  lands in `ProposalStatus.rollback_impossible` and a human takes
+  over.
+
+Safety rails enforced in the actuator (not policy-configurable):
+
+- Head branch name for `github.open_pr` is derived from `proposal_id`
+  (`quorum/<proposal_id>`), so rollback can locate it deterministically.
+- Base branch cannot be `main` / `master` / `trunk` / `develop` /
+  `release*` or a GitHub-flagged protected branch.
+- Per-file byte cap + per-PR file count cap (design: 200 files × 64
+  KiB). Operators can tighten further via `config/github.yaml`.
+
+The actuator subpackage never emits events itself — per `AGENTS.md`
+logging rules, only the executor writes to the log. That keeps the
+event schema owned by one service.
+
 ## POC design decisions
 
 ### 1. Event log first
