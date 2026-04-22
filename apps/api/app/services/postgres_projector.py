@@ -30,7 +30,16 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from apps.api.app.db.engine import make_session_factory
-from apps.api.app.db.models import EventProjectedRow, IntentRow
+from apps.api.app.db.models import (
+    EventProjectedRow,
+    ExecutionRow,
+    FindingRow,
+    IntentRow,
+    PolicyDecisionRow,
+    ProposalRow,
+    RollbackRow,
+    VoteRow,
+)
 from apps.api.app.domain.models import EventEnvelope
 
 _log = structlog.get_logger(__name__)
@@ -127,29 +136,233 @@ class PostgresProjector:
 
 
 def _handle_intent_created(session: Session, event: EventEnvelope) -> None:
-    payload = event.payload
+    p = event.payload
     stmt = pg_insert(IntentRow).values(
-        id=payload["id"],
-        title=payload["title"],
-        description=payload["description"],
-        environment=payload.get("environment", "local"),
-        requested_by=payload.get("requested_by", "operator"),
-        created_at=payload["created_at"],
+        id=p["id"],
+        title=p["title"],
+        description=p["description"],
+        environment=p.get("environment", "local"),
+        requested_by=p.get("requested_by", "operator"),
+        created_at=p["created_at"],
     )
-    # Idempotent upsert on the natural PK.
     stmt = stmt.on_conflict_do_update(
         index_elements=["id"],
         set_={
-            "title": stmt.excluded.title,
-            "description": stmt.excluded.description,
-            "environment": stmt.excluded.environment,
-            "requested_by": stmt.excluded.requested_by,
-            "created_at": stmt.excluded.created_at,
+            c: stmt.excluded[c]
+            for c in ("title", "description", "environment", "requested_by", "created_at")
         },
     )
     session.execute(stmt)
 
 
+def _handle_finding_created(session: Session, event: EventEnvelope) -> None:
+    p = event.payload
+    stmt = pg_insert(FindingRow).values(
+        id=p["id"],
+        intent_id=p["intent_id"],
+        agent_id=p["agent_id"],
+        summary=p["summary"],
+        evidence_refs=p.get("evidence_refs", []),
+        confidence=p.get("confidence", 0.5),
+        created_at=p["created_at"],
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["id"],
+        set_={
+            c: stmt.excluded[c]
+            for c in (
+                "intent_id",
+                "agent_id",
+                "summary",
+                "evidence_refs",
+                "confidence",
+                "created_at",
+            )
+        },
+    )
+    session.execute(stmt)
+
+
+def _handle_proposal_created(session: Session, event: EventEnvelope) -> None:
+    p = event.payload
+    stmt = pg_insert(ProposalRow).values(
+        id=p["id"],
+        intent_id=p["intent_id"],
+        agent_id=p["agent_id"],
+        title=p["title"],
+        action_type=p["action_type"],
+        target=p["target"],
+        environment=p.get("environment", "local"),
+        risk=p.get("risk", "low"),
+        rationale=p["rationale"],
+        evidence_refs=p.get("evidence_refs", []),
+        rollback_steps=p.get("rollback_steps", []),
+        health_checks=p.get("health_checks", []),
+        status=p.get("status", "pending"),
+        created_at=p["created_at"],
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["id"],
+        set_={
+            c: stmt.excluded[c]
+            for c in (
+                "intent_id",
+                "agent_id",
+                "title",
+                "action_type",
+                "target",
+                "environment",
+                "risk",
+                "rationale",
+                "evidence_refs",
+                "rollback_steps",
+                "health_checks",
+                "status",
+                "created_at",
+            )
+        },
+    )
+    session.execute(stmt)
+
+
+def _handle_policy_evaluated(session: Session, event: EventEnvelope) -> None:
+    p = event.payload
+    stmt = pg_insert(PolicyDecisionRow).values(
+        proposal_id=p["proposal_id"],
+        allowed=p["allowed"],
+        requires_human=p["requires_human"],
+        votes_required=p["votes_required"],
+        reasons=p.get("reasons", []),
+        created_at=p["created_at"],
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["proposal_id"],
+        set_={
+            c: stmt.excluded[c]
+            for c in ("allowed", "requires_human", "votes_required", "reasons", "created_at")
+        },
+    )
+    session.execute(stmt)
+
+
+def _handle_proposal_voted(session: Session, event: EventEnvelope) -> None:
+    p = event.payload
+    stmt = pg_insert(VoteRow).values(
+        id=p["id"],
+        proposal_id=p["proposal_id"],
+        agent_id=p["agent_id"],
+        decision=p["decision"],
+        reason=p.get("reason", ""),
+        created_at=p["created_at"],
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["id"],
+        set_={
+            c: stmt.excluded[c]
+            for c in ("proposal_id", "agent_id", "decision", "reason", "created_at")
+        },
+    )
+    session.execute(stmt)
+
+
+def _update_proposal_status(session: Session, proposal_id: str, status: str) -> None:
+    # Status-change events (proposal_approved/blocked) carry only the
+    # proposal_id in their payload. We update the existing proposals row
+    # in place. If the proposal_created event hasn't been projected yet
+    # (e.g. out-of-order replay), skip — reconcile() will run in order
+    # and catch it.
+    row = session.get(ProposalRow, proposal_id)
+    if row is None:
+        _log.warning(
+            "projector_status_update_for_missing_proposal",
+            proposal_id=proposal_id,
+            new_status=status,
+        )
+        return
+    row.status = status
+
+
+def _handle_proposal_approved(session: Session, event: EventEnvelope) -> None:
+    _update_proposal_status(session, event.payload["proposal_id"], "approved")
+
+
+def _handle_proposal_blocked(session: Session, event: EventEnvelope) -> None:
+    _update_proposal_status(session, event.payload["proposal_id"], "blocked")
+
+
+def _upsert_execution(session: Session, event: EventEnvelope) -> None:
+    p = event.payload
+    stmt = pg_insert(ExecutionRow).values(
+        id=p["id"],
+        proposal_id=p["proposal_id"],
+        actor_id=p["actor_id"],
+        status=p["status"],
+        health_checks=p.get("health_checks", []),
+        detail=p.get("detail", ""),
+        created_at=p["created_at"],
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["id"],
+        set_={c: stmt.excluded[c] for c in ("status", "health_checks", "detail", "created_at")},
+    )
+    session.execute(stmt)
+
+
+def _handle_execution_started(session: Session, event: EventEnvelope) -> None:
+    _upsert_execution(session, event)
+
+
+def _handle_execution_succeeded(session: Session, event: EventEnvelope) -> None:
+    _upsert_execution(session, event)
+    # On success, also bump the parent proposal to "executed" so queries by
+    # status reflect the outcome without joining through executions.
+    _update_proposal_status(session, event.payload["proposal_id"], "executed")
+
+
+def _handle_execution_failed(session: Session, event: EventEnvelope) -> None:
+    _upsert_execution(session, event)
+    _update_proposal_status(session, event.payload["proposal_id"], "failed")
+
+
+def _upsert_rollback(session: Session, event: EventEnvelope) -> None:
+    p = event.payload
+    stmt = pg_insert(RollbackRow).values(
+        id=p["id"],
+        proposal_id=p["proposal_id"],
+        actor_id=p["actor_id"],
+        steps=p.get("steps", []),
+        status=p["status"],
+        created_at=p["created_at"],
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["id"],
+        set_={c: stmt.excluded[c] for c in ("steps", "status", "created_at")},
+    )
+    session.execute(stmt)
+
+
+def _handle_rollback_started(session: Session, event: EventEnvelope) -> None:
+    _upsert_rollback(session, event)
+
+
+def _handle_rollback_completed(session: Session, event: EventEnvelope) -> None:
+    _upsert_rollback(session, event)
+    # A rollback completing flips the proposal out of executed/failed and
+    # into rolled_back for operator readback.
+    _update_proposal_status(session, event.payload["proposal_id"], "rolled_back")
+
+
 _ENTITY_HANDLERS = {
     "intent_created": _handle_intent_created,
+    "finding_created": _handle_finding_created,
+    "proposal_created": _handle_proposal_created,
+    "policy_evaluated": _handle_policy_evaluated,
+    "proposal_voted": _handle_proposal_voted,
+    "proposal_approved": _handle_proposal_approved,
+    "proposal_blocked": _handle_proposal_blocked,
+    "execution_started": _handle_execution_started,
+    "execution_succeeded": _handle_execution_succeeded,
+    "execution_failed": _handle_execution_failed,
+    "rollback_started": _handle_rollback_started,
+    "rollback_completed": _handle_rollback_completed,
 }

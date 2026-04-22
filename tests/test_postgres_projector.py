@@ -62,6 +62,29 @@ def test_make_engine_normalizes_postgres_shorthand(
     engine.dispose()
 
 
+def test_dispatch_table_covers_all_expected_event_types() -> None:
+    """Every event type emitted by the core state machine must have a handler."""
+    from apps.api.app.services import postgres_projector
+
+    expected = {
+        "intent_created",
+        "finding_created",
+        "proposal_created",
+        "policy_evaluated",
+        "proposal_voted",
+        "proposal_approved",
+        "proposal_blocked",
+        "execution_started",
+        "execution_succeeded",
+        "execution_failed",
+        "rollback_started",
+        "rollback_completed",
+    }
+    registered = set(postgres_projector._ENTITY_HANDLERS.keys())
+    missing = expected - registered
+    assert not missing, f"missing handlers: {sorted(missing)}"
+
+
 def test_projector_requires_enriched_envelope(
     tmp_path: pytest.TempPathFactory,
 ) -> None:
