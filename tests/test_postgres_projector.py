@@ -77,6 +77,7 @@ def test_dispatch_table_covers_all_expected_event_types() -> None:
         "execution_started",
         "execution_succeeded",
         "execution_failed",
+        "health_check_completed",
         "rollback_started",
         "rollback_completed",
     }

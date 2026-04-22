@@ -18,6 +18,8 @@ class StateStore:
         self.policy_decisions: dict[str, dict[str, Any]] = {}
         self.executions: dict[str, list[dict[str, Any]]] = defaultdict(list)
         self.rollbacks: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        # One list per execution_id. Each entry is a health_check_completed payload.
+        self.health_check_results: dict[str, list[dict[str, Any]]] = defaultdict(list)
         self.events: list[dict[str, Any]] = []
 
     def replay(self, events: list[EventEnvelope]) -> None:
@@ -52,6 +54,9 @@ class StateStore:
             if payload["proposal_id"] in self.proposals:
                 self.proposals[payload["proposal_id"]]["status"] = ProposalStatus.blocked.value
 
+        elif event.event_type == "health_check_completed":
+            self.health_check_results[payload["execution_id"]].append(payload)
+
         elif event.event_type == "execution_started":
             self.executions[payload["proposal_id"]].append(payload)
 
@@ -82,6 +87,7 @@ class StateStore:
             "policy_decisions": self.policy_decisions,
             "executions": self.executions,
             "rollbacks": self.rollbacks,
+            "health_check_results": self.health_check_results,
             "event_count": len(self.events),
         }
 

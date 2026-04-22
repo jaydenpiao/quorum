@@ -180,9 +180,11 @@ class PolicyDecision(BaseModel):
 
 
 class HealthCheckResult(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("hcr"))
     name: str
     passed: bool
     detail: str = ""
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class ExecutionRequest(BaseModel):

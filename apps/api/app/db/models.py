@@ -108,6 +108,21 @@ class ExecutionRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
+class HealthCheckResultRow(Base):
+    """One row per health_check_completed event. Parent is `execution_id`."""
+
+    __tablename__ = "health_check_results"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    execution_id: Mapped[str] = mapped_column(String(128), index=True)
+    proposal_id: Mapped[str] = mapped_column(String(128), index=True)
+    name: Mapped[str] = mapped_column(String(256))
+    kind: Mapped[str] = mapped_column(String(32), index=True)
+    passed: Mapped[bool] = mapped_column()
+    detail: Mapped[str] = mapped_column(String(4000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
 class RollbackRow(Base):
     """One row per RollbackRecord — started / completed generate separate ids."""
 

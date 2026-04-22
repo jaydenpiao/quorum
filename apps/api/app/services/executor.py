@@ -37,9 +37,27 @@ class Executor:
             )
         )
 
-        health_results: list[HealthCheckResult] = [
-            self.check_runner.run(spec) for spec in proposal.health_checks
-        ]
+        health_results: list[HealthCheckResult] = []
+        for spec in proposal.health_checks:
+            result = self.check_runner.run(spec)
+            self.event_log.append(
+                EventEnvelope(
+                    event_type="health_check_completed",
+                    entity_type="health_check_result",
+                    entity_id=result.id,
+                    payload={
+                        "id": result.id,
+                        "execution_id": started.id,
+                        "proposal_id": proposal.id,
+                        "name": result.name,
+                        "kind": spec.kind.value,
+                        "passed": result.passed,
+                        "detail": result.detail,
+                        "created_at": result.created_at.isoformat(),
+                    },
+                )
+            )
+            health_results.append(result)
 
         failed = [result for result in health_results if not result.passed]
         if failed:
