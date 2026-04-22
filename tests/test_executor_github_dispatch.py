@@ -314,10 +314,14 @@ def test_github_open_pr_validates_payload(
 def test_github_open_pr_success_then_health_check_fails(
     event_log: EventLog, policy: PolicyEngine, gh_client: GitHubAppClient
 ) -> None:
+    """Dispatch succeeds → health check fails → actuator rollback runs.
+
+    After PR C the rollback is actuator-aware: the executor calls
+    ``rollback_open_pr``, which GETs the PR, PATCHes it closed, and
+    DELETEs the branch. All those calls need to be mocked.
+    """
     executor = Executor(event_log, policy, github_client=gh_client)
     proposal = _open_pr_proposal()
-    # Attach a failing check; dispatch should succeed, then failure
-    # surfaces through the existing health-check path.
     proposal = proposal.model_copy(
         update={
             "health_checks": [HealthCheckSpec(name="intentional", kind=HealthCheckKind.always_fail)]
@@ -326,12 +330,32 @@ def test_github_open_pr_success_then_health_check_fails(
 
     with respx.mock(assert_all_called=False) as mock:
         _setup_happy_path(mock)
+        # Actuator rollback path (see apps/.../actions.rollback_open_pr).
+        mock.get("https://api.github.com/repos/jaydenpiao/quorum/pulls/17").mock(
+            return_value=httpx.Response(200, json={"state": "open", "merged": False, "number": 17})
+        )
+        mock.patch("https://api.github.com/repos/jaydenpiao/quorum/pulls/17").mock(
+            return_value=httpx.Response(
+                200, json={"state": "closed", "merged": False, "number": 17}
+            )
+        )
+        mock.delete(
+            f"https://api.github.com/repos/jaydenpiao/quorum/git/refs/heads/quorum/{proposal.id}"
+        ).mock(return_value=httpx.Response(204))
+
         outcome = executor.execute(proposal, actor_id="code-agent")
 
     assert outcome["status"] == "failed"
-    # Actuator ran successfully, so result is populated even on failure.
+    # Actuator opened the PR, so result is populated even on failure.
     assert outcome["result"]["pr_number"] == 17
     types = [e.event_type for e in event_log.read_all()]
     assert "execution_succeeded" not in types
     assert "execution_failed" in types
+    # rollback_completed fired (actuator-aware path succeeded).
     assert "rollback_completed" in types
+    assert "rollback_impossible" not in types
+    # The completed event carries an actuator_summary describing what
+    # actually happened on GitHub.
+    completed = next(e for e in event_log.read_all() if e.event_type == "rollback_completed")
+    assert completed.payload["actuator_summary"]["pr_action"] == "closed"
+    assert completed.payload["actuator_summary"]["branch_deleted"] == f"quorum/{proposal.id}"
