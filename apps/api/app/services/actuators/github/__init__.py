@@ -1,34 +1,56 @@
-"""GitHub App actuator (Phase 4 PR A — auth scaffold).
+"""GitHub App actuator.
 
-This PR lands the auth plumbing only: App JWT signer, installation-token
-cache with TTL + on-demand refresh, config loader. No ``action_type``
-dispatch, no executor wiring — those land in PR B.
+Two layers of scope so far:
 
-Public re-exports below are what PR B will import.
+- **PR A** — auth scaffold: App JWT signing, installation-token cache,
+  single-retry-on-401 wrapper, config loader.
+- **PR B1** (this PR) — the first action: ``github.open_pr``. Adds the
+  typed spec (``GitHubOpenPrSpec``) + result (``OpenPrResult``), the Git
+  Data REST methods on ``GitHubAppClient``, and the ``open_pr``
+  orchestration function in ``actions``. Not yet wired into the
+  executor — PR B2 dispatches on ``action_type``.
 """
 
+from apps.api.app.services.actuators.github.actions import (
+    GitHubActionError,
+    open_pr,
+)
 from apps.api.app.services.actuators.github.auth import (
     AppJWTSigner,
     CachedToken,
     GitHubAppAuthError,
     InstallationTokenCache,
 )
-from apps.api.app.services.actuators.github.client import GitHubAppClient
+from apps.api.app.services.actuators.github.client import (
+    GitHubApiError,
+    GitHubAppClient,
+)
 from apps.api.app.services.actuators.github.specs import (
     GitHubAppConfig,
     GitHubAppLimits,
+    GitHubFileSpec,
     GitHubInstallation,
+    GitHubOpenPrSpec,
+    OpenPrResult,
+    derive_head_branch,
     load_github_config,
 )
 
 __all__ = [
     "AppJWTSigner",
     "CachedToken",
+    "GitHubActionError",
+    "GitHubApiError",
     "GitHubAppAuthError",
     "GitHubAppClient",
     "GitHubAppConfig",
     "GitHubAppLimits",
+    "GitHubFileSpec",
     "GitHubInstallation",
+    "GitHubOpenPrSpec",
     "InstallationTokenCache",
+    "OpenPrResult",
+    "derive_head_branch",
     "load_github_config",
+    "open_pr",
 ]
