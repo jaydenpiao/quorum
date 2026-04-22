@@ -13,12 +13,16 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
 from apps.api.app.api.routes import router
+from apps.api.app.logging_config import configure_logging
 from apps.api.app.middleware import SecurityHeadersMiddleware
+from apps.api.app.request_context import RequestContextMiddleware
 from apps.api.app.services.event_log import EventLog, EventLogTamperError
 from apps.api.app.services.executor import Executor
 from apps.api.app.services.policy_engine import PolicyEngine
 from apps.api.app.services.quorum_engine import QuorumEngine
 from apps.api.app.services.state_store import StateStore
+
+configure_logging()
 
 
 def load_yaml(path: str) -> dict:
@@ -47,6 +51,10 @@ app.add_middleware(
     max_age=600,
 )
 app.add_middleware(SecurityHeadersMiddleware)
+# RequestContextMiddleware last so it's installed first in the chain:
+# its contextvars (request_id, method, path) are bound before any other
+# middleware runs and stay available for downstream loggers.
+app.add_middleware(RequestContextMiddleware)
 
 
 @app.exception_handler(RateLimitExceeded)
