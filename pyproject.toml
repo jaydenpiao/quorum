@@ -38,6 +38,9 @@ dependencies = [
   "opentelemetry-sdk>=1.29.0",
   "opentelemetry-exporter-otlp-proto-http>=1.29.0",
   "opentelemetry-instrumentation-fastapi>=0.50b0",
+  "sqlalchemy>=2.0.36",
+  "psycopg[binary]>=3.2.3",
+  "alembic>=1.14.0",
 ]
 
 [project.urls]
@@ -66,7 +69,10 @@ target-version = "py312"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --cov=apps --cov-report=term-missing --cov-report=xml"
+addopts = "-ra --cov=apps --cov-report=term-missing --cov-report=xml -m 'not integration'"
+markers = [
+  "integration: tests that require a running Postgres; run via `pytest -m integration` with a live DATABASE_URL",
+]
 
 [tool.coverage.run]
 source = ["apps"]

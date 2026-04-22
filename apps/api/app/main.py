@@ -18,9 +18,12 @@ from apps.api.app.api.routes import router
 from apps.api.app.logging_config import configure_logging
 from apps.api.app.middleware import SecurityHeadersMiddleware
 from apps.api.app.request_context import RequestContextMiddleware
+from apps.api.app.db.engine import make_engine
 from apps.api.app.services.event_log import EventLog, EventLogTamperError
 from apps.api.app.services.executor import Executor
 from apps.api.app.services.policy_engine import PolicyEngine
+from apps.api.app.services.postgres_projector import PostgresProjector
+from apps.api.app.services.projector import NoOpProjector, Projector
 from apps.api.app.services.quorum_engine import QuorumEngine
 from apps.api.app.services.state_store import StateStore
 from apps.api.app.tracing import configure_tracing
@@ -89,7 +92,9 @@ def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONRespons
     )
 
 
-event_log = EventLog(system_config["app"]["log_path"])
+_pg_engine = make_engine()
+_projector: Projector = PostgresProjector(_pg_engine) if _pg_engine is not None else NoOpProjector()
+event_log = EventLog(system_config["app"]["log_path"], projector=_projector)
 # Fail loudly if the persisted log has been modified outside EventLog.
 try:
     event_log.verify()
