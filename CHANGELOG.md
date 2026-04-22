@@ -11,6 +11,22 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **`HealthCheckKind.github_check_run` (Phase 4 PR E)** — a new health
+  check that polls `GET /repos/{owner}/{repo}/commits/{sha}/check-runs`
+  via the configured GitHub App until every check run reaches a
+  terminal state, or a wall-clock timeout expires (default 300 s, max
+  30 min). Pass criteria: `status="completed"` AND `conclusion` in
+  {success, neutral, skipped} for every run. Any non-passing terminal
+  conclusion fails fast. Optional `github_check_name` filter scopes the
+  poll to a single workflow. `HealthCheckSpec` gains `github_owner`,
+  `github_repo`, `github_commit_sha`, `github_check_name`, and
+  `poll_interval_seconds`; the executor threads its actuator result
+  (e.g. `OpenPrResult.head_sha`) as `context["head_sha"]` so the spec's
+  `github_commit_sha` is optional — the operator can attach a check-run
+  probe to an `open_pr` proposal without knowing the SHA in advance.
+  `GitHubAppClient.list_commit_check_runs` is the underlying REST
+  method. `HealthCheckRunner` now accepts an optional `github_client`
+  and a `sleep_fn` injection point for testability.
 - **Remaining GitHub actions (Phase 4 PR D)** — `github.comment_issue`,
   `github.close_pr`, `github.add_labels`, each with typed spec, result,
   orchestration function, and idempotent rollback (delete comment,

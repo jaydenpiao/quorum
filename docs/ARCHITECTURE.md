@@ -66,9 +66,12 @@ observe -> find -> propose -> policy-check -> vote -> approve -> execute -> veri
    - triggers rollback when needed
 
    Supported `HealthCheckKind` values: `always_pass`, `always_fail`, `http`
-   (HTTP GET/HEAD probe with expected-status and timeout). Adding a new probe
-   requires extending the enum and adding a branch in `services/health_checks.py`
-   — proposals cannot inject arbitrary command strings.
+   (HTTP GET/HEAD probe with expected-status and timeout), and
+   `github_check_run` (poll a commit's check-runs via the GitHub App until
+   all are terminal; used by `github.open_pr` to gate execution on CI).
+   Adding a new probe requires extending the enum and adding a branch in
+   `services/health_checks.py` — proposals cannot inject arbitrary command
+   strings.
 
 8. **Operator Console**
    - shows intents, proposals, votes, execution state, and log events
