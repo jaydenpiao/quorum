@@ -42,7 +42,7 @@ def _restore_registries():
 # ---------------------------------------------------------------------------
 
 _YAML_AGENT_ID = "yaml-test-agent"
-_PLAINTEXT_KEY = "correct-horse-battery-staple-test-key-32b"
+_PLAINTEXT_KEY = "fake-test-plaintext"  # noqa: S105 — fixed test fixture, not a real secret
 
 
 def _make_agents_yaml(tmp_path: Path, api_key_hash: str = "") -> Path:
@@ -177,7 +177,7 @@ def test_bootstrap_generate_writes_hash_and_prints_plaintext_once(
         ],
         capture_output=True,
         text=True,
-        cwd="/Users/jaydenpiao/Desktop/Quorum/.claude/worktrees/agent-a8c4d93c",
+        cwd=str(Path(__file__).resolve().parents[1]),
     )
 
     assert result.returncode == 0, f"CLI failed: {result.stderr}"
