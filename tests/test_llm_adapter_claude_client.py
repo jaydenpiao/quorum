@@ -159,3 +159,44 @@ def test_call_messages_propagates_rate_limit() -> None:
         )
         with pytest.raises(anthropic.RateLimitError):
             client.call_messages(user_content="x")
+
+
+# ---------------------------------------------------------------------------
+# Tools kwarg (PR 2)
+# ---------------------------------------------------------------------------
+
+
+def test_build_request_includes_tools_when_provided() -> None:
+    client = ClaudeClient(_config(), system_prompt="x")
+    tools = [{"name": "create_finding", "description": "…", "input_schema": {"type": "object"}}]
+    body = client.build_request(user_content="x", tools=tools)
+    assert body["tools"] == tools
+
+
+def test_build_request_omits_tools_when_none() -> None:
+    client = ClaudeClient(_config(), system_prompt="x")
+    body = client.build_request(user_content="x")
+    assert "tools" not in body, "empty tool list must not appear in body"
+
+
+def test_build_request_omits_tools_when_empty_list() -> None:
+    client = ClaudeClient(_config(), system_prompt="x")
+    body = client.build_request(user_content="x", tools=[])
+    assert "tools" not in body
+
+
+def test_call_messages_forwards_tools_to_sdk() -> None:
+    sdk = anthropic.Anthropic(api_key="test-key-ignored", max_retries=0)
+    client = ClaudeClient(_config(), system_prompt="x", sdk=sdk)
+    tools = [{"name": "create_finding", "description": "…", "input_schema": {"type": "object"}}]
+
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post("https://api.anthropic.com/v1/messages").mock(
+            return_value=httpx.Response(200, json=_stub_response())
+        )
+        client.call_messages(user_content="x", tools=tools)
+
+    import json as _json
+
+    sent = _json.loads(route.calls.last.request.content)
+    assert sent["tools"] == tools
