@@ -34,6 +34,7 @@ from apps.api.app.db.models import (
     EventProjectedRow,
     ExecutionRow,
     FindingRow,
+    HealthCheckResultRow,
     IntentRow,
     PolicyDecisionRow,
     ProposalRow,
@@ -352,6 +353,36 @@ def _handle_rollback_completed(session: Session, event: EventEnvelope) -> None:
     _update_proposal_status(session, event.payload["proposal_id"], "rolled_back")
 
 
+def _handle_health_check_completed(session: Session, event: EventEnvelope) -> None:
+    p = event.payload
+    stmt = pg_insert(HealthCheckResultRow).values(
+        id=p["id"],
+        execution_id=p["execution_id"],
+        proposal_id=p["proposal_id"],
+        name=p["name"],
+        kind=p.get("kind", "unknown"),
+        passed=p["passed"],
+        detail=p.get("detail", ""),
+        created_at=p["created_at"],
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["id"],
+        set_={
+            c: stmt.excluded[c]
+            for c in (
+                "execution_id",
+                "proposal_id",
+                "name",
+                "kind",
+                "passed",
+                "detail",
+                "created_at",
+            )
+        },
+    )
+    session.execute(stmt)
+
+
 _ENTITY_HANDLERS = {
     "intent_created": _handle_intent_created,
     "finding_created": _handle_finding_created,
@@ -363,6 +394,7 @@ _ENTITY_HANDLERS = {
     "execution_started": _handle_execution_started,
     "execution_succeeded": _handle_execution_succeeded,
     "execution_failed": _handle_execution_failed,
+    "health_check_completed": _handle_health_check_completed,
     "rollback_started": _handle_rollback_started,
     "rollback_completed": _handle_rollback_completed,
 }

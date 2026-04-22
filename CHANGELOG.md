@@ -11,6 +11,19 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **`health_check_completed` event emission** — the executor now emits one
+  `health_check_completed` event per check between `execution_started` and
+  the terminal `execution_succeeded`/`execution_failed`. Closes the
+  long-standing `docs/ARCHITECTURE.md` drift. `HealthCheckResult` gains
+  `id` and `created_at`. New `health_check_results` table (Alembic 0003)
+  and projector handler; reducer added to `state_store`.
+- **Read-only history endpoints** — `/api/v1/history/{intents,findings,
+  proposals,votes,executions}` backed by the Postgres projection; return
+  503 when `DATABASE_URL` is unset.
+- **Postgres projection capstone** — `PostgresProjector` (SQLAlchemy 2.0
+  sync + psycopg3), Alembic migrations 0001–0003, `Projector` Protocol
+  with `NoOpProjector` default wired into `EventLog.append` post-fsync,
+  reconcile service + `python -m apps.api.app.tools.reconcile` CLI.
 - **OpenTelemetry traces** — `apps/api/app/tracing.py`, env-gated OTLP/HTTP
   exporter (`OTEL_EXPORTER_OTLP_ENDPOINT`). `/metrics` and `/health` excluded
   from tracing.
