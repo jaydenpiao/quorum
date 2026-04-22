@@ -64,6 +64,28 @@ jobs:
           uv sync --frozen --extra dev
           uv run pip-audit --strict
 
+  typecheck:
+    name: mypy
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: mypy
+        run: uv run mypy
+
   docker-build:
     name: docker build
     runs-on: ubuntu-latest

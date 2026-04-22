@@ -5,6 +5,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)](#project-status)
 [![coverage: target >= 60%](https://img.shields.io/badge/coverage-%E2%89%A5%2060%25-blue.svg)](#)
+[![mypy](https://img.shields.io/badge/mypy-strict%20(phased)-orange)](https://github.com/jaydenpiao/quorum/actions/workflows/ci.yml)
 
 Quorum is a control plane for **safe, auditable, policy-gated, quorum-based execution** by AI agents operating on code and infrastructure.
 
