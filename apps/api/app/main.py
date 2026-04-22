@@ -177,6 +177,42 @@ def liveness() -> dict[str, bool]:
     return {"ok": True}
 
 
+@app.get("/readiness")
+def readiness(request: Request) -> JSONResponse:
+    """Readiness probe for orchestrators (Fly.io today) to gate routing
+    during boot.
+
+    Returns 200 only when both preconditions hold:
+
+    1. The event log's hash chain has been verified. This is enforced at
+       module import (see ``event_log.verify()`` above); if verification
+       had failed the module would have raised and this worker would
+       never have bound to :8080 to answer at all. A response from this
+       handler is therefore proof of chain verification — no extra flag
+       needed.
+    2. If a Postgres projection is configured (``pg_engine is not None``),
+       a ``SELECT 1`` round-trip succeeds. This catches DNS, network,
+       or auth failures before the orchestrator sends real traffic.
+
+    Distinct from ``/health`` (liveness), which never touches external
+    state.
+    """
+    # Local import keeps the sqlalchemy symbol in the same atomic Edit
+    # as its first usage — see SESSION_HANDOFF gotcha #1 on the ruff
+    # PostToolUse hook stripping unused imports.
+    from sqlalchemy import text
+
+    engine = request.app.state.pg_engine
+    if engine is not None:
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+        except Exception as exc:  # noqa: BLE001 — any DB failure is "not ready"
+            _log.warning("readiness_db_ping_failed", error=repr(exc))
+            return JSONResponse(status_code=503, content={"detail": "projection not ready"})
+    return JSONResponse(status_code=200, content={"ok": True})
+
+
 @app.get("/console")
 def console() -> FileResponse:
     return FileResponse("apps/console/index.html")
