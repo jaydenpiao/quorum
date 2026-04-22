@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 from fastapi import FastAPI, Request
@@ -26,8 +27,8 @@ from apps.api.app.services.state_store import StateStore
 configure_logging()
 
 
-def load_yaml(path: str) -> dict:
-    return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+def load_yaml(path: str) -> dict[str, Any]:
+    return cast(dict[str, Any], yaml.safe_load(Path(path).read_text(encoding="utf-8")))
 
 
 system_config = load_yaml("config/system.yaml")
@@ -108,7 +109,7 @@ app.mount("/console-static", StaticFiles(directory="apps/console"), name="consol
 
 
 @app.get("/")
-def root() -> dict:
+def root() -> dict[str, str]:
     return {
         "service": "quorum-control-plane",
         "docs": "/docs",
@@ -118,7 +119,7 @@ def root() -> dict:
 
 
 @app.get("/health")
-def liveness() -> dict:
+def liveness() -> dict[str, bool]:
     """Liveness probe — does not touch the event log."""
     return {"ok": True}
 

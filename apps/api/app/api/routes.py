@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from apps.api.app.demo_seed import seed_demo
@@ -45,24 +47,24 @@ def _enforce_agent(body_agent_id: str | None, authenticated_agent_id: str) -> st
 
 
 @router.get("/health")
-def health() -> dict:
+def health() -> dict[str, Any]:
     return {"ok": True}
 
 
 @router.get("/state")
-def state(request: Request) -> dict:
+def state(request: Request) -> dict[str, Any]:
     refresh_state(request)
-    return request.app.state.state_store.snapshot()
+    return cast(dict[str, Any], request.app.state.state_store.snapshot())
 
 
 @router.get("/events")
-def events(request: Request) -> list[dict]:
+def events(request: Request) -> list[dict[str, Any]]:
     refresh_state(request)
-    return request.app.state.state_store.events
+    return cast(list[dict[str, Any]], request.app.state.state_store.events)
 
 
 @router.get("/events/verify")
-def verify_events(request: Request) -> dict:
+def verify_events(request: Request) -> dict[str, Any]:
     """Re-walk the event log's hash chain. Returns ok=True or raises 500 with detail."""
     try:
         request.app.state.event_log.verify()
@@ -81,7 +83,7 @@ def create_intent(
     payload: IntentCreate,
     request: Request,
     agent_id: str = Depends(require_agent),
-) -> dict:
+) -> dict[str, Any]:
     data = payload.model_dump()
     # Server-side identity always wins over whatever the client sent.
     data["requested_by"] = agent_id
@@ -102,7 +104,7 @@ def create_finding(
     payload: FindingCreate,
     request: Request,
     agent_id: str = Depends(require_agent),
-) -> dict:
+) -> dict[str, Any]:
     bound_agent = _enforce_agent(payload.agent_id, agent_id)
 
     if payload.intent_id not in request.app.state.state_store.intents:
@@ -130,7 +132,7 @@ def create_proposal(
     payload: ProposalCreate,
     request: Request,
     agent_id: str = Depends(require_agent),
-) -> dict:
+) -> dict[str, Any]:
     bound_agent = _enforce_agent(payload.agent_id, agent_id)
 
     refresh_state(request)
@@ -171,7 +173,7 @@ def create_vote(
     payload: VoteCreate,
     request: Request,
     agent_id: str = Depends(require_agent),
-) -> dict:
+) -> dict[str, Any]:
     # Spoof check precedes existence check so 403 wins over 404.
     bound_agent = _enforce_agent(payload.agent_id, agent_id)
 
@@ -224,7 +226,7 @@ def create_vote(
         )
 
     refresh_state(request)
-    return request.app.state.state_store.snapshot()
+    return cast(dict[str, Any], request.app.state.state_store.snapshot())
 
 
 @router.post("/proposals/{proposal_id}/execute")
@@ -233,7 +235,7 @@ def execute_proposal(
     payload: ExecutionRequest,
     request: Request,
     agent_id: str = Depends(require_agent),
-) -> dict:
+) -> dict[str, Any]:
     refresh_state(request)
     proposal_payload = request.app.state.state_store.proposals.get(proposal_id)
     if not proposal_payload:
@@ -257,14 +259,14 @@ def execute_proposal(
     # `actor_id` is advisory and ignored here.
     result = request.app.state.executor.execute(proposal, actor_id=agent_id)
     refresh_state(request)
-    return result
+    return cast(dict[str, Any], result)
 
 
 @router.post("/demo/incident")
 def demo_incident(
     request: Request,
     agent_id: str = Depends(require_agent),
-) -> dict:
+) -> dict[str, Any]:
     if not demo_allowed():
         raise HTTPException(
             status_code=404,

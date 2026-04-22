@@ -16,7 +16,7 @@ from __future__ import annotations
 import uuid
 
 import structlog
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -27,7 +27,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
     Adds an ``X-Request-ID`` header to every response.
     """
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         structlog.contextvars.clear_contextvars()
         request_id = str(uuid.uuid4())
         structlog.contextvars.bind_contextvars(
