@@ -30,9 +30,12 @@ The core loop is:
 ## Read next
 
 1. `AGENTS.md`
-2. `docs/REPO_MAP.md`
-3. `docs/ARCHITECTURE.md`
-4. `docs/CURRENT_MODE.md`
+2. **`docs/SESSION_HANDOFF.md`** — where the last session left off, phase status, known gotchas, next candidates.
+3. `docs/ROADMAP.md`
+4. `CHANGELOG.md`
+5. `docs/REPO_MAP.md`
+6. `docs/ARCHITECTURE.md`
+7. `docs/CURRENT_MODE.md`
 
 ## Non-negotiables
 
