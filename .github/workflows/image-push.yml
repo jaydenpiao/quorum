@@ -1,0 +1,88 @@
+name: image-push
+
+# Builds the Quorum control-plane container image on every merge to `main`
+# and pushes it to `registry.fly.io/quorum-prod` tagged with the commit
+# SHA (content-addressed — the `fly.deploy` actuator consumes the digest).
+#
+# The job is gated on `FLY_API_TOKEN` being configured as a repository
+# secret. When it is absent (e.g. in a fork, or before the operator has
+# provisioned a Fly app) the job short-circuits with a status message
+# instead of failing, so Phase 5 can land without Fly account setup.
+#
+# Trigger surface:
+#   - push to main (automatic; gated on secret)
+#   - workflow_dispatch (manual; useful for back-filling a digest from an
+#     older commit)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-push-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  push:
+    name: build and push to fly registry
+    runs-on: ubuntu-latest
+    # Job runs only when the secret is present. We check the secret via
+    # an env expression because `if: secrets.X` does not expand inside
+    # job-level conditions — push through env.
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - name: Check for Fly API token
+        id: gate
+        run: |
+          if [ -z "${FLY_API_TOKEN:-}" ]; then
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::FLY_API_TOKEN not set — skipping image push. Set the repo secret to enable."
+          else
+            echo "has_token=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.has_token == 'true'
+
+      - name: Install flyctl
+        if: steps.gate.outputs.has_token == 'true'
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Authenticate docker to registry.fly.io
+        if: steps.gate.outputs.has_token == 'true'
+        run: flyctl auth docker
+
+      - name: Set up Docker Buildx
+        if: steps.gate.outputs.has_token == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      # Content-addressed tag: the commit SHA. The `fly.deploy` actuator
+      # pulls `registry.fly.io/quorum-prod@sha256:...` so we also capture
+      # the resulting digest and print it to the job summary for
+      # auditability.
+      - name: Build and push image
+        if: steps.gate.outputs.has_token == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: registry.fly.io/quorum-prod:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Record image digest in job summary
+        if: steps.gate.outputs.has_token == 'true'
+        run: |
+          DIGEST=$(docker buildx imagetools inspect \
+            registry.fly.io/quorum-prod:${{ github.sha }} \
+            --format '{{json .Manifest.Digest}}' | tr -d '"')
+          echo "### image-push" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- commit: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- tag:    \`registry.fly.io/quorum-prod:${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- digest: \`${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
