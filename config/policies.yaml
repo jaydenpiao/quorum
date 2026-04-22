@@ -40,6 +40,12 @@ action_type_rules:
   github.add_labels:
     votes_required: 1
     requires_human: false
+  # fly.deploy redeploys production. Strictest action rule we have:
+  # two votes plus explicit human approval via the Phase 4 approval
+  # entity. See docs/design/fly-deployment.md §Dog-food deploy flow.
+  fly.deploy:
+    votes_required: 2
+    requires_human: true
 
 rollback:
   auto_on_failed_health_checks: true

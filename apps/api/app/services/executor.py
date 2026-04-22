@@ -16,19 +16,23 @@ side-effects against the outside world. The sequence is always:
 
 Rollback path:
 
-- Non-github action types emit ``rollback_started`` +
+- Non-actuator action types emit ``rollback_started`` +
   ``rollback_completed`` carrying ``proposal.rollback_steps``.
 - ``github.*`` proposals with a captured actuator result dispatch to
   the matching actuator rollback function via the per-action-type
-  ``_ROLLBACK_DISPATCH`` table. On success → ``rollback_completed``
+  ``_GITHUB_ROLLBACK_DISPATCH`` table. On success → ``rollback_completed``
   (payload carries an ``actuator_summary``). On
   ``RollbackImpossibleError`` or any other actuator error mid-rollback
   → ``rollback_impossible`` — the proposal lands in
   ``ProposalStatus.rollback_impossible`` and a human reconciles.
+- ``fly.*`` proposals rollback by redeploying the previous image digest
+  captured at forward time. When no previous digest is available (first
+  deploy, release-list introspection failed) the executor emits
+  ``rollback_impossible``.
 
-Dispatch tables (``_ACTION_DISPATCH`` / ``_ROLLBACK_DISPATCH``) keep the
-per-action wiring in one place so adding a new action is a three-line
-change here plus a spec + action function in the actuator subpackage.
+Dispatch is split by action-type prefix so adding a new actuator is a
+three-line change here plus a spec + action function in the actuator
+subpackage.
 
 The actuator subpackage never emits events — per ``AGENTS.md`` only the
 executor does. Actuator errors are translated here into scrubbed
@@ -51,6 +55,15 @@ from apps.api.app.domain.models import (
     Proposal,
     RollbackImpossibleRecord,
     RollbackRecord,
+)
+from apps.api.app.services.actuators.fly import (
+    FlyActionError,
+    FlyClient,
+    FlyDeployResult,
+    FlyDeploySpec,
+    FlyRollbackImpossibleError,
+    deploy as fly_deploy,
+    rollback_deploy as fly_rollback_deploy,
 )
 from apps.api.app.services.actuators.github import (
     AddLabelsResult,
@@ -84,20 +97,21 @@ class ExecutorDispatchError(RuntimeError):
     """Raised when the executor cannot route a proposal to any actuator.
 
     Distinct from actuator-internal errors (``GitHubActionError``,
-    ``GitHubApiError``, ``GitHubAppAuthError``) so callers can tell
-    configuration gaps from mid-flight failures.
+    ``GitHubApiError``, ``GitHubAppAuthError``, ``FlyActionError``) so
+    callers can tell configuration gaps from mid-flight failures.
     """
 
 
 _GITHUB_PREFIX = "github."
+_FLY_PREFIX = "fly."
 
 
-# Per-action_type dispatch: each entry pairs the payload spec model with
-# an orchestration wrapper. Wrappers accept the client, the validated
-# spec, and the proposal id (kept on all actions for API symmetry even
-# when only ``open_pr`` derives state from it).
-_ActionFn = Callable[[GitHubAppClient, Any, str], BaseModel]
-_ACTION_DISPATCH: dict[str, tuple[type[BaseModel], _ActionFn]] = {
+# Per-action_type dispatch for github.*: each entry pairs the payload
+# spec model with an orchestration wrapper. Wrappers accept the client,
+# the validated spec, and the proposal id (kept on all actions for API
+# symmetry even when only ``open_pr`` derives state from it).
+_GithubActionFn = Callable[[GitHubAppClient, Any, str], BaseModel]
+_GITHUB_ACTION_DISPATCH: dict[str, tuple[type[BaseModel], _GithubActionFn]] = {
     "github.open_pr": (
         GitHubOpenPrSpec,
         lambda client, spec, pid: open_pr(client, spec, proposal_id=pid),
@@ -116,15 +130,30 @@ _ACTION_DISPATCH: dict[str, tuple[type[BaseModel], _ActionFn]] = {
     ),
 }
 
-# Per-action_type rollback dispatch: result model + rollback fn. Keyed
-# by the same action_type as the forward dispatch so the executor can
-# look up how to undo whatever it just ran.
-_RollbackFn = Callable[[GitHubAppClient, Any], dict[str, Any]]
-_ROLLBACK_DISPATCH: dict[str, tuple[type[BaseModel], _RollbackFn]] = {
+# Per-action_type rollback dispatch for github.*: result model + rollback
+# fn. Keyed by the same action_type as the forward dispatch so the
+# executor can look up how to undo whatever it just ran.
+_GithubRollbackFn = Callable[[GitHubAppClient, Any], dict[str, Any]]
+_GITHUB_ROLLBACK_DISPATCH: dict[str, tuple[type[BaseModel], _GithubRollbackFn]] = {
     "github.open_pr": (OpenPrResult, rollback_open_pr),
     "github.comment_issue": (CommentIssueResult, rollback_comment_issue),
     "github.close_pr": (ClosePrResult, rollback_close_pr),
     "github.add_labels": (AddLabelsResult, rollback_add_labels),
+}
+
+
+# The fly.* family has exactly one action in v1 (``fly.deploy``); we
+# keep a table anyway so adding ``fly.restart`` or ``fly.scale`` later
+# is a single-line extension. Tuple shape matches the github tables for
+# symmetry.
+_FlyActionFn = Callable[[FlyClient, Any], BaseModel]
+_FLY_ACTION_DISPATCH: dict[str, tuple[type[BaseModel], _FlyActionFn]] = {
+    "fly.deploy": (FlyDeploySpec, fly_deploy),
+}
+
+_FlyRollbackFn = Callable[[FlyClient, Any], dict[str, Any]]
+_FLY_ROLLBACK_DISPATCH: dict[str, tuple[type[BaseModel], _FlyRollbackFn]] = {
+    "fly.deploy": (FlyDeployResult, fly_rollback_deploy),
 }
 
 
@@ -135,6 +164,7 @@ class Executor:
         policy_engine: PolicyEngine,
         *,
         github_client: GitHubAppClient | None = None,
+        fly_client: FlyClient | None = None,
     ) -> None:
         self.event_log = event_log
         self.policy_engine = policy_engine
@@ -142,6 +172,7 @@ class Executor:
         # specs can poll a commit's check-runs through the configured App.
         self.check_runner = HealthCheckRunner(github_client=github_client)
         self.github_client = github_client
+        self.fly_client = fly_client
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -173,7 +204,12 @@ class Executor:
                 detail=f"action dispatch failed: {exc}",
                 result={},
             )
-        except (GitHubActionError, GitHubApiError, GitHubAppAuthError) as exc:
+        except (
+            GitHubActionError,
+            GitHubApiError,
+            GitHubAppAuthError,
+            FlyActionError,
+        ) as exc:
             return self._fail_and_rollback(
                 proposal=proposal,
                 actor_id=actor_id,
@@ -245,9 +281,16 @@ class Executor:
 
     def _dispatch_action(self, proposal: Proposal) -> dict[str, Any]:
         action_type = proposal.action_type
-        if not action_type.startswith(_GITHUB_PREFIX):
-            return {}
+        if action_type.startswith(_GITHUB_PREFIX):
+            return self._dispatch_github(action_type, proposal)
+        if action_type.startswith(_FLY_PREFIX):
+            return self._dispatch_fly(action_type, proposal)
+        # Legacy simulated action types (e.g. "rollback-deploy" from the
+        # demo seeder) have no actuator — executor passes through with
+        # an empty result and only the health checks run.
+        return {}
 
+    def _dispatch_github(self, action_type: str, proposal: Proposal) -> dict[str, Any]:
         if self.github_client is None:
             raise ExecutorDispatchError(
                 f"proposal.action_type '{action_type}' requires a configured GitHub App, "
@@ -255,16 +298,35 @@ class Executor:
                 "config/github.yaml app_id)"
             )
 
-        entry = _ACTION_DISPATCH.get(action_type)
+        entry = _GITHUB_ACTION_DISPATCH.get(action_type)
         if entry is None:
             raise ExecutorDispatchError(
                 f"action_type '{action_type}' is not yet implemented; "
-                f"supported github actions: {sorted(_ACTION_DISPATCH.keys())}"
+                f"supported github actions: {sorted(_GITHUB_ACTION_DISPATCH.keys())}"
             )
 
         spec_cls, action_fn = entry
         spec = spec_cls.model_validate(proposal.payload)
         result_model = action_fn(self.github_client, spec, proposal.id)
+        return result_model.model_dump(mode="json")
+
+    def _dispatch_fly(self, action_type: str, proposal: Proposal) -> dict[str, Any]:
+        if self.fly_client is None:
+            raise ExecutorDispatchError(
+                f"proposal.action_type '{action_type}' requires a configured Fly client, "
+                "but none is available (Executor was constructed without fly_client=...)"
+            )
+
+        entry = _FLY_ACTION_DISPATCH.get(action_type)
+        if entry is None:
+            raise ExecutorDispatchError(
+                f"action_type '{action_type}' is not yet implemented; "
+                f"supported fly actions: {sorted(_FLY_ACTION_DISPATCH.keys())}"
+            )
+
+        spec_cls, action_fn = entry
+        spec = spec_cls.model_validate(proposal.payload)
+        result_model = action_fn(self.fly_client, spec)
         return result_model.model_dump(mode="json")
 
     # ------------------------------------------------------------------
@@ -334,62 +396,33 @@ class Executor:
             )
         )
 
-        # Actuator-aware rollback path: requires a client, a dispatch
-        # entry for the action_type, and a non-empty captured result.
-        rollback_entry = _ROLLBACK_DISPATCH.get(proposal.action_type)
-        if self.github_client is not None and rollback_entry is not None and result:
-            result_cls, rollback_fn = rollback_entry
-            try:
-                parsed = result_cls.model_validate(result)
-            except ValidationError as exc:
-                return self._emit_rollback_impossible(
+        action_type = proposal.action_type
+
+        # GitHub actuator-aware rollback path.
+        if action_type.startswith(_GITHUB_PREFIX):
+            github_entry = _GITHUB_ROLLBACK_DISPATCH.get(action_type)
+            if self.github_client is not None and github_entry is not None and result:
+                return self._run_github_rollback(
                     proposal=proposal,
                     actor_id=actor_id,
-                    reason=(
-                        f"{proposal.action_type} execution result did not match "
-                        f"{result_cls.__name__} schema ({exc.error_count()} errors); "
-                        "manual reconcile required"
-                    ),
-                    actuator_state=result,
+                    result=result,
+                    entry=github_entry,
                 )
 
-            try:
-                rollback_summary = rollback_fn(self.github_client, parsed)
-            except RollbackImpossibleError as exc:
-                return self._emit_rollback_impossible(
+        # Fly actuator-aware rollback path.
+        if action_type.startswith(_FLY_PREFIX):
+            fly_entry = _FLY_ROLLBACK_DISPATCH.get(action_type)
+            if self.fly_client is not None and fly_entry is not None and result:
+                return self._run_fly_rollback(
                     proposal=proposal,
                     actor_id=actor_id,
-                    reason=exc.reason,
-                    actuator_state=exc.actuator_state,
-                )
-            except (GitHubActionError, GitHubApiError, GitHubAppAuthError) as exc:
-                return self._emit_rollback_impossible(
-                    proposal=proposal,
-                    actor_id=actor_id,
-                    reason=f"actuator rollback failed: {type(exc).__name__}: {exc}",
-                    actuator_state=parsed.model_dump(mode="json"),
+                    result=result,
+                    entry=fly_entry,
                 )
 
-            completed = RollbackRecord(
-                proposal_id=proposal.id,
-                actor_id=actor_id,
-                steps=proposal.rollback_steps,
-                status="completed",
-            )
-            self.event_log.append(
-                EventEnvelope(
-                    event_type="rollback_completed",
-                    entity_type="rollback",
-                    entity_id=completed.id,
-                    payload={
-                        **completed.model_dump(mode="json"),
-                        "actuator_summary": rollback_summary,
-                    },
-                )
-            )
-            return completed.model_dump(mode="json")
-
-        # Text-only rollback path (non-github or no captured result).
+        # Text-only rollback path (no actuator, no captured result, or
+        # missing client). Emit rollback_completed carrying the
+        # proposal's rollback_steps string list and return.
         completed = RollbackRecord(
             proposal_id=proposal.id,
             actor_id=actor_id,
@@ -402,6 +435,126 @@ class Executor:
                 entity_type="rollback",
                 entity_id=completed.id,
                 payload=completed.model_dump(mode="json"),
+            )
+        )
+        return completed.model_dump(mode="json")
+
+    def _run_github_rollback(
+        self,
+        *,
+        proposal: Proposal,
+        actor_id: str,
+        result: dict[str, Any],
+        entry: tuple[type[BaseModel], _GithubRollbackFn],
+    ) -> dict[str, Any]:
+        result_cls, rollback_fn = entry
+        assert self.github_client is not None  # checked by caller
+        try:
+            parsed = result_cls.model_validate(result)
+        except ValidationError as exc:
+            return self._emit_rollback_impossible(
+                proposal=proposal,
+                actor_id=actor_id,
+                reason=(
+                    f"{proposal.action_type} execution result did not match "
+                    f"{result_cls.__name__} schema ({exc.error_count()} errors); "
+                    "manual reconcile required"
+                ),
+                actuator_state=result,
+            )
+
+        try:
+            rollback_summary = rollback_fn(self.github_client, parsed)
+        except RollbackImpossibleError as exc:
+            return self._emit_rollback_impossible(
+                proposal=proposal,
+                actor_id=actor_id,
+                reason=exc.reason,
+                actuator_state=exc.actuator_state,
+            )
+        except (GitHubActionError, GitHubApiError, GitHubAppAuthError) as exc:
+            return self._emit_rollback_impossible(
+                proposal=proposal,
+                actor_id=actor_id,
+                reason=f"actuator rollback failed: {type(exc).__name__}: {exc}",
+                actuator_state=parsed.model_dump(mode="json"),
+            )
+
+        completed = RollbackRecord(
+            proposal_id=proposal.id,
+            actor_id=actor_id,
+            steps=proposal.rollback_steps,
+            status="completed",
+        )
+        self.event_log.append(
+            EventEnvelope(
+                event_type="rollback_completed",
+                entity_type="rollback",
+                entity_id=completed.id,
+                payload={
+                    **completed.model_dump(mode="json"),
+                    "actuator_summary": rollback_summary,
+                },
+            )
+        )
+        return completed.model_dump(mode="json")
+
+    def _run_fly_rollback(
+        self,
+        *,
+        proposal: Proposal,
+        actor_id: str,
+        result: dict[str, Any],
+        entry: tuple[type[BaseModel], _FlyRollbackFn],
+    ) -> dict[str, Any]:
+        result_cls, rollback_fn = entry
+        assert self.fly_client is not None  # checked by caller
+        try:
+            parsed = result_cls.model_validate(result)
+        except ValidationError as exc:
+            return self._emit_rollback_impossible(
+                proposal=proposal,
+                actor_id=actor_id,
+                reason=(
+                    f"{proposal.action_type} execution result did not match "
+                    f"{result_cls.__name__} schema ({exc.error_count()} errors); "
+                    "manual reconcile required"
+                ),
+                actuator_state=result,
+            )
+
+        try:
+            rollback_summary = rollback_fn(self.fly_client, parsed)
+        except FlyRollbackImpossibleError as exc:
+            return self._emit_rollback_impossible(
+                proposal=proposal,
+                actor_id=actor_id,
+                reason=exc.reason,
+                actuator_state=exc.actuator_state,
+            )
+        except FlyActionError as exc:
+            return self._emit_rollback_impossible(
+                proposal=proposal,
+                actor_id=actor_id,
+                reason=f"actuator rollback failed: FlyActionError: {exc}",
+                actuator_state=parsed.model_dump(mode="json"),
+            )
+
+        completed = RollbackRecord(
+            proposal_id=proposal.id,
+            actor_id=actor_id,
+            steps=proposal.rollback_steps,
+            status="completed",
+        )
+        self.event_log.append(
+            EventEnvelope(
+                event_type="rollback_completed",
+                entity_type="rollback",
+                entity_id=completed.id,
+                payload={
+                    **completed.model_dump(mode="json"),
+                    "actuator_summary": rollback_summary,
+                },
             )
         )
         return completed.model_dump(mode="json")
