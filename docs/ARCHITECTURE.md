@@ -27,6 +27,11 @@ observe -> find -> propose -> policy-check -> vote -> approve -> execute -> veri
      Startup runs `EventLog.verify()` and refuses to boot on a broken chain.
      `GET /api/v1/events/verify` re-walks the chain on demand.
    - replayable
+   - **Projector hook**: after every successful append, `EventLog` calls
+     `projector.apply(event)` with the enriched envelope. Default is a
+     `NoOpProjector`; future PRs wire a Postgres-backed projector for a
+     derived read model. A projector failure is logged and swallowed — the
+     JSONL write is never reverted. See `docs/design/postgres-projection.md`.
 
 3. **State Store**
    - rebuilds current state from the log
