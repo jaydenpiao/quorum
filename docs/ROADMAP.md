@@ -53,13 +53,22 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
 - ⬜ Postgres projection (Phase 3 capstone): JSONL stays canonical, Neon/Postgres as derived read-model with `alembic` migrations
 - ⬜ CHANGELOG + release tagging process
 
-## Phase 4 — Real actuators and model orchestration ⬜
+## Phase 4 — Real actuators and model orchestration
 
-- GitHub App actuator: open PR / comment / apply patch on feature branches only, gated by policy + quorum
-- `HealthCheckKind.github_check_run` (poll CI until complete)
-- LLM adapter using the Anthropic SDK with prompt caching; reads event stream, emits findings / proposals
-- Interactive console: forms for intent / finding / proposal / vote; SSE stream at `/api/v1/events/stream`
-- Human approval entity + notifier for high / critical risk
+- ✅ GitHub App actuator (PRs #35 / #36 / #37 / #38): `github.open_pr`
+  end-to-end — typed spec, Git Data REST methods, orchestration,
+  executor dispatch, policy `action_type_rules` merge, actuator-aware
+  rollback, new `rollback_impossible` terminal event. Feature-branch-
+  only; `main`/`master`/`trunk`/`develop`/`release*` rejected at the
+  pydantic boundary.
+- ⬜ Remaining actions: `github.comment_issue`, `github.close_pr`,
+  `github.add_labels` (each follows the PR B1 / PR C pattern).
+- ⬜ `HealthCheckKind.github_check_run` (poll CI until complete).
+- ⬜ LLM adapter using the Anthropic SDK with prompt caching; reads
+  event stream, emits findings / proposals.
+- ⬜ Interactive console: forms for intent / finding / proposal / vote;
+  SSE stream at `/api/v1/events/stream`.
+- ⬜ Human approval entity + notifier for high / critical risk.
 
 ## Phase 5 — Deployment ⬜
 
