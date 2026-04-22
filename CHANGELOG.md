@@ -11,6 +11,22 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **SSE event stream + interactive console forms** — the operator
+  console is no longer read-only. New `GET /api/v1/events/stream`
+  yields each `EventEnvelope` as an SSE `data:` frame immediately
+  after it lands in the JSONL log (15 s keepalive, 256-event per-
+  subscriber queue with drop-oldest overflow, `X-Accel-Buffering: no`
+  so middleboxes don't batch). Public endpoint, mirroring the
+  existing `GET /api/v1/events`. Under the hood, `EventLog` grows a
+  `subscribe()` pub/sub API — thread-safe subscriber list, callback
+  exceptions logged + swallowed so a bad subscriber can't block
+  writers. Console HTML adds a bearer-token input (localStorage-
+  backed) + three new forms: **create intent**, **cast vote**, and
+  **grant/deny approval**. Client-side uses `EventSource` for
+  live-tail of the event timeline; state panels refresh selectively
+  on meaningful event types to avoid hammering `/api/v1/state` on
+  idle ticks. 11 new tests covering subscribe / unsubscribe / bad-
+  subscriber isolation / SSE route registration + public access.
 - **Human approval entity + three new event types** — `requires_human=true`
   on a `policy_decision` now has real enforcement teeth. Three new event
   types: `human_approval_requested` (emitted immediately after
