@@ -41,6 +41,9 @@ data/state_snapshot.json
 # Logs
 *.log
 
+# SBOM artifacts (generated locally via `make sbom`; released copies attach to GitHub releases)
+quorum-*.spdx.json
+
 # Node (console tooling, future)
 node_modules/
 
