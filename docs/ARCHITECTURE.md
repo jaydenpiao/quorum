@@ -64,6 +64,24 @@ observe -> find -> propose -> policy-check -> vote -> approve -> execute -> veri
      per-request `X-Request-ID` headers (`apps/api/app/request_context.py`)
      for end-to-end tracing
 
+   **Distributed tracing (OpenTelemetry)**
+   - `apps/api/app/tracing.py` exposes a single `configure_tracing(app)` function
+     called at startup
+   - export is **off by default in development** — tracing activates only when
+     `OTEL_EXPORTER_OTLP_ENDPOINT` is set; if the variable is absent or empty the
+     function returns immediately with no side effects and no warnings
+   - when enabled, spans are exported via OTLP/HTTP to the configured collector
+     endpoint and batched through `BatchSpanProcessor`
+   - service name and additional resource attributes are read from standard OTEL
+     env vars: `OTEL_SERVICE_NAME` (default `"quorum"`) and
+     `OTEL_RESOURCE_ATTRIBUTES` (pass-through to the SDK's `Resource.create()`)
+   - `/metrics` and `/health` are excluded from tracing to prevent Prometheus
+     scrapes and liveness probes from polluting trace data
+   - `X-Request-ID` set by `RequestContextMiddleware` is also bound into
+     structlog's context, so traces and logs share a common request identifier
+     that can be used to cross-reference spans and log lines in an observability
+     platform (full log-span correlation wiring is a follow-up)
+
 ## Authentication and actor identity
 
 ### Overview

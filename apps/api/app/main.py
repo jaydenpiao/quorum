@@ -23,6 +23,7 @@ from apps.api.app.services.executor import Executor
 from apps.api.app.services.policy_engine import PolicyEngine
 from apps.api.app.services.quorum_engine import QuorumEngine
 from apps.api.app.services.state_store import StateStore
+from apps.api.app.tracing import configure_tracing
 
 configure_logging()
 
@@ -42,6 +43,11 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[default_rate])
 
 app = FastAPI(title="Quorum Control Plane", version="0.1.0")
 app.state.limiter = limiter
+
+# OpenTelemetry tracing — no-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
+# Must be called before middleware registration so the instrumentor wraps
+# the full middleware stack.
+configure_tracing(app)
 
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
