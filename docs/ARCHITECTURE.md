@@ -54,6 +54,82 @@ observe -> find -> propose -> policy-check -> vote -> approve -> execute -> veri
 7. **Operator Console**
    - shows intents, proposals, votes, execution state, and log events
 
+## Authentication and actor identity
+
+### Overview
+
+Every mutating route requires a bearer token.
+Read-only routes stay public so the console and liveness probes work without credentials.
+
+Public (no auth):
+- `GET /api/v1/health`
+- `GET /api/v1/state`
+- `GET /api/v1/events`
+- `GET /api/v1/events/verify`
+
+Auth-required (all mutating `POST` routes):
+- `POST /api/v1/intents`
+- `POST /api/v1/findings`
+- `POST /api/v1/proposals`
+- `POST /api/v1/votes`
+- `POST /api/v1/proposals/{proposal_id}/execute`
+- `POST /api/v1/demo/incident`
+
+### Key registry (Phase 2 MVP)
+
+Keys are loaded once on process start from the env var `QUORUM_API_KEYS`.
+Format: `agent_id:plaintext_key,agent_id:plaintext_key,...`
+The registry is a dict of `{plaintext_key: agent_id}` held in memory.
+Matching uses `hmac.compare_digest` to prevent timing-based key inference.
+
+Phase 2.5 adds argon2id-hashed keys stored in `config/agents.yaml` as a second registry, checked after the env-var registry (see PR #TBD).
+
+### Demo endpoint gate
+
+`POST /api/v1/demo/incident` additionally requires `QUORUM_ALLOW_DEMO=1` (or `true`, `yes`, `on`).
+If the env var is absent or falsy, the route returns 404.
+This prevents accidental demo resets in production deployments.
+
+### Server-side actor binding (PR #14)
+
+The authenticated `agent_id` returned by `require_agent` is always authoritative.
+
+Rules enforced by `_enforce_agent` in `apps/api/app/api/routes.py`:
+- If the request body includes an `agent_id` that differs from the authenticated agent, the server returns 403.
+- If the request body omits `agent_id` (or sends an empty string), the server fills it in with the authenticated agent.
+- For `POST /api/v1/intents`, `requested_by` is always overwritten with the authenticated agent regardless of what the client sends.
+- For `POST /api/v1/proposals/{proposal_id}/execute`, the body's `actor_id` field is ignored; the authenticated agent is used.
+
+This closes the spoof surface: a valid key for agent A cannot claim authorship as agent B.
+
+### What auth is NOT
+
+- No JWT.
+- No session cookies.
+- No OAuth.
+- No per-request re-auth against an external IdP.
+- Human-operator login via GitHub OAuth is planned for Phase 4.
+
+### Auth flow diagram
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant F as FastAPI
+    participant D as require_agent dependency
+    participant R as Key registry
+    participant H as Route handler
+
+    C->>F: POST /api/v1/... Authorization: Bearer <token>
+    F->>D: resolve require_agent
+    D->>R: lookup token (env-var registry, then yaml registry)
+    R-->>D: agent_id (or 401 if not found)
+    D-->>F: agent_id
+    F->>H: invoke handler(agent_id=authenticated_agent_id)
+    H->>H: _enforce_agent — bind or reject body agent_id
+    H-->>C: 200 response (agent_id in payload is authoritative)
+```
+
 ## Readable architecture diagram
 
 ```mermaid

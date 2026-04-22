@@ -26,6 +26,9 @@ coverage.xml
 # Claude Code per-dev overrides (never commit personal tokens)
 .claude/settings.local.json
 
+# Temporary subagent worktrees (locked by the Agent tool while running)
+.claude/worktrees/
+
 # Quorum event log (append-only, recreated locally)
 data/events.jsonl
 data/state_snapshot.json
