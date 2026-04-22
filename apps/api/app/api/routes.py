@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+import json
 from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from apps.api.app.demo_seed import seed_demo
 from apps.api.app.domain.models import (
@@ -29,6 +32,18 @@ from apps.api.app.services.auth import (
 from apps.api.app.services.event_log import EventLogTamperError
 
 router = APIRouter(prefix="/api/v1")
+
+# Server-Sent Events keepalive interval. The client's EventSource will
+# reconnect automatically if the connection drops, so a 15s heartbeat
+# keeps middleboxes (proxies, load balancers) from closing an idle
+# connection without trading latency for data freshness.
+_SSE_KEEPALIVE_SECONDS = 15.0
+
+# Bounded per-subscriber queue. If a slow client can't keep up with
+# event volume, drop the oldest queued events rather than buffer
+# forever or block the append path. 256 events covers any reasonable
+# browser reconnect gap during a demo.
+_SSE_QUEUE_SIZE = 256
 
 
 def refresh_state(request: Request) -> None:
@@ -84,6 +99,77 @@ def verify_events(request: Request) -> dict[str, Any]:
         "event_count": len(events),
         "last_hash": events[-1].hash if events else None,
     }
+
+
+@router.get("/events/stream")
+async def stream_events(request: Request) -> StreamingResponse:
+    """Server-Sent Events stream of new envelopes as they land.
+
+    The operator console's ``EventSource`` consumes this to live-tail
+    the event log without polling. Protocol:
+
+    - ``data: <json>\\n\\n`` for each event, where ``<json>`` is the
+      serialized ``EventEnvelope``.
+    - ``: keepalive\\n\\n`` every 15 s so idle proxies don't close the
+      connection.
+
+    The route is read-only (no ``Depends(require_agent)``) because the
+    ``GET /api/v1/events`` poller is also public — the event log is the
+    product's audit trail and the console displays it without auth.
+    Mutating routes remain bearer-authenticated.
+    """
+    loop = asyncio.get_running_loop()
+    queue: asyncio.Queue[EventEnvelope] = asyncio.Queue(maxsize=_SSE_QUEUE_SIZE)
+
+    def _on_event(envelope: EventEnvelope) -> None:
+        # ``subscribe()`` invokes this on the writer thread (sync
+        # ``EventLog.append``); marshal back onto the async loop.
+        try:
+            loop.call_soon_threadsafe(_enqueue, envelope)
+        except RuntimeError:
+            # Loop is closed (client disconnected + cleanup racing).
+            # Nothing to do; the unsubscribe in ``finally`` below
+            # will remove the callback shortly.
+            pass
+
+    def _enqueue(envelope: EventEnvelope) -> None:
+        if queue.full():
+            # Drop the oldest queued event to make room. The client
+            # can re-fetch the full log via GET /api/v1/events if it
+            # suspects it missed one.
+            try:
+                queue.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+        queue.put_nowait(envelope)
+
+    unsubscribe = request.app.state.event_log.subscribe(_on_event)
+
+    async def _gen() -> Any:
+        try:
+            while True:
+                if await request.is_disconnected():
+                    return
+                try:
+                    envelope = await asyncio.wait_for(queue.get(), timeout=_SSE_KEEPALIVE_SECONDS)
+                except TimeoutError:
+                    yield b": keepalive\n\n"
+                    continue
+                payload = json.dumps(envelope.model_dump(mode="json"), default=str)
+                yield f"data: {payload}\n\n".encode("utf-8")
+        finally:
+            unsubscribe()
+
+    return StreamingResponse(
+        _gen(),
+        media_type="text/event-stream",
+        headers={
+            # Disable intermediate buffering on nginx / Fly proxies so
+            # events reach the client immediately.
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/intents")

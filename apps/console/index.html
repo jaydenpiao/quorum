@@ -5,14 +5,24 @@
   <title>Quorum Operator Console</title>
   <style>
     body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; background: #0b1020; color: #eef2ff; }
-    h1, h2 { margin-bottom: 8px; }
+    h1, h2, h3 { margin-bottom: 8px; }
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .card { background: #141b34; padding: 16px; border-radius: 16px; border: 1px solid #263154; }
     pre { background: #0f1530; padding: 12px; border-radius: 12px; overflow: auto; max-height: 350px; }
-    button { padding: 10px 14px; border-radius: 10px; border: none; cursor: pointer; }
-    .toolbar { display: flex; gap: 12px; margin-bottom: 16px; }
+    button { padding: 10px 14px; border-radius: 10px; border: none; cursor: pointer; background: #4c5edb; color: #fff; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    input, select, textarea { padding: 8px 10px; border-radius: 8px; border: 1px solid #263154; background: #0f1530; color: #eef2ff; font-family: inherit; width: 100%; box-sizing: border-box; }
+    label { display: block; font-size: 0.85em; color: #b6c0df; margin-bottom: 4px; margin-top: 8px; }
+    .toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
     .muted { color: #b6c0df; }
     .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #263154; margin-right: 8px; }
+    .pill.live { background: #1f6b3a; }
+    .pill.disconnected { background: #6b1f1f; }
+    form { display: flex; flex-direction: column; }
+    form button { margin-top: 12px; align-self: flex-start; }
+    .status { font-size: 0.85em; margin-top: 8px; min-height: 1.2em; }
+    .status.ok { color: #7dd492; }
+    .status.err { color: #f28b82; }
   </style>
 </head>
 <body>
@@ -20,8 +30,13 @@
   <p class="muted">POC console for intents, proposals, votes, executions, rollbacks, and event history.</p>
 
   <div class="toolbar">
+    <label style="margin-top:0; flex: 1 1 260px; max-width: 460px;">
+      Bearer token (saved in localStorage)
+      <input id="bearer-token" type="password" placeholder="operator-key-dev" autocomplete="off" />
+    </label>
     <button id="btn-seed">Seed demo incident</button>
     <button id="btn-refresh">Refresh</button>
+    <span id="stream-status" class="pill disconnected">stream: disconnected</span>
   </div>
 
   <div class="grid">
@@ -31,6 +46,14 @@
     </div>
     <div class="card">
       <h2>Intents</h2>
+      <form id="form-intent">
+        <label>Title <input name="title" required minlength="1" maxlength="500" placeholder="customer signup failing" /></label>
+        <label>Description <input name="description" required minlength="1" maxlength="4000" placeholder="5xx on /signup since deploy X" /></label>
+        <label>Environment <input name="environment" value="local" maxlength="64" /></label>
+        <button type="submit">Create intent</button>
+        <div id="form-intent-status" class="status"></div>
+      </form>
+      <h3 style="margin-top:16px;">Existing</h3>
       <pre id="intents"></pre>
     </div>
     <div class="card">
@@ -42,8 +65,39 @@
       <pre id="policy"></pre>
     </div>
     <div class="card">
-      <h2>Executions</h2>
+      <h2>Cast a vote</h2>
+      <form id="form-vote">
+        <label>Proposal ID <input name="proposal_id" required placeholder="proposal_abc123def456" /></label>
+        <label>Decision
+          <select name="decision" required>
+            <option value="approve">approve</option>
+            <option value="reject">reject</option>
+          </select>
+        </label>
+        <label>Reason <input name="reason" maxlength="2000" placeholder="reviewed the diff" /></label>
+        <button type="submit">Submit vote</button>
+        <div id="form-vote-status" class="status"></div>
+      </form>
+      <h3 style="margin-top:16px;">Executions</h3>
       <pre id="executions"></pre>
+    </div>
+    <div class="card">
+      <h2>Grant / deny approval</h2>
+      <p class="muted" style="margin-top:0;">Only applies to proposals whose policy decision set <code>requires_human=true</code>.</p>
+      <form id="form-approval">
+        <label>Proposal ID <input name="proposal_id" required placeholder="proposal_abc123def456" /></label>
+        <label>Decision
+          <select name="decision" required>
+            <option value="granted">granted</option>
+            <option value="denied">denied</option>
+          </select>
+        </label>
+        <label>Reason <input name="reason" maxlength="2000" placeholder="reviewed the diff, LGTM" /></label>
+        <button type="submit">Submit approval</button>
+        <div id="form-approval-status" class="status"></div>
+      </form>
+      <h3 style="margin-top:16px;">Human approvals</h3>
+      <pre id="approvals"></pre>
     </div>
     <div class="card">
       <h2>Rollbacks</h2>
@@ -52,7 +106,7 @@
   </div>
 
   <div class="card" style="margin-top:16px;">
-    <h2>Event timeline</h2>
+    <h2>Event timeline <span class="muted" style="font-size: 0.7em;">(live via SSE)</span></h2>
     <pre id="events"></pre>
   </div>
 
