@@ -77,10 +77,12 @@ observe -> find -> propose -> policy-check -> vote -> approve -> execute -> veri
      `OTEL_RESOURCE_ATTRIBUTES` (pass-through to the SDK's `Resource.create()`)
    - `/metrics` and `/health` are excluded from tracing to prevent Prometheus
      scrapes and liveness probes from polluting trace data
-   - `X-Request-ID` set by `RequestContextMiddleware` is also bound into
-     structlog's context, so traces and logs share a common request identifier
-     that can be used to cross-reference spans and log lines in an observability
-     platform (full log-span correlation wiring is a follow-up)
+   - `X-Request-ID` set by `RequestContextMiddleware` is bound into structlog's
+     context so every JSON log line carries it; when a valid OTel span is
+     active, `trace_id` (32-hex) and `span_id` (16-hex) are also bound into
+     structlog contextvars, so JSON log events and OTLP spans can be joined
+     by trace id after the fact. The bind is conditional: with tracing off,
+     no trace fields appear in the log — dev output stays clean.
 
 ## Authentication and actor identity
 
