@@ -16,7 +16,7 @@ actuator code can assume all shape/size constraints already hold.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -208,3 +208,129 @@ class OpenPrResult(BaseModel):
     base_branch: str = Field(min_length=1, max_length=256)
     commit_sha: str = Field(min_length=1, max_length=64)
     files_written: list[str] = Field(default_factory=list, max_length=MAX_FILES_PER_PR)
+
+
+# ---------------------------------------------------------------------------
+# Action payloads + results — `github.comment_issue`
+# ---------------------------------------------------------------------------
+
+
+# Issue comment body: generous cap, well under GitHub's 65 KiB limit.
+_MAX_COMMENT_BODY = 16_384
+
+
+class GitHubCommentIssueSpec(BaseModel):
+    """Payload shape for a ``github.comment_issue`` proposal.
+
+    Comments can target an issue or a PR — GitHub treats PRs as issues
+    for the comments API, so ``issue_number`` applies to either.
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    owner: str = Field(min_length=1, max_length=128)
+    repo: str = Field(min_length=1, max_length=128)
+    issue_number: int = Field(ge=1)
+    body: str = Field(min_length=1, max_length=_MAX_COMMENT_BODY)
+
+
+class CommentIssueResult(BaseModel):
+    """Typed result of a successful ``github.comment_issue`` action."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    owner: str = Field(min_length=1, max_length=128)
+    repo: str = Field(min_length=1, max_length=128)
+    issue_number: int = Field(ge=1)
+    comment_id: int = Field(ge=1)
+    comment_url: str = Field(min_length=1, max_length=512)
+
+
+# ---------------------------------------------------------------------------
+# Action payloads + results — `github.close_pr`
+# ---------------------------------------------------------------------------
+
+
+class GitHubClosePrSpec(BaseModel):
+    """Payload shape for a ``github.close_pr`` proposal.
+
+    The action rejects PRs that are already closed or merged at
+    execute time, so the proposal carries no extra state — a single
+    PR identifier is enough.
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    owner: str = Field(min_length=1, max_length=128)
+    repo: str = Field(min_length=1, max_length=128)
+    pr_number: int = Field(ge=1)
+
+
+class ClosePrResult(BaseModel):
+    """Typed result of a successful ``github.close_pr`` action.
+
+    ``previous_state`` is captured so rollback only reopens the PR if
+    it was genuinely open before we closed it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    owner: str = Field(min_length=1, max_length=128)
+    repo: str = Field(min_length=1, max_length=128)
+    pr_number: int = Field(ge=1)
+    pr_url: str = Field(min_length=1, max_length=512)
+    previous_state: Literal["open"] = "open"
+
+
+# ---------------------------------------------------------------------------
+# Action payloads + results — `github.add_labels`
+# ---------------------------------------------------------------------------
+
+
+# Per-label cap chosen to match GitHub's documented label-name limit.
+_MAX_LABEL_NAME_LEN = 50
+_MAX_LABELS_PER_CALL = 50
+
+
+class GitHubAddLabelsSpec(BaseModel):
+    """Payload shape for a ``github.add_labels`` proposal."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    owner: str = Field(min_length=1, max_length=128)
+    repo: str = Field(min_length=1, max_length=128)
+    issue_number: int = Field(ge=1)
+    labels: list[str] = Field(min_length=1, max_length=_MAX_LABELS_PER_CALL)
+
+    @field_validator("labels")
+    @classmethod
+    def _validate_labels(cls, labels: list[str]) -> list[str]:
+        seen: set[str] = set()
+        for label in labels:
+            if not label or label != label.strip():
+                raise ValueError(
+                    f"label name '{label}' has leading/trailing whitespace or is empty"
+                )
+            if len(label) > _MAX_LABEL_NAME_LEN:
+                raise ValueError(f"label name '{label}' exceeds {_MAX_LABEL_NAME_LEN} characters")
+            if label in seen:
+                raise ValueError(f"duplicate label name '{label}'")
+            seen.add(label)
+        return labels
+
+
+class AddLabelsResult(BaseModel):
+    """Typed result of a successful ``github.add_labels`` action.
+
+    ``labels_added`` is the subset of the requested labels that were
+    **not** already on the issue before our call. Rollback removes
+    only these — labels that were already present are not touched.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    owner: str = Field(min_length=1, max_length=128)
+    repo: str = Field(min_length=1, max_length=128)
+    issue_number: int = Field(ge=1)
+    labels_added: list[str] = Field(default_factory=list, max_length=_MAX_LABELS_PER_CALL)
+    labels_already_present: list[str] = Field(default_factory=list, max_length=_MAX_LABELS_PER_CALL)
