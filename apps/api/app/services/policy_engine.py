@@ -37,6 +37,16 @@ class PolicyEngine:
                 requires_human = True
             reasons.append(f"environment '{proposal.environment}' is protected")
 
+        # Per-action_type overrides: tighten (never loosen) risk-level rules.
+        # MAX of votes_required; OR of requires_human. Absent action_type → skip.
+        action_type_rules = self.config.get("action_type_rules", {}) or {}
+        action_cfg = action_type_rules.get(proposal.action_type)
+        if isinstance(action_cfg, dict):
+            votes_required = max(votes_required, int(action_cfg.get("votes_required", 0)))
+            if bool(action_cfg.get("requires_human", False)):
+                requires_human = True
+            reasons.append(f"action_type '{proposal.action_type}' rule applied")
+
         if not proposal.rollback_steps:
             reasons.append("proposal has no rollback steps")
 
