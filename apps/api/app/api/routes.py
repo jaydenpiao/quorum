@@ -6,10 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from apps.api.app.demo_seed import seed_demo
 from apps.api.app.domain.models import (
+    ApprovalCreate,
+    ApprovalDecision,
     EventEnvelope,
     ExecutionRequest,
     Finding,
     FindingCreate,
+    HumanApprovalOutcome,
+    HumanApprovalRequest,
     Intent,
     IntentCreate,
     Proposal,
@@ -181,6 +185,25 @@ def create_proposal(
         )
     )
 
+    # Human approval entity — emit a request event right after the
+    # policy decision so operators + auditors see exactly why approval
+    # is needed. The request is pending until a POST to
+    # /api/v1/approvals/{proposal_id} resolves it.
+    if decision.requires_human:
+        approval_request = HumanApprovalRequest(
+            proposal_id=proposal.id,
+            proposer_id=bound_agent,
+            reasons=list(decision.reasons),
+        )
+        request.app.state.event_log.append(
+            EventEnvelope(
+                event_type="human_approval_requested",
+                entity_type="human_approval_request",
+                entity_id=approval_request.id,
+                payload=approval_request.model_dump(mode="json"),
+            )
+        )
+
     refresh_state(request)
     return {
         "proposal": proposal.model_dump(mode="json"),
@@ -249,6 +272,78 @@ def create_vote(
     return cast(dict[str, Any], request.app.state.state_store.snapshot())
 
 
+@router.post("/approvals/{proposal_id}")
+def create_approval(
+    proposal_id: str,
+    payload: ApprovalCreate,
+    request: Request,
+    agent_id: str = Depends(require_agent),
+) -> dict[str, Any]:
+    """Grant or deny a human approval on a proposal that needs one.
+
+    Preconditions:
+    - The proposal must exist.
+    - The proposal's policy decision must have ``requires_human=True``;
+      approvals on proposals that don't need one are 422.
+    - There must be no prior granted/denied approval — re-deciding is a
+      409 so the event log never carries two competing decisions for
+      the same proposal.
+
+    The approver identity comes from the authenticated agent — the
+    body cannot forge it (same actor-binding rule as every other
+    mutating route).
+    """
+    refresh_state(request)
+    store = request.app.state.state_store
+
+    if proposal_id not in store.proposals:
+        raise HTTPException(status_code=404, detail="proposal not found")
+
+    policy_payload = store.policy_decisions.get(proposal_id)
+    if not policy_payload:
+        raise HTTPException(status_code=500, detail="missing policy decision")
+    if not policy_payload.get("requires_human"):
+        raise HTTPException(
+            status_code=422,
+            detail="proposal does not require human approval; nothing to decide",
+        )
+
+    # Re-decisions are rejected — the event log must tell a clean story.
+    prior = store.human_approvals.get(proposal_id, [])
+    for entry in prior:
+        if entry.get("decision") in {"granted", "denied"}:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"approval for proposal {proposal_id} already decided "
+                    f"({entry['decision']}); re-decisions are not allowed"
+                ),
+            )
+
+    outcome = HumanApprovalOutcome(
+        proposal_id=proposal_id,
+        approver_id=agent_id,
+        decision=payload.decision,
+        reason=payload.reason,
+    )
+    event_type = (
+        "human_approval_granted"
+        if payload.decision is ApprovalDecision.granted
+        else "human_approval_denied"
+    )
+    request.app.state.event_log.append(
+        EventEnvelope(
+            event_type=event_type,
+            entity_type="human_approval_outcome",
+            entity_id=outcome.id,
+            payload=outcome.model_dump(mode="json"),
+        )
+    )
+
+    refresh_state(request)
+    return outcome.model_dump(mode="json")
+
+
 @router.post("/proposals/{proposal_id}/execute")
 def execute_proposal(
     proposal_id: str,
@@ -273,6 +368,19 @@ def execute_proposal(
 
     if proposal.status != "approved":
         raise HTTPException(status_code=409, detail="proposal must be approved before execution")
+
+    # Human approval gate — only proposals that needed approval are checked.
+    # Reads the reduced state_store.human_approvals map populated by the
+    # reducer cases for human_approval_* events.
+    if decision.requires_human:
+        if not request.app.state.state_store.proposal_has_granted_approval(proposal_id):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "proposal requires human approval and none has been granted; "
+                    f"POST to /api/v1/approvals/{proposal_id} with decision='granted'"
+                ),
+            )
 
     # Server-side actor is always the authenticated agent.
     # The ExecutionRequest body is retained for backwards compatibility but its
