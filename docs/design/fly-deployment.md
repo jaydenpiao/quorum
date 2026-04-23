@@ -62,10 +62,10 @@ cut, and each widens the security surface.
 
 Two Fly apps, one per environment. Identical shape.
 
-| app            | region | machines | volume        | postgres                 | scale-to-zero |
-|----------------|--------|----------|---------------|--------------------------|---------------|
-| `quorum-staging` | `iad` (default; open question #1) | 1 (shared-cpu-1x, 512 MB) | `quorum_staging_data` (1 GiB) | Neon branch of prod | yes |
-| `quorum-prod`    | `iad` | 1 (shared-cpu-1x, 1 GB)   | `quorum_prod_data` (1 GiB)    | Neon prod DB         | no (SSE, see §Scale-to-zero) |
+| app              | region | machines                    | volume                     | postgres            | scale-to-zero |
+|------------------|--------|-----------------------------|----------------------------|---------------------|---------------|
+| `quorum-staging` | `iad`  | 1 (shared-cpu-1x, 512 MB)   | `quorum_data` (1 GiB)      | Neon branch of prod | yes |
+| `quorum-prod`    | `iad`  | 1 (shared-cpu-1x, 512 MB)   | `quorum_data` (1 GiB)      | Neon prod DB        | no (SSE, see §Scale-to-zero) |
 
 Single-machine-per-app is a hard constraint, not a size tradeoff, because
 of the Fly Volume + single-writer EventLog coupling described above.
@@ -80,6 +80,11 @@ Mount one volume per app at `/app/data` (matches `Dockerfile` line 52
 `VOLUME ["/app/data"]`). The hard-coded path `data/events.jsonl` in
 `config/system.yaml:4` resolves to `/app/data/events.jsonl` at container
 runtime.
+
+The Fly Volume name is `quorum_data` in each app. Fly scopes volume
+names to an app, so `quorum-staging` and `quorum-prod` can both use the
+same `fly.toml` mount source without sharing storage or violating
+single-writer semantics.
 
 **Size:** 1 GiB per volume to start. At current event rate
 (~500 B–1 KiB per event, ~20 event types, low proposal volume per day)
@@ -304,8 +309,9 @@ design-doc PR requires the operator to do anything.
 2. `fly auth signup` (or `fly auth login` if the account already
    exists).
 3. `fly apps create quorum-staging` and `fly apps create quorum-prod`.
-4. `fly volumes create quorum_staging_data --size 1 --region iad --app
-   quorum-staging`; same for prod.
+4. `fly volumes create quorum_data --size 1 --region iad --app
+   quorum-staging`; repeat the same `quorum_data` volume name under
+   `quorum-prod` because Fly volume names are app-scoped.
 5. Create a Neon project; take a staging branch of the prod DB. Copy
    both connection strings.
 6. `fly secrets set QUORUM_API_KEYS=... QUORUM_GITHUB_APP_PRIVATE_KEY=...

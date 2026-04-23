@@ -105,7 +105,8 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
   linux/amd64 digest, pinned `uv`, and checksummed `flyctl` binary
   copied into the runtime image as `/usr/local/bin/fly`.
 - ⬜ Live Fly integration tests (`QUORUM_FLY_LIVE_TESTS=1`) — deferred
-  until operator has a staging Fly app.
+  until staging has two known deployable image digests for deploy +
+  rollback assertions.
 
 ## Phase 6 — Parallel operator agents ⬜
 
