@@ -97,8 +97,10 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
 - ✅ `deploy-llm-agent` LLM role with `allowed_action_types:
   [fly.deploy]`.
 - ✅ Image-push CI (`.github/workflows/image-push.yml`) —
-  content-addressed push to `registry.fly.io/quorum-prod:<sha>` on
-  merge to `main`, gated on `FLY_API_TOKEN`.
+  content-addressed push to both
+  `registry.fly.io/quorum-staging:<sha>` and
+  `registry.fly.io/quorum-prod:<sha>` on merge to `main`, gated on
+  `FLY_API_TOKEN`.
 - ✅ Dockerfile runtime hardening — pinned `python:3.12-slim`
   linux/amd64 digest, pinned `uv`, and checksummed `flyctl` binary
   copied into the runtime image as `/usr/local/bin/fly`.

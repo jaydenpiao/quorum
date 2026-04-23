@@ -195,9 +195,12 @@ The Phase 5 final PR wires production deploys of Quorum **through Quorum
 itself**. Flow:
 
 1. CI builds a Docker image on every merge to `main`, tags it with the
-   commit SHA, pushes to `registry.fly.io/quorum-prod`. (This is the only
-   new GitHub Actions workflow landing in Phase 5 — call it
-   `.github/workflows/image-push.yml`.)
+   commit SHA, and pushes the same manifest to
+   `registry.fly.io/quorum-staging` and `registry.fly.io/quorum-prod`.
+   The workflow records both content-addressed digests in the job
+   summary so staging and prod deploy proposals can cite separate
+   registry evidence. (This is the only new GitHub Actions workflow
+   landing in Phase 5 — call it `.github/workflows/image-push.yml`.)
 2. A new LLM role — `deploy-agent` — subscribes to the event stream,
    watches for successful image pushes (either via the CI workflow
    emitting an event on completion or by scanning the registry), and
@@ -280,9 +283,9 @@ config).
   `votes_required: 2`, `requires_human: true`.
 - New LLM role: `deploy-agent`, scoped `allowed_action_types:
   ["fly.deploy"]` via the Phase 4 gate.
-- CI: the image-push workflow (GitHub Actions) builds + pushes on every
-  `main` merge.
-- Integration tests against a throwaway Fly app (operator-provisioned),
+- CI: the image-push workflow (GitHub Actions) builds + pushes
+  `quorum-staging:<sha>` and `quorum-prod:<sha>` on every `main` merge.
+- Integration tests against `quorum-staging` (operator-provisioned),
   gated behind `QUORUM_FLY_LIVE_TESTS=1`. Default CI skips them.
 
 Each PR passes the 5 required checks (`lint + format + test`,
