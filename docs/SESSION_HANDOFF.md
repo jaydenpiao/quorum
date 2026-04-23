@@ -10,13 +10,13 @@ authoritative state of the project.
 
 ## Current state (as of the handoff)
 
-- **Last tagged release:** [`v0.4.0-alpha.1`](https://github.com/jaydenpiao/quorum/releases/tag/v0.4.0-alpha.1). **Phase 5 shipped to `main`; `v0.5.0-alpha.1` to be tagged next once this handoff lands.**
+- **Last tagged release:** [`v0.5.0-alpha.1`](https://github.com/jaydenpiao/quorum/releases/tag/v0.5.0-alpha.1) — Phase 5 complete. SBOM attached as `quorum-v0.5.0-alpha.1.spdx.json`. Post-tag tidy: PR #58 (release workflow now auto-creates the GitHub release) and PR #59 (`make clean-worktrees`).
 - **Test suite:** 355 passing + 11 integration-gated (excluded from CI by default; opt-in with `pytest -m integration` against a live Postgres).
 - **Coverage:** 84% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 47 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 55. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 handoff update, #55 deploy-llm-agent, #56 image-push CI.
+- **Merged PR count:** 59. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`.
 - **Event types dispatched:** 20 — `intent_created`, `finding_created`, `proposal_created`, `policy_evaluated`, `proposal_voted`, `proposal_approved`, `proposal_blocked`, `execution_started`, `execution_succeeded`, `execution_failed`, `health_check_completed`, `rollback_started`, `rollback_completed`, `rollback_impossible`, `human_approval_requested`, `human_approval_granted`, `human_approval_denied`. No Phase 5 event types — `fly.deploy` reuses the existing `proposal_created` / `execution_*` / `rollback_*` chain.
 
 ## Phase status
@@ -80,20 +80,72 @@ Area-specific deep reads are already linked from `AGENTS.md`'s "Required reading
 
 ## Known gotchas (earned the hard way)
 
-1. **Ruff `PostToolUse` hook strips unused imports — hit ~15 times across the session.** Two workarounds both work: (a) add import + first usage in a single atomic Edit, or (b) for multi-import diffs, use `Write` to rewrite the file wholesale — the formatter sees only the final state. (b) is the safer default for anything touching 3+ imports.
-2. **`backend-engineer` subagent stalls on multi-file Python work.** All Phase 4 + approval + console work was main-thread.
-3. **Gitleaks hits on API-key-shaped test fixtures.** Generate fake values at test setup (RSA via `cryptography`, short `test-key-ignored` literals for Anthropic). No PEM / JWT / argon2id literals in `tests/`.
-4. **Output classifier trips on aggregated security-heavy language.** Keep PR bodies lean.
-5. **`.env.example` was blocked by an over-broad deny rule** (fixed in PR #29).
-6. **`docs-writer` subagent has no `Bash` tool.** Dispatch, then finish git ops yourself.
-7. **Subagent worktrees stay locked** after completion. Clean up with `git worktree remove --force ...`.
-8. **Dispatch-completeness test** fails if a new event type lacks a projector handler. Add the handler in the same commit — now used three times (`rollback_impossible`, `human_approval_*`).
-9. **`EventLog.append` is sync.** Keep `apply(event)` sync. Subscribers are sync callbacks fan-out; they marshal to async via their own queue (see the SSE route).
-10. **Hash chain verification runs on startup.** Tampered `data/events.jsonl` refuses to boot. `make reset` wipes it.
-11. **`allowed_action_types` + other YAML caches leak between tests.** `@lru_cache(maxsize=1)` loaders are cleared by `auth_module.reload_all_registries()`. Test fixtures that write throwaway YAMLs must call it — pattern in `tests/test_allowed_action_types.py` and `tests/test_human_approval.py`.
-12. **Anthropic SDK in tests.** Construct with `api_key="test-key-ignored"` + `max_retries=0`; `respx` intercepts `https://api.anthropic.com/v1/messages`.
-13. **`TestClient.stream()` hangs on infinite SSE generators.** The stream never naturally terminates and context-exit blocks on drain. Don't try to end-to-end test the SSE endpoint through TestClient; assert route registration + use `EventLog.subscribe` tests for the delivery contract. Real integration tests (if needed later) belong under `pytest -m integration` with a uvicorn subprocess + curl.
-14. **When modifying any route handler, re-check that the test for it doesn't import `AUTH['agent_id']` / `AUTH['plaintext']`** — `tests/_helpers.py` exports `AUTH` as `{"Authorization": f"Bearer {TEST_OPERATOR_KEY}"}`, *not* a dict of agent/key components.
+Gotchas marked **[Claude-only]** are specific to the Claude Code
+harness under `.claude/`. Codex and other agents can ignore them.
+
+1. **[Repo-wide]** Gitleaks hits on API-key-shaped test fixtures.
+   Generate fake values at test setup (RSA via `cryptography`, short
+   `test-key-ignored` literals for Anthropic). No PEM / JWT / argon2id
+   literals in `tests/`.
+2. **[Repo-wide]** Dispatch-completeness test fails if a new event
+   type lacks a projector handler. Add the handler in the same commit
+   — already hit for `rollback_impossible` and the
+   `human_approval_*` family.
+3. **[Repo-wide]** `EventLog.append` is sync. Keep `apply(event)` sync.
+   Subscribers are sync callbacks fan-out; they marshal to async via
+   their own queue (see the SSE route).
+4. **[Repo-wide]** Hash chain verification runs on startup. Tampered
+   or truncated `data/events.jsonl` refuses to boot — uvicorn raises
+   at import. `make reset` wipes it.
+5. **[Repo-wide]** `allowed_action_types` + other YAML caches leak
+   between tests. `@lru_cache(maxsize=1)` loaders are cleared by
+   `auth_module.reload_all_registries()`. Test fixtures that write
+   throwaway YAMLs must call it — pattern in
+   `tests/test_allowed_action_types.py` and
+   `tests/test_human_approval.py`.
+6. **[Repo-wide]** Anthropic SDK in tests: construct with
+   `api_key="test-key-ignored"` + `max_retries=0`; `respx` intercepts
+   `https://api.anthropic.com/v1/messages`.
+7. **[Repo-wide]** `TestClient.stream()` hangs on infinite SSE
+   generators. The stream never naturally terminates and context-exit
+   blocks on drain. Don't try to end-to-end test the SSE endpoint
+   through TestClient; assert route registration + use
+   `EventLog.subscribe` tests for the delivery contract. Real
+   integration tests (if needed later) belong under
+   `pytest -m integration` with a uvicorn subprocess + curl.
+8. **[Repo-wide]** When modifying any route handler, re-check that the
+   test for it doesn't import `AUTH['agent_id']` / `AUTH['plaintext']`
+   — `tests/_helpers.py` exports `AUTH` as
+   `{"Authorization": f"Bearer {TEST_OPERATOR_KEY}"}`, *not* a dict
+   of agent/key components.
+9. **[Repo-wide]** GitHub auto-closes stacked PRs when their base
+   branch is deleted on squash-merge. You cannot reopen once the base
+   is gone. Either merge *without* `--delete-branch` and clean up
+   afterward, or merge main into the stacked branch (regular
+   fast-forward push, no force needed) + `gh pr edit <N> --base main`
+   before the parent merges.
+10. **[Repo-wide]** The repo's pre-tool-use hook blocks
+    `git push --force*` (including `--force-with-lease`). For stacked
+    PRs, prefer merging `main` into the feature branch as a regular
+    push over rebase + force-push.
+11. **[Repo-wide]** The repo's pre-tool-use hook blocks force-removing
+    git worktrees outside the project tree. Run `make clean-worktrees`
+    (added in PR #59) only when no subagents are active.
+12. **[Claude-only]** Ruff `PostToolUse` hook strips unused imports
+    between Edits. Workarounds: (a) add import + first usage in a
+    single atomic Edit, or (b) for multi-import diffs, use `Write` to
+    rewrite the file wholesale — the formatter sees only the final
+    state.
+13. **[Claude-only]** `backend-engineer` subagent stalls on multi-file
+    Python work. Stay main-thread for complex Python changes.
+14. **[Claude-only]** Output classifier trips on aggregated
+    security-heavy language. Keep PR bodies lean.
+15. **[Claude-only]** `docs-writer` subagent has no `Bash` tool.
+    Dispatch, then finish git ops yourself.
+16. **[Claude-only]** Subagent worktrees stay locked after completion.
+    Use `make clean-worktrees` (PR #59) when no agents are active.
+17. **[Claude-only]** `.env.example` was blocked by an over-broad deny
+    rule in an older `.claude/settings.json`; fixed in PR #29.
 
 ## Next-session candidates (pick one, by priority)
 
@@ -120,18 +172,38 @@ Open question from `docs/design/llm-adapter.md`. Requires its own design pass fi
 - Policy rule: LLM-emitted votes count toward quorum but can't unanimously carry a decision without a human vote.
 - Audit: log the agent's prompt hash + model for every vote.
 
+## Cross-tool onboarding
+
+This repo follows the [AGENTS.md](https://agents.md/) convention —
+Codex, Claude Code, Cursor, Windsurf, and any other tool that honors
+it reads `AGENTS.md` automatically.
+
+- **Codex**: drop into the repo and let it read `AGENTS.md`. No extra
+  config. The first Codex session prompt should point at the reading
+  order in `INIT.md`.
+- **Claude Code**: reads `CLAUDE.md` (pointer to `AGENTS.md`). Extra
+  batteries (`.claude/settings.json`, hooks, subagents, skills, slash
+  commands) live under `.claude/`. Gotchas #12–#17 above apply.
+- **Other agents**: read `AGENTS.md`; ignore tool-specific
+  directories.
+
+The repo's pre-tool-use hooks apply to all tools equally:
+- `git push --force*` is blocked.
+- Force-removing worktrees outside the project tree is blocked.
+- The event log path (`data/events.jsonl`) is append-only.
+
 ## Parallel development
 
-My recommendation for the next session: **stay single-thread.** Reasons:
+**Stay single-thread** until Phase 6's gate is met (≥2 weeks of
+event-schema stability per ROADMAP). The pattern that works:
 
-- Phase 5 is sequential by nature (deploy → verify → iterate; can't parallelize "test the deployment").
-- Worktree overhead is only worth it for truly independent lanes (e.g. a backend feature + devops work at the same time). Phase 5 touches one area.
-- The minor-follow-ups batch is small enough that parallel worker coordination costs more than it saves.
-- Phase 6 (parallel operator agents) is explicitly gated on "≥2 weeks of event-schema stability" per ROADMAP. Phase 4 added 6+ new event types in this session; wait to stabilize.
+- One main thread drives each PR end-to-end (branch → code → tests
+  → push → PR → CI → pause for merge).
+- Stacked PRs where one depends on another; merge `main` into the
+  stacked branch after the parent merges (regular fast-forward push).
+- No force-pushes. No rebasing a published branch.
 
-The pattern that worked this session: **one main thread drives each PR end-to-end (branch, code, tests, push, PR, CI, pause for merge)**. 14 PRs + 3 release tags in one session on that pattern. Don't change what works until it stops working.
-
-If a specific lane of work is ever independent and parallel-friendly, use the `Agent` tool with `isolation: "worktree"` + `run_in_background: true` — notification on completion. That was the original plan for Phase 6.
+When Phase 6 opens, follow `docs/PARALLEL_DEVELOPMENT.md`.
 
 ## Maintenance notes
 

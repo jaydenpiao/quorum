@@ -33,28 +33,33 @@ Agentic engineering becomes viable when an AI agent's actions are:
 
 Quorum is the minimal control plane that makes those guarantees real.
 
-## Core capabilities (today)
+## Core capabilities (v0.5.0-alpha.1)
 
-- FastAPI control-plane service with nine typed domain entities (Intent, Finding, Proposal, Vote, PolicyDecision, ExecutionRecord, HealthCheckResult, RollbackRecord, EventEnvelope).
+- FastAPI control-plane service with typed domain entities (Intent, Finding, Proposal, Vote, PolicyDecision, ExecutionRecord, HealthCheckResult, RollbackRecord, HumanApprovalRequest, EventEnvelope).
 - Append-only JSONL event log with sha256 hash chain; tamper-evidence verified on startup and on demand.
-- Materialized in-memory state via event replay; Postgres projection as an optional derived read-model.
+- Materialized in-memory state via event replay; Postgres projection as an optional derived read-model with Alembic migrations and a reconciliation CLI.
 - YAML-based policy configuration with risk levels, environment overrides, denied action types, and per-action-type rule overrides.
-- Quorum voting with configurable thresholds.
-- Pluggable typed health checks (incl. `github_check_run` polling) with automatic rollback on failure.
-- Operator console (`/console`) with read-only views.
-- **GitHub App actuator** (Phase 4): `open_pr` / `comment_issue` / `close_pr` / `add_labels` with actuator-aware rollback and a terminal `rollback_impossible` event when a mutation cannot be undone.
-- **LLM adapter** (Phase 4): Claude-backed telemetry agent runs as its own process, observes the event stream, emits structured findings + low-risk GitHub proposals through the same authenticated routes as any other caller. Per-agent `allowed_action_types` cap + prompt caching + budget-capped token usage.
+- Quorum voting with configurable thresholds; human-approval entity for high-risk actions (`requires_human=true` → explicit grant event before execute).
+- Pluggable typed health checks (`always_pass`, `always_fail`, `http`, `github_check_run`) with automatic rollback on failure and a terminal `rollback_impossible` event when an actuator cannot undo a mutation.
+- Operator console (`/console`) with SSE live-tail + forms for intents, votes, and approvals.
+- **Two built-in actuators**:
+  - **GitHub App** (Phase 4): `open_pr` / `comment_issue` / `close_pr` / `add_labels` with actuator-aware rollback.
+  - **Fly.io** (Phase 5): `fly.deploy` — content-addressed deploys via `flyctl` subprocess; rollback redeploys the previous image digest. Requires 2 votes + explicit human approval by policy.
+- **Two LLM roles** (via the Anthropic SDK adapter in `apps/llm_agent/`):
+  - `telemetry-llm-agent` — watches the event stream, emits findings + low-risk GitHub proposals (`comment_issue` / `add_labels`).
+  - `deploy-llm-agent` — watches for new image digests, proposes `fly.deploy` actions.
+  - Both run as their own OS processes, authenticated with argon2id-hashed API keys, server-capped by per-agent `allowed_action_types`.
+- **Ready to deploy on Fly.io**: `fly.toml` + `/readiness` endpoint + image-push CI workflow (`.github/workflows/image-push.yml`) that auto-pushes tagged images to `registry.fly.io/quorum-prod` on every `main` merge.
 - Demo incident seeder (`POST /api/v1/demo/incident`) runs the full flow end-to-end.
 
 ## What's next (phased)
 
 See [docs/ROADMAP.md](docs/ROADMAP.md). Brief version:
 
-1. **Phase 2** — tamper-evident event log (hash chain), typed health checks, authenticated API, locked CORS, rate limiting.
-2. **Phase 3** — Dockerfile, Postgres projection, observability (structlog + OpenTelemetry + Prometheus), hardened CI with SBOM.
-3. **Phase 4** — real actuators (GitHub App first), LLM agent adapter via Anthropic SDK, interactive console, human-approval workflows.
-4. **Phase 5** — Fly.io deployment with canonical-log volume and managed Postgres.
-5. **Phase 6** — parallel development via git worktrees per [docs/PARALLEL_DEVELOPMENT.md](docs/PARALLEL_DEVELOPMENT.md).
+1. **Phases 2–3** ✅ — tamper-evident event log, typed health checks, authenticated API, locked CORS, rate limiting, Dockerfile, Postgres projection, observability (structlog + OpenTelemetry + Prometheus), hardened CI with SBOM.
+2. **Phase 4** ✅ — GitHub App actuator, LLM adapter via the Anthropic SDK, interactive console (SSE + forms), human-approval entity.
+3. **Phase 5** ✅ (v0.5.0-alpha.1) — Fly.io deployment with `fly.toml` + Fly Volume + readiness probe, `fly.deploy` actuator, deploy-llm-agent role, image-push CI.
+4. **Phase 6** ⬜ — parallel development via git worktrees per [docs/PARALLEL_DEVELOPMENT.md](docs/PARALLEL_DEVELOPMENT.md). Gated on ≥2 weeks of event-schema stability.
 
 ## Quick start
 
@@ -121,9 +126,16 @@ curl -s http://127.0.0.1:8080/api/v1/events | python3 -m json.tool
 
 ### Run the LLM adapter (optional)
 
-A Claude-backed telemetry agent that watches the event stream and
-emits structured findings + low-risk GitHub proposals. See
-[`docs/design/llm-adapter.md`](docs/design/llm-adapter.md) for the
+Claude-backed agents that run as their own OS processes, watch the
+event stream, and emit structured findings / proposals through the
+same authenticated routes as any other caller. Two roles ship today:
+
+- `telemetry-llm-agent` — emits findings + `github.comment_issue` /
+  `github.add_labels` proposals.
+- `deploy-llm-agent` (Phase 5) — emits `fly.deploy` proposals when a
+  new image digest appears in the stream.
+
+See [`docs/design/llm-adapter.md`](docs/design/llm-adapter.md) for the
 full design.
 
 ```bash
@@ -139,21 +151,31 @@ make dev                                                       # Quorum on :8080
 python -m apps.llm_agent.run --agent-id telemetry-llm-agent    # adapter polls :8080
 ```
 
-The adapter reads `config/agents.yaml`'s `llm:` block for model,
-caps, and the system-prompt reference. Token usage is capped per-tick
-and per-day with atomic JSON checkpoints under `data/llm_usage/`.
-Adapter-emitted proposals are server-side capped by
-`allowed_action_types` in the same config — LLM agents can only
-propose `github.comment_issue` and `github.add_labels` in v1.
+Adapter tick budgets, model, and system-prompt reference are read
+from the agent's `llm:` block in `config/agents.yaml`. Token usage
+is capped per-tick and per-day with atomic JSON checkpoints under
+`data/llm_usage/`. Per-agent `allowed_action_types` in the same
+config server-side caps what each LLM role can propose — deploy-agent
+can only propose `fly.deploy`; telemetry-agent can only propose the
+low-risk GitHub actions.
 
 ## Reading order for new contributors (human or AI)
 
 1. [INIT.md](INIT.md) — shortest startup context.
-2. [AGENTS.md](AGENTS.md) — repo-wide operating rules and Definition of Done.
-3. [docs/REPO_MAP.md](docs/REPO_MAP.md) — where everything lives.
-4. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design and mermaid diagrams.
-5. [CONTRIBUTING.md](CONTRIBUTING.md) — how to propose changes.
-6. [docs/PARALLEL_DEVELOPMENT.md](docs/PARALLEL_DEVELOPMENT.md) — single-thread today, worktrees later.
+2. [AGENTS.md](AGENTS.md) — repo-wide operating rules (binding;
+   picked up automatically by Codex, Claude Code via `CLAUDE.md`,
+   Cursor, Windsurf, etc.).
+3. [docs/SESSION_HANDOFF.md](docs/SESSION_HANDOFF.md) — live project
+   state, known gotchas, next-session candidates. **Most current.**
+4. [docs/ROADMAP.md](docs/ROADMAP.md) — phase ✅/⏳/⬜ markers.
+5. [CHANGELOG.md](CHANGELOG.md) — versioned feature list.
+6. [docs/REPO_MAP.md](docs/REPO_MAP.md) — where everything lives.
+7. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design and
+   mermaid diagrams.
+8. [CONTRIBUTING.md](CONTRIBUTING.md) — how to propose changes (DCO
+   sign-off required).
+9. [docs/PARALLEL_DEVELOPMENT.md](docs/PARALLEL_DEVELOPMENT.md) —
+   single-thread today, worktrees later (Phase 6+).
 
 ## Design constraints
 
