@@ -27,6 +27,17 @@ artifact against that tag (see `.github/workflows/release.yml`).
   true`, which silently no-ops when no release exists — v0.5.0-alpha.1
   had to be published manually for that reason.
 
+### Fixed
+
+- **Fly runtime deployability** — `Dockerfile` now pins the
+  `python:3.12-slim` linux/amd64 base image digest, pins the `uv`
+  bootstrap version, and installs a checksummed `flyctl` binary as
+  `/usr/local/bin/fly` in the runtime image. The non-root `quorum`
+  user now has a writable home and the build verifies `fly version`
+  under that user. This makes the shipped `fly.deploy` executor path
+  runnable inside the production container, not only in local operator
+  shells.
+
 ## [v0.5.0-alpha.1] — 2026-04-22
 
 ### Added

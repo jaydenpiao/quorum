@@ -167,6 +167,8 @@ files:
 - `tests/test_github_*.py` — one per GitHub action
 - `tests/test_fly_actuator.py` — spec / client / actions
 - `tests/test_deploy_llm_agent.py` — deploy-agent role wiring
+- `tests/test_dockerfile_runtime.py` — container runtime pinning
+  checks for Python base image, `uv`, and `flyctl`
 - `tests/test_readiness.py` — Phase 5 readiness probe
 - `tests/test_human_approval.py` — human-approval flow
 - `tests/test_sse_stream.py` — SSE route wiring
