@@ -19,6 +19,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- **Fly bootstrap docs match deployed volume naming** — docs now
+  describe the app-scoped `quorum_data` Fly Volume name used by
+  `fly.toml`, and `SESSION_HANDOFF` records the live staging bootstrap
+  evidence.
 - **Image-push CI publishes staging + prod tags** —
   `.github/workflows/image-push.yml` now pushes the same commit image
   to both `registry.fly.io/quorum-staging:<sha>` and

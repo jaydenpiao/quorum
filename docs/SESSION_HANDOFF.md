@@ -25,12 +25,33 @@ authoritative state of the project.
 - **Type check:** `mypy --strict` clean across 47 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 62. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, and #62 image-push staging/prod follow-up.
+- **Merged PR count:** 64. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, and #64 staging bootstrap handoff/docs.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
-  1 GiB `iad` volumes (`quorum_staging_data`,
-  `quorum_prod_data`). Both apps are still `pending`, with no releases
-  yet. `quorum-staging` currently has no Fly app secrets configured.
+  app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
+  `vol_4qly1wq329gwx56r`, prod: `vol_v8emwyn2gj70k11v`). The initial
+  app-specific volumes were unattached and destroyed to avoid drift
+  from `fly.toml`.
+- **Staging deployment state:** `quorum-staging` is deployed from the
+  pushed main image
+  `registry.fly.io/quorum-staging@sha256:96ea324970bd369e86422e6d92764d35290e636cb9a2c7b0fe0cf2f3c415f677`;
+  Fly release v1 reports image ref
+  `registry.fly.io/quorum-staging@sha256:6bcea0b7426c60fe21c2000d837f08ef195aa48345d34c7fda603df308da74e0`.
+  Machine `e2862467be9d78` is started in `iad` with 2/2 checks
+  passing. `/readiness`, `/api/v1/health`, `/metrics`, and `/console`
+  returned HTTP 200. `QUORUM_API_KEYS` and `QUORUM_ALLOW_DEMO=1` are
+  deployed only on staging; `DATABASE_URL` and
+  `QUORUM_GITHUB_APP_PRIVATE_KEY` are still unset, so the Postgres
+  projection and GitHub actuator are disabled there for now.
+- **Staging persistence evidence:** an authenticated
+  `POST /api/v1/intents` created `intent_f40d2794ee55`; before and
+  after `fly machine restart e2862467be9d78 --app quorum-staging`,
+  `GET /api/v1/events/verify` returned `event_count=1` and
+  `last_hash=3b8f54fef545d63b23069ed1daa5877ad9fbb951a78767d20682155c6dd8c7ff`.
+  This verifies the Fly Volume is mounted at `/app/data`.
+- **Prod deployment state:** `quorum-prod` exists with the correct
+  `quorum_data` volume but no machine/release yet. `QUORUM_ALLOW_DEMO`
+  is unset in prod.
 - **Event types dispatched:** 20 — `intent_created`, `finding_created`, `proposal_created`, `policy_evaluated`, `proposal_voted`, `proposal_approved`, `proposal_blocked`, `execution_started`, `execution_succeeded`, `execution_failed`, `health_check_completed`, `rollback_started`, `rollback_completed`, `rollback_impossible`, `human_approval_requested`, `human_approval_granted`, `human_approval_denied`. No Phase 5 event types — `fly.deploy` reuses the existing `proposal_created` / `execution_*` / `rollback_*` chain.
 
 ## Phase status
@@ -174,27 +195,36 @@ harness under `.claude/`. Codex and other agents can ignore them.
     `fly releases --app <app> --json`, but not `--limit`. Keep release
     limiting in Quorum code/tests, not in the subprocess argv. Live
     smoke against `quorum-staging` returns `[]` before the first deploy.
+19. **[Repo-wide]** `fly.toml` mounts `source = "quorum_data"`.
+    Volume names are app-scoped on Fly, so both staging and prod should
+    create a volume named exactly `quorum_data`. App-specific names like
+    `quorum_staging_data` do not satisfy the shared config.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Bootstrap Fly staging, then add live Fly integration tests
+### A — Add live Fly integration tests
 
 The next highest-value Fly hardening item now that the runtime image
-contains `flyctl` and the release-list argv matches v0.4.39:
+contains `flyctl`, the release-list argv matches v0.4.39, and
+`quorum-staging` has a first healthy release:
 
-- Configure staging secrets (`QUORUM_API_KEYS` at minimum; add
-  `DATABASE_URL` / `QUORUM_GITHUB_APP_PRIVATE_KEY` when operator
-  values exist), deploy `quorum-staging` from the pushed
-  `registry.fly.io/quorum-staging@sha256:a5d2599a7fbc172493168370800d6cb0140acd4d2c159fc5f519c8ec23ae9366`,
-  and verify `/readiness`, `/api/v1/health`, `/metrics`, `/console`,
-  plus event-log persistence across restart.
 - `QUORUM_FLY_LIVE_TESTS=1` integration tests — propose a
   `fly.deploy` against `quorum-staging`, assert the actuator captures
   the previous digest and that `rollback_deploy` redeploys it. Skipped
   in CI by default; belongs under `pytest -m integration`.
+- Required env contract: `FLY_API_TOKEN`, `QUORUM_FLY_LIVE_TESTS=1`,
+  `QUORUM_FLY_STAGING_PREVIOUS_DIGEST`, and
+  `QUORUM_FLY_STAGING_NEW_DIGEST`. A second pushed/deployable staging
+  image digest is still needed before these tests can exercise a real
+  forward deploy + rollback pair.
 
 ### B — Minor follow-ups worth batching into a single PR
 
+- Configure real staging `DATABASE_URL` (Neon branch) and
+  `QUORUM_GITHUB_APP_PRIVATE_KEY`; then re-verify `/readiness` with
+  Postgres enabled and the GitHub actuator booting.
+- Bootstrap `quorum-prod` only after staging has the DB/GitHub secrets
+  and live deploy/rollback evidence. Keep `QUORUM_ALLOW_DEMO` unset.
 - Prometheus counters for the LLM adapter (design-doc §Observability): `quorum_llm_tokens_total{agent_id, model, kind}`, `quorum_llm_ticks_total{agent_id, outcome}`, `quorum_llm_proposals_created_total{agent_id, action_type}`. Needs the adapter process to run a Prometheus endpoint on a separate port.
 - `demo_seed` optionally spawns the LLM adapter process (feature-flagged).
 - Richer context in `_log.warning("projector_status_update_for_missing_proposal", ...)`.
