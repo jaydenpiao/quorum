@@ -229,10 +229,12 @@ class FlyDeploySpec(BaseModel):
     strategy: Literal["rolling", "bluegreen", "immediate"] = "rolling"
 ```
 
-**Rollback for `fly.deploy`:** `fly releases list --app ... --json` →
-`fly deploy --image <previous-digest>`. Deterministic when the previous
-digest is captured at forward-deploy time. If the previous digest is
-unavailable (first deploy or release-list introspection failed), the
+**Rollback for `fly.deploy`:** `fly releases --app ... --json` →
+`fly deploy --image <previous-digest>`. The pinned `flyctl` v0.4.39
+does not support a `--limit` flag on `fly releases`, so Quorum limits
+the parsed JSON list in-process. Deterministic when the previous digest
+is captured at forward-deploy time. If the previous digest is
+unavailable (first deploy or release introspection failed), the
 executor emits `rollback_impossible` so the operator reconciles
 manually instead of seeing a false rollback success.
 

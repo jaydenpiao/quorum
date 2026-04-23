@@ -108,13 +108,11 @@ class FlyClient:
             "releases",
             "--app",
             app,
-            "--limit",
-            str(limit),
             "--json",
         ]
         raw = self._run_and_parse(argv)
         if isinstance(raw, list):
-            return [item for item in raw if isinstance(item, dict)]
+            return [item for item in raw if isinstance(item, dict)][:limit]
         return []
 
     # ------------------------------------------------------------------
