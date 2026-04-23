@@ -134,7 +134,9 @@ Format: `agent_id:plaintext_key,agent_id:plaintext_key,...`
 The registry is a dict of `{plaintext_key: agent_id}` held in memory.
 Matching uses `hmac.compare_digest` to prevent timing-based key inference.
 
-Phase 2.5 adds argon2id-hashed keys stored in `config/agents.yaml` as a second registry, checked after the env-var registry (see PR #TBD).
+Phase 2.5 shipped argon2id-hashed keys stored in `config/agents.yaml`
+as a second registry, checked after the env-var registry. Hashes are
+minted by the CLI at `apps/api/app/tools/bootstrap_keys.py`.
 
 ### Demo endpoint gate
 
@@ -267,8 +269,38 @@ Rollback has two terminal variants:
 ## Actuators
 
 An **actuator** is an adapter that turns an approved proposal into a
-real-world mutation against a specific external system. As of Phase 4,
-the only built-in actuator is **GitHub** (`apps/api/app/services/actuators/github/`).
+real-world mutation against a specific external system. As of Phase 5,
+two actuator families ship:
+
+- **GitHub** (`apps/api/app/services/actuators/github/`) — Phase 4.
+- **Fly.io** (`apps/api/app/services/actuators/fly/`) — Phase 5.
+
+The executor dispatches by action-type prefix: `github.*` routes to
+the GitHub actuator, `fly.*` routes to the Fly actuator, everything
+else is a legacy simulated-action passthrough with empty result.
+
+### Fly actuator (`fly.*`)
+
+Supported action types in v1:
+
+- `fly.deploy` — deploy a content-addressed image
+  (`registry.fly.io/<app>@sha256:...`) to a Fly app. Payload is the
+  typed `FlyDeploySpec` with Literal `app` enum, sha256-only
+  `image_digest` (tags rejected), and `strategy` enum.
+
+Policy rule (`config/policies.yaml`): `fly.deploy` requires 2 votes
+AND `requires_human=true` — every deploy pauses for explicit approval
+via the Phase 4 human-approval entity.
+
+Rollback: `rollback_deploy` redeploys the `previous_image_digest`
+captured at forward-deploy time. If no previous digest was captured
+(first deploy, release-list introspection failed), the executor emits
+`rollback_impossible` and the proposal lands in
+`ProposalStatus.rollback_impossible`.
+
+See `docs/design/fly-deployment.md` for the full design.
+
+### GitHub actuator (`github.*`)
 
 Contract:
 

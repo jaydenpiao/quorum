@@ -9,6 +9,24 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+### Added
+
+- **`make clean-worktrees`** (PR #59) — Makefile target that
+  enumerates worktrees under `.claude/worktrees/` and force-removes
+  each with `git worktree remove -f -f`. Addresses SESSION_HANDOFF
+  gotcha #7 (subagent worktrees stay locked after dispatch
+  completion). Operator runs this when no subagents are active.
+
+### Changed
+
+- **Release workflow auto-creates the GitHub release** (PR #58) —
+  `.github/workflows/release.yml` now uses
+  `softprops/action-gh-release@v2` to create the release at tag push
+  and attach the SBOM under `quorum-${tag}.spdx.json`. The prior
+  version relied on `anchore/sbom-action`'s `upload-release-assets:
+  true`, which silently no-ops when no release exists — v0.5.0-alpha.1
+  had to be published manually for that reason.
+
 ## [v0.5.0-alpha.1] — 2026-04-22
 
 ### Added

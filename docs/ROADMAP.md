@@ -46,14 +46,14 @@ Status legend: ✅ done · ⏳ in flight · ⬜ planned · ✂️ cut for now.
 
 Branch protection on `main` currently requires **5 checks**: `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`.
 
-## Phase 3 tail — in flight / next ⏳
+## Phase 3 tail ✅
 
-- ⏳ OpenTelemetry trace instrumentation (OTLP/HTTP, env-gated)
-- ⬜ Log↔trace correlation: bind `request_id` into the current span
-- ⬜ Postgres projection (Phase 3 capstone): JSONL stays canonical, Neon/Postgres as derived read-model with `alembic` migrations
-- ⬜ CHANGELOG + release tagging process
+- ✅ OpenTelemetry trace instrumentation (OTLP/HTTP, env-gated)
+- ✅ Log↔trace correlation: `request_id` + `trace_id` + `span_id` bound into structlog contextvars
+- ✅ Postgres projection (Phase 3 capstone): JSONL stays canonical, Neon/Postgres as derived read-model with `alembic` migrations
+- ✅ `CHANGELOG.md` + release tagging process; SBOM attached per tag
 
-## Phase 4 — Real actuators and model orchestration
+## Phase 4 — Real actuators and model orchestration ✅
 
 - ✅ GitHub App actuator (PRs #35 / #36 / #37 / #38 / #40):
   `github.open_pr`, `github.comment_issue`, `github.close_pr`,
@@ -75,15 +75,33 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
   per-tick + daily input-token caps. Server-side `allowed_action_types`
   gate prevents the LLM from escalating into operator-only actions
   (`open_pr` / `close_pr`).
-- ⬜ Interactive console: forms for intent / finding / proposal / vote;
-  SSE stream at `/api/v1/events/stream`.
-- ⬜ Human approval entity + notifier for high / critical risk.
+- ✅ Interactive console (PR #48): forms for intent / finding /
+  proposal / vote + SSE stream at `/api/v1/events/stream` with
+  EventSource live-tail.
+- ✅ Human approval entity + three event types (`human_approval_*`)
+  (PR #47): execute-time gate on `requires_human=true` proposals;
+  new terminal `ProposalStatus.approval_denied`.
 
-## Phase 5 — Deployment ⬜
+## Phase 5 — Deployment ✅ (v0.5.0-alpha.1)
 
-- Fly.io (`fly.toml`, Fly Volume for canonical JSONL, Neon Postgres for projection)
-- Staging + prod apps
-- Dog-food deploys: production deploys flow through the Quorum API itself (deploy-agent → code-agent votes → operator approves → executor calls `fly deploy ...@sha256:...`)
+- ✅ `fly.toml` at repo root (region `iad`, volume mount at `/app/data`,
+  http_checks on `/api/v1/health` + `/readiness`).
+- ✅ `GET /readiness` endpoint — chain-verification + DB-ping gate.
+- ✅ `fly.deploy` actuator (`apps/api/app/services/actuators/fly/`):
+  sha256-only `FlyDeploySpec`, flyctl subprocess client, deploy +
+  rollback with rollback-impossible fallback.
+- ✅ Executor refactored to prefix-based dispatch (`github.*` vs
+  `fly.*` vs passthrough).
+- ✅ Policy rule: `fly.deploy` requires 2 votes + `requires_human=true`
+  (strictest in the project).
+- ✅ `deploy-llm-agent` LLM role with `allowed_action_types:
+  [fly.deploy]`.
+- ✅ Image-push CI (`.github/workflows/image-push.yml`) —
+  content-addressed push to `registry.fly.io/quorum-prod:<sha>` on
+  merge to `main`, gated on `FLY_API_TOKEN`.
+- ⬜ Dockerfile base-image digest pin — deferred to a future tiny PR.
+- ⬜ Live Fly integration tests (`QUORUM_FLY_LIVE_TESTS=1`) — deferred
+  until operator has a staging Fly app.
 
 ## Phase 6 — Parallel operator agents ⬜
 

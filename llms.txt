@@ -1,8 +1,11 @@
 # Quorum LLM entrypoint
 
-Primary startup files:
+Canonical startup reading order (any AI agent — Codex, Claude Code, etc.):
 - INIT.md
 - AGENTS.md
+- docs/SESSION_HANDOFF.md
+- docs/ROADMAP.md
+- CHANGELOG.md
 - docs/REPO_MAP.md
 - docs/ARCHITECTURE.md
 - docs/CURRENT_MODE.md
@@ -10,6 +13,7 @@ Primary startup files:
 Key runtime files:
 - apps/api/app/main.py
 - apps/api/app/api/routes.py
+- apps/api/app/api/history.py
 - apps/api/app/domain/models.py
 - apps/api/app/services/event_log.py
 - apps/api/app/services/state_store.py
@@ -17,12 +21,33 @@ Key runtime files:
 - apps/api/app/services/quorum_engine.py
 - apps/api/app/services/executor.py
 - apps/api/app/services/health_checks.py
+- apps/api/app/services/postgres_projector.py
+
+Actuators:
+- apps/api/app/services/actuators/github/
+- apps/api/app/services/actuators/fly/
+
+LLM adapter:
+- apps/llm_agent/run.py
+- apps/llm_agent/loop.py
+- apps/llm_agent/tools.py
+- apps/llm_agent/prompts/telemetry-agent.md
+- apps/llm_agent/prompts/deploy-agent.md
 
 Configuration:
 - config/system.yaml
 - config/agents.yaml
 - config/policies.yaml
+- config/github.yaml
+- fly.toml
 
 Examples:
 - examples/demo_incident.json
 - examples/sample_proposal.json
+- examples/rollback_impossible_event.json
+
+Design docs:
+- docs/design/fly-deployment.md
+- docs/design/llm-adapter.md
+- docs/design/phase-4-github-actuator.md
+- docs/design/postgres-projection.md
