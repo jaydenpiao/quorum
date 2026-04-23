@@ -1,5 +1,17 @@
 name: release
 
+# Runs on every `v*` tag push. Generates an SPDX SBOM for the tagged
+# commit, creates (or updates) the GitHub release for the tag, and
+# attaches the SBOM as a release asset under its versioned filename.
+#
+# The prior version used `anchore/sbom-action` with
+# `upload-release-assets: true`, which only worked when a GitHub
+# release already existed at tag time — tags pushed via CLI never
+# auto-create a release, so the asset would silently land only in the
+# Actions artifact store. This version uses
+# `softprops/action-gh-release` which creates the release if absent
+# and attaches the file with the exact name on disk.
+
 on:
   push:
     tags:
@@ -7,11 +19,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # required to attach SBOM to the release
+  contents: write  # required to create releases and attach the SBOM asset
 
 jobs:
   sbom:
-    name: generate SBOM
+    name: generate SBOM + publish release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +40,9 @@ jobs:
       - name: Install dependencies (frozen)
         run: uv sync --frozen --no-dev
 
+      # anchore/sbom-action writes the file to disk at `output-file`.
+      # We disable its `upload-release-assets` because the release
+      # doesn't exist yet; we create it explicitly below.
       - name: Generate SPDX SBOM with Syft
         uses: anchore/sbom-action@v0
         with:
@@ -35,4 +50,18 @@ jobs:
           format: spdx-json
           output-file: quorum-${{ github.ref_name }}.spdx.json
           upload-artifact: true
-          upload-release-assets: true
+          upload-release-assets: false
+
+      - name: Create GitHub release and attach SBOM
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: quorum-${{ github.ref_name }}.spdx.json
+          generate_release_notes: true
+          # Body preamble; GitHub auto-generates a commit log below it
+          # via `generate_release_notes: true`.
+          body: |
+            See [`CHANGELOG.md`](https://github.com/jaydenpiao/quorum/blob/main/CHANGELOG.md)
+            for the versioned feature list.
+
+            SPDX SBOM attached: `quorum-${{ github.ref_name }}.spdx.json`.
