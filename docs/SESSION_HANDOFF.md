@@ -10,14 +10,14 @@ authoritative state of the project.
 
 ## Current state (as of the handoff)
 
-- **Last tagged release:** [`v0.4.0-alpha.1`](https://github.com/jaydenpiao/quorum/releases/tag/v0.4.0-alpha.1) — Phase 4 complete. SBOM attached as `quorum-v0.4.0-alpha.1.spdx.json`. **Phase 5 in flight**, three stacked PRs awaiting merge (see below).
-- **Test suite:** 349 passing + 11 integration-gated (excluded from CI by default; opt-in with `pytest -m integration` against a live Postgres).
+- **Last tagged release:** [`v0.4.0-alpha.1`](https://github.com/jaydenpiao/quorum/releases/tag/v0.4.0-alpha.1). **Phase 5 shipped to `main`; `v0.5.0-alpha.1` to be tagged next once this handoff lands.**
+- **Test suite:** 355 passing + 11 integration-gated (excluded from CI by default; opt-in with `pytest -m integration` against a live Postgres).
 - **Coverage:** 84% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 47 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 49. **Open / in-flight:** 3 (stacked — PRs #50 → #51 → #52).
-- **Event types dispatched:** 20 — `intent_created`, `finding_created`, `proposal_created`, `policy_evaluated`, `proposal_voted`, `proposal_approved`, `proposal_blocked`, `execution_started`, `execution_succeeded`, `execution_failed`, `health_check_completed`, `rollback_started`, `rollback_completed`, `rollback_impossible`, `human_approval_requested`, `human_approval_granted`, `human_approval_denied`. (No Phase 5 event types added yet — `fly.deploy` reuses the existing `proposal_created` / `execution_*` / `rollback_*` chain.)
+- **Merged PR count:** 55. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 handoff update, #55 deploy-llm-agent, #56 image-push CI.
+- **Event types dispatched:** 20 — `intent_created`, `finding_created`, `proposal_created`, `policy_evaluated`, `proposal_voted`, `proposal_approved`, `proposal_blocked`, `execution_started`, `execution_succeeded`, `execution_failed`, `health_check_completed`, `rollback_started`, `rollback_completed`, `rollback_impossible`, `human_approval_requested`, `human_approval_granted`, `human_approval_denied`. No Phase 5 event types — `fly.deploy` reuses the existing `proposal_created` / `execution_*` / `rollback_*` chain.
 
 ## Phase status
 
@@ -28,10 +28,13 @@ authoritative state of the project.
 - **✅ Phase 3** — production foundation (Dockerfile, pytest-cov gate, structlog, Prometheus, mypy-strict, SBOM, OTel).
 - **✅ Phase 3 capstone** — Postgres projection.
 - **✅ Phase 4** — GitHub App actuator (4 actions + rollback + `rollback_impossible` event + `github_check_run` health check); LLM adapter (telemetry-llm-agent with `create_finding` + `create_proposal` + `allowed_action_types` gate); **human approval entity + 3 events**; **interactive console with SSE live-tail + forms**. All four Phase 4 roadmap items shipped. Tagged `v0.4.0-alpha.1`.
-- **⏳ Phase 5** — Fly.io deployment. **Three stacked PRs awaiting merge:**
-  - **PR #50** — `docs/design/fly-deployment.md`. Design doc. CI green.
-  - **PR #51** — `fly.toml` + `GET /readiness` + readiness tests. CI green. Stacked on #50.
-  - **PR #52** — `fly.deploy` actuator (FlyDeploySpec, flyctl-subprocess FlyClient, deploy/rollback actions) + executor dispatch refactor for prefix-based routing + policy rule (2 votes + requires_human) + design-doc amendment on open question #2 (flyctl > Machines API). 27 new tests. CI green. Stacked on #51.
+- **✅ Phase 5** — Fly.io deployment. All merged to `main`:
+  - **PR #50** — `docs/design/fly-deployment.md`.
+  - **PR #54** (replaces auto-closed #51) — `fly.toml` + `GET /readiness` + 4 tests.
+  - **PR #52** — `fly.deploy` actuator + executor prefix-dispatch refactor + policy rule. 27 tests.
+  - **PR #53** — SESSION_HANDOFF update.
+  - **PR #55** — `deploy-llm-agent` role + system prompt + `allowed_action_types: [fly.deploy]`. 6 tests.
+  - **PR #56** — image-push CI workflow, gated on `FLY_API_TOKEN`.
 - **⬜ Phase 6** — parallel operator-agent worktrees.
 
 All known doc-vs-code drift is closed. No known outstanding tech debt.
@@ -44,13 +47,22 @@ Three PRs close the last two Phase 4 roadmap items:
 - **PR #47** — Human approval entity. Three new event types (`human_approval_requested` / `_granted` / `_denied`), new `POST /api/v1/approvals/{proposal_id}` route, execute-time gate, terminal `ProposalStatus.approval_denied`, Alembic 0004 + projector handlers + dispatch-completeness update.
 - **PR #48** — SSE event stream + interactive console forms. `EventLog.subscribe()` pub/sub; `GET /api/v1/events/stream`; bearer-token + `create_intent` + cast-vote + grant/deny-approval forms; EventSource live-tail.
 
-## What is in flight (Phase 5, three stacked PRs)
+## Phase 5 — what it unlocks
 
-Opened in order; each passes all 5 required CI checks; each awaits operator merge.
+Quorum can now deploy itself on Fly.io. The path an operator follows:
 
-- **PR #50** — `docs/design/fly-deployment.md`. Single file. Covers app topology, Fly Volume sizing, Neon-vs-Fly-Postgres, secrets, readiness wiring, dog-food deploy flow, operator pre-reqs, open questions.
-- **PR #51** — `fly.toml` at repo root (primary_region=iad, volume mount at /app/data, http_checks on /api/v1/health + /readiness) + new `GET /readiness` endpoint (200 when chain verified — implicit via module import — and `SELECT 1` on DATABASE_URL succeeds; 503 otherwise; detail never leaks exception text) + 4 tests. No new Python deps. Dockerfile digest-pin deferred to a later tiny PR.
-- **PR #52** — `fly.deploy` actuator. `apps/api/app/services/actuators/fly/` with typed FlyDeploySpec (Literal app, sha256-only image_digest, tags rejected at pydantic boundary), FlyClient (flyctl subprocess wrapper with captured stdout/stderr and typed errors), deploy + rollback_deploy orchestration. Executor refactored from GitHub-coupled dispatch to prefix-based (`github.*` vs `fly.*` vs passthrough). New policy rule: `fly.deploy` requires 2 votes + explicit human approval (strictest we have). Design-doc amendment flips open question #2 from "Machines API" to "flyctl subprocess" — two-surface API (GraphQL + REST) doubled LOC vs subprocess's 170-line total. 27 new tests.
+1. Provision a Fly app + volume per `docs/design/fly-deployment.md` §Operator pre-reqs.
+2. `fly secrets set QUORUM_API_KEYS=... QUORUM_GITHUB_APP_PRIVATE_KEY=... DATABASE_URL=... --app <app>`.
+3. `fly deploy --app <app>` locally once for the bootstrap.
+4. Optional: set `FLY_API_TOKEN` as a repo secret; every merge to `main` pushes a tagged image to `registry.fly.io/quorum-prod`.
+5. Run the `deploy-llm-agent` process (`python -m apps.llm_agent.run --agent-id deploy-llm-agent`) to watch for new image digests and propose `fly.deploy` actions.
+6. Approve each proposal via the operator console. Quorum executes `fly deploy --image registry.fly.io/quorum-prod@sha256:...` under the policy + human-approval gate.
+
+Three design-level invariants that hold across the whole flow:
+
+- **Single-machine-per-app.** Fly Volumes are per-machine; `EventLog` is single-writer. Multi-machine fleets are explicitly deferred.
+- **Content-addressed deploys.** `FlyDeploySpec` rejects tags at the pydantic boundary; only `sha256:<64 hex>` passes.
+- **Human in the loop for every prod deploy.** `fly.deploy` policy rule is `votes_required: 2, requires_human: true`. Deploys never execute without an explicit approval entity event.
 
 ## Reading order for a fresh session
 
@@ -85,33 +97,14 @@ Area-specific deep reads are already linked from `AGENTS.md`'s "Required reading
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Finish Phase 5 (deploy-agent + image-push CI)
+### A — Dockerfile digest-pinning + live Fly integration tests
 
-After PRs #50 / #51 / #52 merge, two pieces remain before dog-food deploys work end-to-end:
+Two small hardening items explicitly deferred from Phase 5:
 
-- **Deploy-agent LLM role.** New `deploy-agent` with `allowed_action_types: ["fly.deploy"]` in `config/allowed_action_types.yaml`. Its system prompt watches for new images in `registry.fly.io/quorum-prod` (or a hook off the CI workflow below) and creates proposals with `action_type=fly.deploy` and the current commit's digest.
-- **Image-push CI workflow.** `.github/workflows/image-push.yml` builds a Docker image on every merge to `main`, pushes to `registry.fly.io/quorum-prod` tagged with the commit SHA. Needs a Fly API token as a repo secret.
-- **Integration tests.** Gated behind `QUORUM_FLY_LIVE_TESTS=1` — propose a fly.deploy against a throwaway Fly app, assert rollback redeploys the previous digest. Skipped in CI by default.
+- Pin the `python:3.12-slim` base image to a sha256 digest in the `Dockerfile` (reproducible builds). Look up the current `linux/amd64` digest on Docker Hub, pin it, add a comment noting the pinning policy.
+- `QUORUM_FLY_LIVE_TESTS=1` integration tests — propose a `fly.deploy` against a throwaway Fly app, assert the actuator captures the previous digest and that `rollback_deploy` redeploys it. Skipped in CI by default; belongs under `pytest -m integration`.
 
-**Operator pre-reqs before the stacked PRs can be deployed (not before they merge):**
-1. Fly CLI installed (`curl -L https://fly.io/install.sh | sh`).
-2. `fly auth signup` / `fly auth login`.
-3. `fly apps create quorum-staging` and `fly apps create quorum-prod`.
-4. `fly volumes create quorum_data --size 1 --region iad --app quorum-{staging,prod}`.
-5. A Neon Postgres project (free tier) with a branch for staging.
-6. `fly secrets set QUORUM_API_KEYS=... QUORUM_GITHUB_APP_PRIVATE_KEY=... DATABASE_URL=... --app quorum-{staging,prod}`.
-
-After that: `fly deploy --app quorum-staging` should produce a running instance that passes both http_checks.
-
-### B — Version bump + SBOM (v0.5.0-alpha.1)
-
-Once all three Phase 5 PRs merge, cut `v0.5.0-alpha.1`:
-
-- Update the `[Unreleased]` section of `CHANGELOG.md` with the three Phase 5 PRs.
-- `git tag -s v0.5.0-alpha.1 -m "Phase 5 — Fly.io deployment (deploy-agent pending)"`.
-- `git push origin v0.5.0-alpha.1` triggers the release workflow, which attaches an SPDX SBOM.
-
-### C — Minor follow-ups worth batching into a single PR
+### B — Minor follow-ups worth batching into a single PR
 
 - Prometheus counters for the LLM adapter (design-doc §Observability): `quorum_llm_tokens_total{agent_id, model, kind}`, `quorum_llm_ticks_total{agent_id, outcome}`, `quorum_llm_proposals_created_total{agent_id, action_type}`. Needs the adapter process to run a Prometheus endpoint on a separate port.
 - `demo_seed` optionally spawns the LLM adapter process (feature-flagged).
@@ -120,7 +113,7 @@ Once all three Phase 5 PRs merge, cut `v0.5.0-alpha.1`:
 - `make clean-worktrees` target.
 - System-prompt hash in `llm_call_completed` events for audit reproducibility (design-doc open question #4).
 
-### D — LLM adapter voter role
+### C — LLM adapter voter role
 
 Open question from `docs/design/llm-adapter.md`. Requires its own design pass first:
 - Per-action trust caps (e.g. vote on `github.add_labels` but not `github.open_pr`).
