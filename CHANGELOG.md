@@ -9,6 +9,62 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+## [v0.5.0-alpha.1] — 2026-04-22
+
+### Added
+
+- **Phase 5 — Fly.io deployment.** End-to-end support for running
+  Quorum on Fly and having Quorum deploy **itself** through the same
+  policy-gated path every other mutation uses.
+  - `docs/design/fly-deployment.md` — full design: single-machine-per-app
+    constraint (Fly Volume is per-machine, `EventLog` is single-writer),
+    Fly Volume sizing + snapshot drill, Neon vs Fly-Postgres comparison
+    (decided: Neon), secrets via `fly secrets set`, dog-food deploy
+    flow, operator pre-reqs. Amended during implementation to flip
+    "Machines API" → "flyctl subprocess" after the multi-surface API
+    cost doubled the estimate.
+  - `fly.toml` at repo root — `primary_region=iad`, volume mount at
+    `/app/data`, http_service on `:8080`, two http_checks
+    (`/api/v1/health` liveness + `/readiness` gate).
+  - `GET /readiness` — 200 when the event-log hash chain has verified
+    (implicit via module import) and, if `DATABASE_URL` is set,
+    `SELECT 1` succeeds. 503 otherwise. Detail string never leaks
+    exception text.
+  - **`fly.deploy` actuator** — `apps/api/app/services/actuators/fly/`
+    with `FlyDeploySpec` (Literal `app` enum, sha256-only
+    `image_digest`, tags rejected at the pydantic boundary),
+    `FlyClient` (flyctl subprocess wrapper with captured stdout/stderr
+    and typed errors), `deploy()` + `rollback_deploy()`. Rollback
+    redeploys the previous digest captured at forward time; emits
+    `rollback_impossible` when no prior digest is available.
+  - **Executor refactor** — `_dispatch_action` now splits by action-type
+    prefix (`github.*` vs `fly.*` vs passthrough) so adding a new
+    actuator is a bounded change; rollback dispatch follows the same
+    split. `Executor.__init__` gains `fly_client=` kwarg.
+  - **Policy rule** — `config/policies.yaml` ships `fly.deploy`
+    requiring 2 votes + `requires_human=true`. Strictest action rule
+    in the project; dog-food deploys always pause for the operator.
+  - **`deploy-llm-agent` LLM role** — new `config/agents.yaml` entry
+    with `allowed_action_types: [fly.deploy]` (server-side 403 on
+    anything else) and its own tick budget. System prompt at
+    `apps/llm_agent/prompts/deploy-agent.md` teaches the role to
+    propose one deploy per tick, copy digests verbatim, stay quiet
+    when staging is failing. `LLM_ALLOWED_PROPOSAL_ACTION_TYPES`
+    becomes a union — per-agent allow-list in agents.yaml remains the
+    security boundary; the tool-schema enum is a UX / prompt-
+    discipline gate.
+  - **Image-push CI** — `.github/workflows/image-push.yml` builds the
+    Docker image on every merge to `main` and pushes to
+    `registry.fly.io/quorum-prod:<commit-sha>`. Gated on
+    `FLY_API_TOKEN` repo secret; short-circuits with a `::notice::`
+    when unset so merges stay green before the operator provisions
+    Fly. Captures the resulting content-addressed digest in the
+    GitHub Actions job summary.
+  - 37 new tests: 4 readiness + 27 actuator + 6 deploy-agent wiring.
+    Coverage 84% across 47 source files; mypy strict clean.
+
+## [Pre-v0.5 — captured under earlier Unreleased history]
+
 ### Added
 
 - **SSE event stream + interactive console forms** — the operator
