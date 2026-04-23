@@ -11,6 +11,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **Opt-in live Fly deploy/rollback test** — `tests/test_fly_live_integration.py`
+  is marked `integration` and gated by `QUORUM_FLY_LIVE_TESTS=1`. It
+  deploys a known staging image digest, captures the previous Fly
+  release digest, rolls back, and asserts the latest release returned
+  to the captured digest.
 - **`make clean-worktrees`** (PR #59) — Makefile target that
   enumerates worktrees under `.claude/worktrees/` and force-removes
   each with `git worktree remove -f -f`. Addresses SESSION_HANDOFF
