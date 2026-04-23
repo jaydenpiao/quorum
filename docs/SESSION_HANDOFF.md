@@ -16,14 +16,14 @@ authoritative state of the project.
   (`make clean-worktrees`), and runtime hardening that pins the Docker
   base image / `uv` / `flyctl` so `fly.deploy` can run inside the
   production container.
-- **Test suite:** 360 passing + 11 integration-gated (excluded from CI
+- **Test suite:** 362 passing + 11 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres).
 - **Coverage:** 84% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 47 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 59. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`.
+- **Merged PR count:** 61. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, and the image-push staging/prod follow-up.
 - **Event types dispatched:** 20 — `intent_created`, `finding_created`, `proposal_created`, `policy_evaluated`, `proposal_voted`, `proposal_approved`, `proposal_blocked`, `execution_started`, `execution_succeeded`, `execution_failed`, `health_check_completed`, `rollback_started`, `rollback_completed`, `rollback_impossible`, `human_approval_requested`, `human_approval_granted`, `human_approval_denied`. No Phase 5 event types — `fly.deploy` reuses the existing `proposal_created` / `execution_*` / `rollback_*` chain.
 
 ## Phase status
@@ -45,6 +45,9 @@ authoritative state of the project.
   - **Post-tag hardening** — Dockerfile runtime now carries pinned,
     checksummed `flyctl` as `/usr/local/bin/fly`; Python base image and
     `uv` bootstrap are pinned for reproducible builds.
+  - **Post-tag image supply** — image-push CI now publishes the same
+    commit image to both `quorum-staging` and `quorum-prod` Fly
+    Registry namespaces and records both digests in the job summary.
 - **⬜ Phase 6** — parallel operator-agent worktrees.
 
 All known doc-vs-code drift is closed. No known outstanding tech debt.
@@ -64,7 +67,9 @@ Quorum can now deploy itself on Fly.io. The path an operator follows:
 1. Provision a Fly app + volume per `docs/design/fly-deployment.md` §Operator pre-reqs.
 2. `fly secrets set QUORUM_API_KEYS=... QUORUM_GITHUB_APP_PRIVATE_KEY=... DATABASE_URL=... --app <app>`.
 3. `fly deploy --app <app>` locally once for the bootstrap.
-4. Optional: set `FLY_API_TOKEN` as a repo secret; every merge to `main` pushes a tagged image to `registry.fly.io/quorum-prod`.
+4. Optional: set `FLY_API_TOKEN` as a repo secret; every merge to
+   `main` pushes tagged images to `registry.fly.io/quorum-staging` and
+   `registry.fly.io/quorum-prod`.
 5. Run the `deploy-llm-agent` process (`python -m apps.llm_agent.run --agent-id deploy-llm-agent`) to watch for new image digests and propose `fly.deploy` actions.
 6. Approve each proposal via the operator console. Quorum executes `fly deploy --image registry.fly.io/quorum-prod@sha256:...` under the policy + human-approval gate.
 
@@ -166,7 +171,10 @@ harness under `.claude/`. Codex and other agents can ignore them.
 The next highest-value Fly hardening item now that the runtime image
 contains `flyctl`:
 
-- `QUORUM_FLY_LIVE_TESTS=1` integration tests — propose a `fly.deploy` against a throwaway Fly app, assert the actuator captures the previous digest and that `rollback_deploy` redeploys it. Skipped in CI by default; belongs under `pytest -m integration`.
+- `QUORUM_FLY_LIVE_TESTS=1` integration tests — propose a
+  `fly.deploy` against `quorum-staging`, assert the actuator captures
+  the previous digest and that `rollback_deploy` redeploys it. Skipped
+  in CI by default; belongs under `pytest -m integration`.
 
 ### B — Minor follow-ups worth batching into a single PR
 

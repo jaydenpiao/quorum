@@ -49,7 +49,7 @@ Quorum is the minimal control plane that makes those guarantees real.
   - `telemetry-llm-agent` — watches the event stream, emits findings + low-risk GitHub proposals (`comment_issue` / `add_labels`).
   - `deploy-llm-agent` — watches for new image digests, proposes `fly.deploy` actions.
   - Both run as their own OS processes, authenticated with argon2id-hashed API keys, server-capped by per-agent `allowed_action_types`.
-- **Ready to deploy on Fly.io**: `fly.toml` + `/readiness` endpoint + image-push CI workflow (`.github/workflows/image-push.yml`) that auto-pushes tagged images to `registry.fly.io/quorum-prod` on every `main` merge.
+- **Ready to deploy on Fly.io**: `fly.toml` + `/readiness` endpoint + image-push CI workflow (`.github/workflows/image-push.yml`) that auto-pushes tagged images to both `registry.fly.io/quorum-staging` and `registry.fly.io/quorum-prod` on every `main` merge.
 - Demo incident seeder (`POST /api/v1/demo/incident`) runs the full flow end-to-end.
 
 ## What's next (phased)

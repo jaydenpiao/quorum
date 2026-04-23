@@ -19,6 +19,13 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- **Image-push CI publishes staging + prod tags** —
+  `.github/workflows/image-push.yml` now pushes the same commit image
+  to both `registry.fly.io/quorum-staging:<sha>` and
+  `registry.fly.io/quorum-prod:<sha>`, then records both content
+  digests in the GitHub Actions job summary. This gives the deploy
+  path separate staging/prod evidence while preserving the closed
+  `FlyDeploySpec.app` enum.
 - **Release workflow auto-creates the GitHub release** (PR #58) —
   `.github/workflows/release.yml` now uses
   `softprops/action-gh-release@v2` to create the release at tag push

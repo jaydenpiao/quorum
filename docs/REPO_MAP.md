@@ -169,6 +169,8 @@ files:
 - `tests/test_deploy_llm_agent.py` — deploy-agent role wiring
 - `tests/test_dockerfile_runtime.py` — container runtime pinning
   checks for Python base image, `uv`, and `flyctl`
+- `tests/test_image_push_workflow.py` — image-push workflow checks
+  for staging/prod registry tags and digest summaries
 - `tests/test_readiness.py` — Phase 5 readiness probe
 - `tests/test_human_approval.py` — human-approval flow
 - `tests/test_sse_stream.py` — SSE route wiring
@@ -197,8 +199,8 @@ from default CI; opt in with `pytest -m integration`.
   SBOM, create GitHub release, attach asset as
   `quorum-<tag>.spdx.json`
 - `.github/workflows/image-push.yml` — on merge to `main`: build +
-  push image to `registry.fly.io/quorum-prod:<sha>` (gated on
-  `FLY_API_TOKEN`)
+  push image to `registry.fly.io/quorum-staging:<sha>` and
+  `registry.fly.io/quorum-prod:<sha>` (gated on `FLY_API_TOKEN`)
 - `.github/dependabot.yml` — weekly pip, monthly github-actions
 - `.github/CODEOWNERS` — protects shared-core files
 - `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/`
