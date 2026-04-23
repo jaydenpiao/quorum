@@ -154,7 +154,8 @@ Last refreshed at v0.5.0-alpha.1.
 
 ## Tests — `tests/`
 
-Pytest tests, colocated by feature. ~355 tests, 84% coverage. Key
+Pytest tests, colocated by feature. 362 default tests + 12 integration-
+gated tests, 84% coverage. Key
 files:
 
 - `tests/conftest.py`, `tests/_helpers.py` — shared fixtures
@@ -166,6 +167,8 @@ files:
   `tests/test_executor_fly_dispatch.py`
 - `tests/test_github_*.py` — one per GitHub action
 - `tests/test_fly_actuator.py` — spec / client / actions
+- `tests/test_fly_live_integration.py` — opt-in live staging
+  deploy/rollback test, gated by `QUORUM_FLY_LIVE_TESTS=1`
 - `tests/test_deploy_llm_agent.py` — deploy-agent role wiring
 - `tests/test_dockerfile_runtime.py` — container runtime pinning
   checks for Python base image, `uv`, and `flyctl`

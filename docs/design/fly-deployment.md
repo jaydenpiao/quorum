@@ -145,6 +145,7 @@ reads all of them from the environment; no code change required.
 | `QUORUM_API_KEYS`                    | yes       | `apps/api/app/services/auth.py:46`                   | `agent_id:plaintext,...` — bootstrap-CLI-generated; operator rotates |
 | `QUORUM_GITHUB_APP_PRIVATE_KEY`      | yes (for GitHub actuator path) | `apps/api/app/services/github/auth.py:56` | Inline PEM. Prefer over `QUORUM_GITHUB_APP_PRIVATE_KEY_PATH` to avoid filesystem mounts on Fly |
 | `DATABASE_URL`                       | yes       | `apps/api/app/db/engine.py:23`                       | From the Neon attachment; sync `psycopg` dialect is auto-injected by the rewriter |
+| `FLY_API_TOKEN`                      | yes (for `fly.deploy`) | `flyctl` subprocess environment | Deploy-scoped token used by `/usr/local/bin/fly`; required anywhere the executor may run `fly.deploy` |
 | `ANTHROPIC_API_KEY`                  | no, for now | consumed by the telemetry-llm-agent process only, which is not co-located in Phase 5 | set later if / when we run the LLM agent in-cluster |
 | `QUORUM_LOG_LEVEL`                   | optional  | `apps/api/app/logging_config.py:35`                  | default `INFO`; structlog JSON output |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`        | optional  | `apps/api/app/tracing.py:59`                         | enables OTel export (no-op when unset) |
@@ -222,6 +223,15 @@ itself**. Flow:
    through the pinned `/usr/local/bin/fly` binary installed in the
    runtime image and verified under the non-root `quorum` user (see
    open question #2 on `flyctl`-binary vs Fly Machines API).
+
+Live operator-run actuator deploy/rollback has been proven against
+`quorum-staging` with `FlyClient` and the pinned `flyctl`. Fully
+self-referential execution from inside the one-machine target app is
+still a design risk: replacing the same volume-attached machine that is
+currently handling the execution request may terminate the worker before
+it can append terminal `execution_succeeded` / `health_check_completed`
+events. Do not claim the Quorum-gated self-deploy loop is production-
+proven until that lifecycle is tested or moved to an external executor.
 
 **Event shape (for review, not implementation):**
 

@@ -18,14 +18,14 @@ authoritative state of the project.
   production container. Live flyctl smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 362 passing + 11 integration-gated (excluded from CI
+- **Test suite:** 362 passing + 12 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
-  Postgres).
+  Postgres or Fly.io, with additional env gates for destructive tests).
 - **Coverage:** 84% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 47 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 64. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, and #64 staging bootstrap handoff/docs.
+- **Merged PR count:** 65. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, and #65 opt-in live Fly deploy/rollback integration coverage.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -35,11 +35,12 @@ authoritative state of the project.
 - **Staging deployment state:** `quorum-staging` is deployed from the
   pushed main image
   `registry.fly.io/quorum-staging@sha256:96ea324970bd369e86422e6d92764d35290e636cb9a2c7b0fe0cf2f3c415f677`;
-  Fly release v1 reports image ref
+  Fly release v7 currently reports image ref
   `registry.fly.io/quorum-staging@sha256:6bcea0b7426c60fe21c2000d837f08ef195aa48345d34c7fda603df308da74e0`.
   Machine `e2862467be9d78` is started in `iad` with 2/2 checks
   passing. `/readiness`, `/api/v1/health`, `/metrics`, and `/console`
-  returned HTTP 200. `QUORUM_API_KEYS` and `QUORUM_ALLOW_DEMO=1` are
+  returned HTTP 200. `QUORUM_API_KEYS` (operator, code-agent,
+  deploy-agent), `FLY_API_TOKEN`, and `QUORUM_ALLOW_DEMO=1` are
   deployed only on staging; `DATABASE_URL` and
   `QUORUM_GITHUB_APP_PRIVATE_KEY` are still unset, so the Postgres
   projection and GitHub actuator are disabled there for now.
@@ -52,6 +53,14 @@ authoritative state of the project.
 - **Prod deployment state:** `quorum-prod` exists with the correct
   `quorum_data` volume but no machine/release yet. `QUORUM_ALLOW_DEMO`
   is unset in prod.
+- **Live Fly deploy/rollback evidence:** an operator-run live actuator
+  smoke deployed staging to pushed digest
+  `sha256:758395f657f1abcdcbd18bffb0cba1261184cc2d8af7320bcb94602e5223092e`,
+  captured previous release digest
+  `sha256:6bcea0b7426c60fe21c2000d837f08ef195aa48345d34c7fda603df308da74e0`,
+  then `rollback_deploy` returned staging to that previous digest.
+  `/readiness`, `/api/v1/health`, and `/api/v1/events/verify` returned
+  HTTP 200 after rollback.
 - **Event types dispatched:** 20 — `intent_created`, `finding_created`, `proposal_created`, `policy_evaluated`, `proposal_voted`, `proposal_approved`, `proposal_blocked`, `execution_started`, `execution_succeeded`, `execution_failed`, `health_check_completed`, `rollback_started`, `rollback_completed`, `rollback_impossible`, `human_approval_requested`, `human_approval_granted`, `human_approval_denied`. No Phase 5 event types — `fly.deploy` reuses the existing `proposal_created` / `execution_*` / `rollback_*` chain.
 
 ## Phase status
@@ -199,24 +208,29 @@ harness under `.claude/`. Codex and other agents can ignore them.
     Volume names are app-scoped on Fly, so both staging and prod should
     create a volume named exactly `quorum_data`. App-specific names like
     `quorum_staging_data` do not satisfy the shared config.
+20. **[Repo-wide]** Do not assume a one-machine Quorum app can safely
+    deploy itself from inside the same request that runs the executor.
+    This is an inference from the Fly Volume + single-machine lifecycle:
+    replacing the volume-attached machine may terminate the process
+    before it appends terminal execution/health events. The live
+    actuator deploy/rollback test proves the `FlyClient` path from an
+    external runner, not the fully self-referential API loop.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Add live Fly integration tests
+### A — Prove or redesign the self-deploy execution lifecycle
 
-The next highest-value Fly hardening item now that the runtime image
-contains `flyctl`, the release-list argv matches v0.4.39, and
-`quorum-staging` has a first healthy release:
+The live actuator path works from an external runner. The remaining
+dog-food risk is whether the API process can safely deploy the app that
+is currently executing the request:
 
-- `QUORUM_FLY_LIVE_TESTS=1` integration tests — propose a
-  `fly.deploy` against `quorum-staging`, assert the actuator captures
-  the previous digest and that `rollback_deploy` redeploys it. Skipped
-  in CI by default; belongs under `pytest -m integration`.
-- Required env contract: `FLY_API_TOKEN`, `QUORUM_FLY_LIVE_TESTS=1`,
-  `QUORUM_FLY_STAGING_PREVIOUS_DIGEST`, and
-  `QUORUM_FLY_STAGING_NEW_DIGEST`. A second pushed/deployable staging
-  image digest is still needed before these tests can exercise a real
-  forward deploy + rollback pair.
+- Add a design note or spike for the execution lifecycle: external
+  executor process, CI-triggered executor, second control-plane app, or
+  a Fly strategy that demonstrably lets terminal events persist before
+  the old machine exits.
+- Only after that, run a Quorum API-gated staging deploy proposal with
+  two votes + human approval and verify `execution_succeeded`,
+  `health_check_completed`, and rollback evidence survive the deploy.
 
 ### B — Minor follow-ups worth batching into a single PR
 

@@ -104,9 +104,8 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
 - ✅ Dockerfile runtime hardening — pinned `python:3.12-slim`
   linux/amd64 digest, pinned `uv`, and checksummed `flyctl` binary
   copied into the runtime image as `/usr/local/bin/fly`.
-- ⬜ Live Fly integration tests (`QUORUM_FLY_LIVE_TESTS=1`) — deferred
-  until staging has two known deployable image digests for deploy +
-  rollback assertions.
+- ✅ Live Fly integration tests (`QUORUM_FLY_LIVE_TESTS=1`) — opt-in,
+  skipped in default CI, and proven manually against `quorum-staging`.
 
 ## Phase 6 — Parallel operator agents ⬜
 
