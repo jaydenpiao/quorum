@@ -15,7 +15,9 @@ authoritative state of the project.
   PR #58 (release workflow now auto-creates the GitHub release), PR #59
   (`make clean-worktrees`), and runtime hardening that pins the Docker
   base image / `uv` / `flyctl` so `fly.deploy` can run inside the
-  production container.
+  production container. Live flyctl smoke uncovered that pinned
+  `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
+  now calls `fly releases --app <app> --json` and slices locally.
 - **Test suite:** 362 passing + 11 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres).
@@ -23,7 +25,12 @@ authoritative state of the project.
 - **Type check:** `mypy --strict` clean across 47 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 61. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, and the image-push staging/prod follow-up.
+- **Merged PR count:** 62. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, and #62 image-push staging/prod follow-up.
+- **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
+  Actions repo secret; `quorum-staging` and `quorum-prod` exist with
+  1 GiB `iad` volumes (`quorum_staging_data`,
+  `quorum_prod_data`). Both apps are still `pending`, with no releases
+  yet. `quorum-staging` currently has no Fly app secrets configured.
 - **Event types dispatched:** 20 — `intent_created`, `finding_created`, `proposal_created`, `policy_evaluated`, `proposal_voted`, `proposal_approved`, `proposal_blocked`, `execution_started`, `execution_succeeded`, `execution_failed`, `health_check_completed`, `rollback_started`, `rollback_completed`, `rollback_impossible`, `human_approval_requested`, `human_approval_granted`, `human_approval_denied`. No Phase 5 event types — `fly.deploy` reuses the existing `proposal_created` / `execution_*` / `rollback_*` chain.
 
 ## Phase status
@@ -163,14 +170,24 @@ harness under `.claude/`. Codex and other agents can ignore them.
     Use `make clean-worktrees` (PR #59) when no agents are active.
 17. **[Claude-only]** `.env.example` was blocked by an over-broad deny
     rule in an older `.claude/settings.json`; fixed in PR #29.
+18. **[Repo-wide]** Pinned `flyctl` v0.4.39 supports
+    `fly releases --app <app> --json`, but not `--limit`. Keep release
+    limiting in Quorum code/tests, not in the subprocess argv. Live
+    smoke against `quorum-staging` returns `[]` before the first deploy.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Live Fly integration tests
+### A — Bootstrap Fly staging, then add live Fly integration tests
 
 The next highest-value Fly hardening item now that the runtime image
-contains `flyctl`:
+contains `flyctl` and the release-list argv matches v0.4.39:
 
+- Configure staging secrets (`QUORUM_API_KEYS` at minimum; add
+  `DATABASE_URL` / `QUORUM_GITHUB_APP_PRIVATE_KEY` when operator
+  values exist), deploy `quorum-staging` from the pushed
+  `registry.fly.io/quorum-staging@sha256:a5d2599a7fbc172493168370800d6cb0140acd4d2c159fc5f519c8ec23ae9366`,
+  and verify `/readiness`, `/api/v1/health`, `/metrics`, `/console`,
+  plus event-log persistence across restart.
 - `QUORUM_FLY_LIVE_TESTS=1` integration tests — propose a
   `fly.deploy` against `quorum-staging`, assert the actuator captures
   the previous digest and that `rollback_deploy` redeploys it. Skipped

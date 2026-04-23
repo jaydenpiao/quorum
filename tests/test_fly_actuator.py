@@ -123,10 +123,13 @@ def test_client_deploy_calls_fly_with_full_image_ref(
 def test_client_releases_parses_json_list(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = (
         '[{"ImageRef": {"Digest": "sha256:' + "b" * 64 + '"}},'
-        '{"ImageRef": {"Digest": "sha256:' + "c" * 64 + '"}}]'
+        '{"ImageRef": {"Digest": "sha256:' + "c" * 64 + '"}},'
+        '{"ImageRef": {"Digest": "sha256:' + "d" * 64 + '"}}]'
     )
+    captured_argv: list[list[str]] = []
 
     def fake_run(argv: list[str], **_: Any) -> _FakeCompleted:
+        captured_argv.append(argv)
         return _FakeCompleted(stdout=payload)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -134,6 +137,9 @@ def test_client_releases_parses_json_list(monkeypatch: pytest.MonkeyPatch) -> No
     client = FlyClient()
     releases = client.releases(app="quorum-prod", limit=2)
     assert len(releases) == 2
+    assert captured_argv == [
+        ["fly", "releases", "--app", "quorum-prod", "--json"],
+    ]
     assert releases[0]["ImageRef"]["Digest"] == "sha256:" + "b" * 64
 
 

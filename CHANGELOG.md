@@ -36,6 +36,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- **Fly release introspection matches pinned `flyctl`** — the
+  `fly.deploy` rollback path now calls `fly releases --app <app> --json`
+  without the unsupported `--limit` flag in `flyctl` v0.4.39, then
+  applies the requested limit in-process. This keeps previous-digest
+  capture runnable inside the pinned runtime container.
 - **Fly runtime deployability** — `Dockerfile` now pins the
   `python:3.12-slim` linux/amd64 base image digest, pins the `uv`
   bootstrap version, and installs a checksummed `flyctl` binary as
