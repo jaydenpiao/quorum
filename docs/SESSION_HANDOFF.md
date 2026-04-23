@@ -10,8 +10,15 @@ authoritative state of the project.
 
 ## Current state (as of the handoff)
 
-- **Last tagged release:** [`v0.5.0-alpha.1`](https://github.com/jaydenpiao/quorum/releases/tag/v0.5.0-alpha.1) — Phase 5 complete. SBOM attached as `quorum-v0.5.0-alpha.1.spdx.json`. Post-tag tidy: PR #58 (release workflow now auto-creates the GitHub release) and PR #59 (`make clean-worktrees`).
-- **Test suite:** 355 passing + 11 integration-gated (excluded from CI by default; opt-in with `pytest -m integration` against a live Postgres).
+- **Last tagged release:** [`v0.5.0-alpha.1`](https://github.com/jaydenpiao/quorum/releases/tag/v0.5.0-alpha.1) — Phase 5 complete.
+  SBOM attached as `quorum-v0.5.0-alpha.1.spdx.json`. Post-tag tidy:
+  PR #58 (release workflow now auto-creates the GitHub release), PR #59
+  (`make clean-worktrees`), and runtime hardening that pins the Docker
+  base image / `uv` / `flyctl` so `fly.deploy` can run inside the
+  production container.
+- **Test suite:** 360 passing + 11 integration-gated (excluded from CI
+  by default; opt-in with `pytest -m integration` against a live
+  Postgres).
 - **Coverage:** 84% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 47 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
@@ -35,6 +42,9 @@ authoritative state of the project.
   - **PR #53** — SESSION_HANDOFF update.
   - **PR #55** — `deploy-llm-agent` role + system prompt + `allowed_action_types: [fly.deploy]`. 6 tests.
   - **PR #56** — image-push CI workflow, gated on `FLY_API_TOKEN`.
+  - **Post-tag hardening** — Dockerfile runtime now carries pinned,
+    checksummed `flyctl` as `/usr/local/bin/fly`; Python base image and
+    `uv` bootstrap are pinned for reproducible builds.
 - **⬜ Phase 6** — parallel operator-agent worktrees.
 
 All known doc-vs-code drift is closed. No known outstanding tech debt.
@@ -71,7 +81,9 @@ Canonical order — load these before touching code:
 1. `AGENTS.md` — repo-wide operating rules and Definition of Done (binding).
 2. **This file** (`docs/SESSION_HANDOFF.md`).
 3. `docs/ROADMAP.md` — phase status with ✅/⏳/⬜/✂️ markers.
-4. `CHANGELOG.md` — every feature since bootstrap under `[Unreleased]` (next tag cut will live at `v0.5.0-alpha.1`; nothing new under the header yet as of this writing).
+4. `CHANGELOG.md` — every feature since bootstrap under `[Unreleased]`
+   (post-v0.5 entries currently include release workflow, worktree
+   cleanup, and runtime deployability hardening).
 5. `docs/design/phase-4-github-actuator.md` — reference (done, but the patterns are reusable).
 6. `docs/design/llm-adapter.md` — reference.
 7. `docs/ARCHITECTURE.md` — current system picture including the Actuators section.
@@ -149,20 +161,18 @@ harness under `.claude/`. Codex and other agents can ignore them.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Dockerfile digest-pinning + live Fly integration tests
+### A — Live Fly integration tests
 
-Two small hardening items explicitly deferred from Phase 5:
+The next highest-value Fly hardening item now that the runtime image
+contains `flyctl`:
 
-- Pin the `python:3.12-slim` base image to a sha256 digest in the `Dockerfile` (reproducible builds). Look up the current `linux/amd64` digest on Docker Hub, pin it, add a comment noting the pinning policy.
 - `QUORUM_FLY_LIVE_TESTS=1` integration tests — propose a `fly.deploy` against a throwaway Fly app, assert the actuator captures the previous digest and that `rollback_deploy` redeploys it. Skipped in CI by default; belongs under `pytest -m integration`.
 
 ### B — Minor follow-ups worth batching into a single PR
 
 - Prometheus counters for the LLM adapter (design-doc §Observability): `quorum_llm_tokens_total{agent_id, model, kind}`, `quorum_llm_ticks_total{agent_id, outcome}`, `quorum_llm_proposals_created_total{agent_id, action_type}`. Needs the adapter process to run a Prometheus endpoint on a separate port.
 - `demo_seed` optionally spawns the LLM adapter process (feature-flagged).
-- SBOM release-asset versioning: fix the `anchore/sbom-action@v0` override so the asset ships as `quorum-vX.Y.Z-alpha.N.spdx.json` directly instead of the current two-step rename.
 - Richer context in `_log.warning("projector_status_update_for_missing_proposal", ...)`.
-- `make clean-worktrees` target.
 - System-prompt hash in `llm_call_completed` events for audit reproducibility (design-doc open question #4).
 
 ### C — LLM adapter voter role

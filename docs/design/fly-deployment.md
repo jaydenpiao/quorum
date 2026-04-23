@@ -211,7 +211,9 @@ itself**. Flow:
    image digest + the proposal's rationale, and grants approval.
 5. Executor dispatches the `fly.deploy` action. The actuator calls
    `fly deploy --image registry.fly.io/quorum-prod@sha256:<digest>`
-   (see open question #2 on `flyctl`-binary vs Fly Machines API).
+   through the pinned `/usr/local/bin/fly` binary installed in the
+   runtime image and verified under the non-root `quorum` user (see
+   open question #2 on `flyctl`-binary vs Fly Machines API).
 
 **Event shape (for review, not implementation):**
 
@@ -225,10 +227,11 @@ class FlyDeploySpec(BaseModel):
 ```
 
 **Rollback for `fly.deploy`:** `fly releases list --app ... --json` →
-`fly deploy --image <previous-digest>`. Deterministic because every
-deploy is content-addressed. Unlike `github.close_pr`, rollback here
-is never `rollback_impossible`; the previous image is always in the
-registry.
+`fly deploy --image <previous-digest>`. Deterministic when the previous
+digest is captured at forward-deploy time. If the previous digest is
+unavailable (first deploy or release-list introspection failed), the
+executor emits `rollback_impossible` so the operator reconciles
+manually instead of seeing a false rollback success.
 
 **Safety rails** (hard-coded, not policy-configurable):
 
@@ -257,8 +260,8 @@ config).
   a small integration test that forces it to 503 when the projector
   isn't ready.
 - Dockerfile: pin base image digest (`python:3.12-slim@sha256:...`),
-  reorder layers so the large venv layer caches earlier, drop any
-  accidentally-copied dev files. No new dependencies.
+  pin the `uv` bootstrap, install a checksummed `flyctl` binary, and
+  copy only `/usr/local/bin/fly` into the runtime image.
 - No deploy step yet — the PR just has to build green in CI and merge
   cleanly. Manual `fly deploy` by the operator is how we verify it.
 
@@ -319,9 +322,11 @@ design-doc PR requires the operator to do anything.
    the original ~200-line estimate. Shelling out to `fly deploy`
    stayed bounded (~80 LOC client + ~90 LOC actions) and is trivially
    stubbable in tests via `monkeypatch.setattr(subprocess, "run", ...)`
-   — same pattern as `respx` for the GitHub client. The ~30 MB image
-   cost is acceptable for alpha; we can flip to the API later without
-   changing spec or event shape.
+   — same pattern as `respx` for the GitHub client. The runtime image
+   now carries a pinned, checksummed `flyctl` binary as
+   `/usr/local/bin/fly`, with a writable home for the non-root
+   `quorum` user; we can flip to the API later without changing spec
+   or event shape.
 3. **Scale-to-zero vs always-on.** Staging → scale-to-zero (cold-start
    on first request is fine). Prod → **always-on** because the
    operator console holds long-lived SSE connections
@@ -351,14 +356,16 @@ design-doc PR requires the operator to do anything.
 
 ## Dependencies landing this brings
 
-Nothing in this PR (docs only). For the later PRs:
+Nothing in this PR (docs only). Implemented outcome for the later PRs:
 
-- PR #51 introduces no new Python dependencies. `fly.toml` + a new
+- PR #51 introduced no new Python dependencies. `fly.toml` + a new
   FastAPI route + Dockerfile tuning.
 - PR #52 adds at most the Fly Machines API client path — depending on
   open question #2, either a single `httpx`-based module (no new
   dependency; `httpx` already pinned) or the `flyctl` binary in the
-  runtime layer (no Python dep; adds to image size).
+  runtime layer (no Python dep; adds to image size). The implementation
+  chose the `flyctl` binary and pins its release tarball checksum in
+  the Dockerfile.
 
 ## Success criteria
 
@@ -373,6 +380,7 @@ A reviewer reading this doc top-to-bottom can answer:
   liveness endpoint.
 - How a production deploy of Quorum flows through the Quorum API
   itself, including the policy rule and rollback strategy.
+- Why the runtime image contains a pinned `flyctl` binary.
 - What operator actions gate which PR.
 - Which decisions are locked (Neon-recommended, `iad` lean,
   single-machine per app, dog-food via `fly.deploy`) vs still open.

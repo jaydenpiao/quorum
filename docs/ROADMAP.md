@@ -99,7 +99,9 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
 - ✅ Image-push CI (`.github/workflows/image-push.yml`) —
   content-addressed push to `registry.fly.io/quorum-prod:<sha>` on
   merge to `main`, gated on `FLY_API_TOKEN`.
-- ⬜ Dockerfile base-image digest pin — deferred to a future tiny PR.
+- ✅ Dockerfile runtime hardening — pinned `python:3.12-slim`
+  linux/amd64 digest, pinned `uv`, and checksummed `flyctl` binary
+  copied into the runtime image as `/usr/local/bin/fly`.
 - ⬜ Live Fly integration tests (`QUORUM_FLY_LIVE_TESTS=1`) — deferred
   until operator has a staging Fly app.
 
