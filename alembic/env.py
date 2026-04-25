@@ -21,6 +21,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from apps.api.app.db.engine import normalize_database_url  # noqa: E402
 from apps.api.app.db.models import Base  # noqa: E402 — must follow sys.path mutation
 
 config = context.config
@@ -37,11 +38,7 @@ def _database_url() -> str:
         raise RuntimeError(
             "DATABASE_URL is not set; cannot run migrations against an unknown database"
         )
-    if url.startswith("postgresql+asyncpg://"):
-        url = "postgresql+psycopg://" + url[len("postgresql+asyncpg://") :]
-    elif url.startswith("postgres://"):
-        url = "postgresql+psycopg://" + url[len("postgres://") :]
-    return url
+    return normalize_database_url(url)
 
 
 def run_migrations_offline() -> None:

@@ -353,7 +353,11 @@ This is sufficient for the current single-process deployment.
 Revisit with PgBouncer in transaction mode if connection count becomes a bottleneck at scale.
 
 `DATABASE_URL` in prod is set via Fly.io secrets (`fly secrets set DATABASE_URL=...`).
-The value uses the `postgresql+asyncpg://` scheme and includes Neon's SSL requirement (`?ssl=require`).
+Neon's default `postgresql://...?sslmode=require` connection URI is
+accepted; Quorum normalizes it to `postgresql+psycopg://` internally
+because the current projector uses the sync `psycopg` driver. Existing
+`postgres://` shorthand and `postgresql+asyncpg://` URLs are normalized
+to the same driver path.
 
 ### Backups
 
