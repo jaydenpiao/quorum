@@ -11,6 +11,7 @@ Only one action type lives here today — ``fly.deploy``. Adding
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from apps.api.app.services.actuators.fly.client import (
@@ -44,6 +45,11 @@ class FlyRollbackImpossibleError(RuntimeError):
         self.actuator_state = actuator_state
 
 
+def _current_fly_app() -> str:
+    """Return the Fly app this process is running inside, if Fly sets it."""
+    return os.environ.get("FLY_APP_NAME", "").strip()
+
+
 def _extract_image_digest(release: dict[str, Any]) -> str:
     """Pull the image digest out of a ``fly releases --json`` entry.
 
@@ -71,6 +77,14 @@ def deploy(client: FlyClient, spec: FlyDeploySpec) -> FlyDeployResult:
     not fatal — the deploy goes ahead with an empty previous digest
     (rollback will then emit ``rollback_impossible``).
     """
+    current_app = _current_fly_app()
+    if current_app and current_app == spec.app:
+        raise FlyActionError(
+            f"refusing same-app fly.deploy for {spec.app}; execute from another "
+            "Quorum app or an external runner so terminal execution events can "
+            "be written after Fly replaces the target machine"
+        )
+
     previous_digest = ""
     try:
         current = client.releases(app=spec.app, limit=1)

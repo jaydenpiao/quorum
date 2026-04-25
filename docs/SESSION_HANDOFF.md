@@ -18,14 +18,14 @@ authoritative state of the project.
   production container. Live flyctl smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 362 passing + 12 integration-gated (excluded from CI
+- **Test suite:** 364 passing + 12 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres or Fly.io, with additional env gates for destructive tests).
 - **Coverage:** 84% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 47 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 65. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, and #65 opt-in live Fly deploy/rollback integration coverage.
+- **Merged PR count:** 66. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, and #66 same-app Fly deploy guard.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -61,6 +61,11 @@ authoritative state of the project.
   then `rollback_deploy` returned staging to that previous digest.
   `/readiness`, `/api/v1/health`, and `/api/v1/events/verify` returned
   HTTP 200 after rollback.
+- **Same-app deploy invariant:** `fly.deploy` now refuses to run when
+  `FLY_APP_NAME` matches the proposal payload's target app. A
+  single-machine Quorum app must deploy a peer app or run from an
+  external runner; it must not replace the process that is responsible
+  for appending terminal execution and health-check events.
 - **Event types dispatched:** 20 — `intent_created`, `finding_created`, `proposal_created`, `policy_evaluated`, `proposal_voted`, `proposal_approved`, `proposal_blocked`, `execution_started`, `execution_succeeded`, `execution_failed`, `health_check_completed`, `rollback_started`, `rollback_completed`, `rollback_impossible`, `human_approval_requested`, `human_approval_granted`, `human_approval_denied`. No Phase 5 event types — `fly.deploy` reuses the existing `proposal_created` / `execution_*` / `rollback_*` chain.
 
 ## Phase status
@@ -85,6 +90,9 @@ authoritative state of the project.
   - **Post-tag image supply** — image-push CI now publishes the same
     commit image to both `quorum-staging` and `quorum-prod` Fly
     Registry namespaces and records both digests in the job summary.
+  - **Post-tag execution safety** — same-app `fly.deploy` is blocked
+    when Fly exposes `FLY_APP_NAME`, preserving terminal event writes
+    for single-machine apps.
 - **⬜ Phase 6** — parallel operator-agent worktrees.
 
 All known doc-vs-code drift is closed. No known outstanding tech debt.
@@ -208,29 +216,28 @@ harness under `.claude/`. Codex and other agents can ignore them.
     Volume names are app-scoped on Fly, so both staging and prod should
     create a volume named exactly `quorum_data`. App-specific names like
     `quorum_staging_data` do not satisfy the shared config.
-20. **[Repo-wide]** Do not assume a one-machine Quorum app can safely
-    deploy itself from inside the same request that runs the executor.
-    This is an inference from the Fly Volume + single-machine lifecycle:
-    replacing the volume-attached machine may terminate the process
-    before it appends terminal execution/health events. The live
-    actuator deploy/rollback test proves the `FlyClient` path from an
-    external runner, not the fully self-referential API loop.
+20. **[Repo-wide]** Same-app `fly.deploy` is blocked when
+    `FLY_APP_NAME` equals the proposal payload's `app`. The safe
+    near-term dog-food shape is a peer controller app or external
+    runner deploying the target app. Do not remove this guard unless a
+    separate executor lifecycle has been designed and live-proven.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Prove or redesign the self-deploy execution lifecycle
+### A — Prove the peer-controller dog-food deploy path
 
-The live actuator path works from an external runner. The remaining
-dog-food risk is whether the API process can safely deploy the app that
-is currently executing the request:
+Same-app self-deploy is blocked; the next operator-value smoke is a
+real Quorum API-gated deploy from `quorum-staging` into `quorum-prod`:
 
-- Add a design note or spike for the execution lifecycle: external
-  executor process, CI-triggered executor, second control-plane app, or
-  a Fly strategy that demonstrably lets terminal events persist before
-  the old machine exits.
-- Only after that, run a Quorum API-gated staging deploy proposal with
-  two votes + human approval and verify `execution_succeeded`,
-  `health_check_completed`, and rollback evidence survive the deploy.
+- Bootstrap `quorum-prod` with `QUORUM_API_KEYS` and `FLY_API_TOKEN`
+  only; keep `QUORUM_ALLOW_DEMO` unset.
+- Use two known prod registry digests from image-push.
+- From `quorum-staging`, create an intent + `fly.deploy` proposal
+  targeting `quorum-prod`, cast two votes, grant human approval, and
+  execute.
+- Verify `execution_started`, `health_check_completed`, and
+  `execution_succeeded` are present in staging's event log, and
+  `/readiness` + `/api/v1/health` return 200 on prod.
 
 ### B — Minor follow-ups worth batching into a single PR
 

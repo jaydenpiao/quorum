@@ -227,11 +227,14 @@ itself**. Flow:
 Live operator-run actuator deploy/rollback has been proven against
 `quorum-staging` with `FlyClient` and the pinned `flyctl`. Fully
 self-referential execution from inside the one-machine target app is
-still a design risk: replacing the same volume-attached machine that is
-currently handling the execution request may terminate the worker before
-it can append terminal `execution_succeeded` / `health_check_completed`
-events. Do not claim the Quorum-gated self-deploy loop is production-
-proven until that lifecycle is tested or moved to an external executor.
+blocked at runtime when Fly exposes `FLY_APP_NAME` equal to the target
+app. Replacing the same volume-attached machine that is handling the
+execution request may terminate the worker before it appends terminal
+`execution_succeeded` / `health_check_completed` events. Until an
+external executor exists, the supported dog-food shape is a peer
+controller deployment: for example, `quorum-staging` may execute an
+approved `fly.deploy` targeting `quorum-prod`, but `quorum-staging` may
+not deploy `quorum-staging` from inside its own API process.
 
 **Event shape (for review, not implementation):**
 
@@ -260,6 +263,8 @@ manually instead of seeing a false rollback success.
 - `image_digest` must be a sha256 digest (64 hex after `sha256:`);
   tags like `latest` are rejected at the pydantic boundary. Content-
   addressing is the whole point.
+- The actuator refuses same-app deploys when `FLY_APP_NAME` matches
+  `FlyDeploySpec.app`; this is a runtime invariant, not a policy knob.
 - Dog-food deploys of `quorum-prod` require `requires_human=true` in
   policy. Non-negotiable.
 
