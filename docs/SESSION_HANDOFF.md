@@ -29,18 +29,18 @@ authoritative state of the project.
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 67. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, and #67 peer-controller deploy evidence.
+- **Merged PR count:** 68. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, and #68 Fly release digest wording.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
   `vol_4qly1wq329gwx56r`, prod: `vol_v8emwyn2gj70k11v`). The initial
   app-specific volumes were unattached and destroyed to avoid drift
   from `fly.toml`.
-- **Staging deployment state:** `quorum-staging` is deployed from the
-  pushed main image digest
-  `sha256:70af699bb5bcf68f0173181eb80ece15dfe5df767d6166c9b97c212a22d46e67`;
-  Fly release v8 currently reports image ref
+- **Staging deployment state:** `quorum-staging` is running Fly
+  release v8, which currently reports image ref
   `registry.fly.io/quorum-staging@sha256:36809cd455123b89a592a70dcf31cc91a27bb8eddb9b9ccd154830bfa0f9bcce`.
+  That release was requested from the PR #66 image-push manifest-list
+  digest `sha256:70af699bb5bcf68f0173181eb80ece15dfe5df767d6166c9b97c212a22d46e67`.
   Machine `e2862467be9d78` is started in `iad` with 2/2 checks
   passing. `/readiness`, `/api/v1/health`, `/metrics`, and `/console`
   returned HTTP 200. `QUORUM_API_KEYS` (operator, code-agent,
@@ -54,9 +54,11 @@ authoritative state of the project.
   `GET /api/v1/events/verify` returned `event_count=1` and
   `last_hash=3b8f54fef545d63b23069ed1daa5877ad9fbb951a78767d20682155c6dd8c7ff`.
   This verifies the Fly Volume is mounted at `/app/data`.
-- **Prod deployment state:** `quorum-prod` is deployed from the same
-  main image as staging; Fly release v2 reports image ref
+- **Prod deployment state:** `quorum-prod` is running Fly release v2,
+  which reports image ref
   `registry.fly.io/quorum-prod@sha256:36809cd455123b89a592a70dcf31cc91a27bb8eddb9b9ccd154830bfa0f9bcce`.
+  That release was requested from the PR #66 image-push manifest-list
+  digest `sha256:70af699bb5bcf68f0173181eb80ece15dfe5df767d6166c9b97c212a22d46e67`.
   Machine `e829625b579d78` is started in `iad` with 2/2 checks
   passing, mounted volume `vol_v8emwyn2gj70k11v`, and `autostop:
   false` so the operator console's SSE stream is not silently dropped
@@ -264,7 +266,13 @@ harness under `.claude/`. Codex and other agents can ignore them.
     command shape is `fly machine update <machine-id> --app quorum-prod
     --autostop=off --autostart --yes`. Use `--autostop=off`; pinned
     `flyctl` parses `--autostop off` as an extra positional argument.
-22. **[Repo-wide]** `pip-audit` currently ignores only
+22. **[Repo-wide]** Do not confuse image-push manifest-list digests
+    with the platform image ref reported by `fly releases`. A docs-only
+    merge can push a fresh registry digest without changing or
+    deploying the running Fly release. Treat `fly releases --json` and
+    `fly machine status --display-config` as the source of truth for
+    what is actually deployed.
+23. **[Repo-wide]** `pip-audit` currently ignores only
     `CVE-2026-3219` in CI because the advisory affects the latest
     published PyPI `pip` and has no fixed version. Do not add broad
     ignores; remove this one as soon as a fixed pip release exists.
