@@ -4,6 +4,7 @@ Two primitives, both sync:
 
 - ``AppJWTSigner`` — RS256-sign a short-lived App JWT from the configured
   private key (loaded from kwarg → ``QUORUM_GITHUB_APP_PRIVATE_KEY`` env →
+  ``QUORUM_GITHUB_APP_PRIVATE_KEY_B64`` env →
   ``QUORUM_GITHUB_APP_PRIVATE_KEY_PATH`` env). The JWT is used to mint
   per-installation access tokens.
 
@@ -22,6 +23,8 @@ from __future__ import annotations
 
 import os
 import threading
+import base64
+import binascii
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -36,6 +39,7 @@ class GitHubAppAuthError(RuntimeError):
 
 
 _ENV_KEY_PEM = "QUORUM_GITHUB_APP_PRIVATE_KEY"
+_ENV_KEY_B64 = "QUORUM_GITHUB_APP_PRIVATE_KEY_B64"
 _ENV_KEY_PATH = "QUORUM_GITHUB_APP_PRIVATE_KEY_PATH"
 
 # GitHub caps App JWT ``exp`` at 10 minutes; leave a 1-minute safety margin.
@@ -49,13 +53,21 @@ _TOKEN_REFRESH_MARGIN_SECONDS = 60
 def _load_private_key_pem(explicit: str | None) -> str:
     """Return the App private key in PEM form or raise.
 
-    Precedence: explicit kwarg → env PEM → env path → error.
+    Precedence: explicit kwarg → env PEM → env base64 PEM → env path → error.
     """
     if explicit:
         return explicit
     env_pem = os.environ.get(_ENV_KEY_PEM, "").strip()
     if env_pem:
         return env_pem
+    env_b64 = os.environ.get(_ENV_KEY_B64, "").strip()
+    if env_b64:
+        try:
+            return base64.b64decode(env_b64, validate=True).decode("utf-8")
+        except (binascii.Error, UnicodeDecodeError) as exc:
+            raise GitHubAppAuthError(
+                f"could not decode base64 private key: {type(exc).__name__}"
+            ) from None
     env_path = os.environ.get(_ENV_KEY_PATH, "").strip()
     if env_path:
         try:
@@ -65,7 +77,9 @@ def _load_private_key_pem(explicit: str | None) -> str:
             raise GitHubAppAuthError(
                 f"could not read private key file: {type(exc).__name__}"
             ) from None
-    raise GitHubAppAuthError(f"no private key configured; set {_ENV_KEY_PEM} or {_ENV_KEY_PATH}")
+    raise GitHubAppAuthError(
+        f"no private key configured; set {_ENV_KEY_PEM}, {_ENV_KEY_B64}, or {_ENV_KEY_PATH}"
+    )
 
 
 class AppJWTSigner:

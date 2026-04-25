@@ -9,17 +9,19 @@
 #      `installation_id` from the install URL.
 #   4. Provide the App private key via env:
 #        QUORUM_GITHUB_APP_PRIVATE_KEY        (PEM string), or
+#        QUORUM_GITHUB_APP_PRIVATE_KEY_B64    (base64 PEM string), or
 #        QUORUM_GITHUB_APP_PRIVATE_KEY_PATH   (path to PEM on disk)
 #
-# Loaded by apps.api.app.services.actuators.github.specs.load_github_config.
-# Not yet read at app startup — PR B wires this into main.py.
+# Loaded by apps.api.app.services.actuators.github.specs.load_github_config
+# during app startup. The private key still comes from the environment;
+# without it, app startup logs github_actuator_disabled and continues.
 
 app:
-  app_id: 0                # placeholder — set per deploy
+  app_id: 3496381
   installations:
     - owner: jaydenpiao
       repo: quorum-actuator-fixtures
-      installation_id: 0   # placeholder — set per deploy
+      installation_id: 126887427
 
 limits:
   max_files_per_pr: 200
