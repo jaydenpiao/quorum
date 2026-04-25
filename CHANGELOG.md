@@ -24,6 +24,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- **Neon Postgres projection is wired on Fly** — staging and prod now
+  have Neon `DATABASE_URL` secrets deployed. Staging was reconciled
+  from the canonical JSONL, live-projection smoke tested through the
+  history API, and prod was verified with an empty but reachable
+  projection.
 - **Peer-controller Fly deploy evidence is recorded** — docs now
   capture the live Quorum API-gated deploy from `quorum-staging` into
   `quorum-prod`, including proposal/event evidence, health checks,
