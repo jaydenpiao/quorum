@@ -24,6 +24,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- **`pip-audit` ignores one unfixed pip advisory** — CI keeps
+  `pip-audit --strict` but temporarily ignores `CVE-2026-3219`, which
+  currently affects the latest PyPI `pip` release and has no fixed
+  version published. Remove the ignore once pip ships a fix.
 - **Fly bootstrap docs match deployed volume naming** — docs now
   describe the app-scoped `quorum_data` Fly Volume name used by
   `fly.toml`, and `SESSION_HANDOFF` records the live staging bootstrap
@@ -45,6 +49,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- **Same-app Fly deploys are rejected before mutation** — `fly.deploy`
+  now refuses to run when the executor is inside the target Fly app
+  (`FLY_APP_NAME == payload.app`). This preserves terminal event-log
+  writes for single-machine Fly apps by requiring deploys to run from a
+  peer Quorum app or an external runner.
 - **Fly release introspection matches pinned `flyctl`** — the
   `fly.deploy` rollback path now calls `fly releases --app <app> --json`
   without the unsupported `--limit` flag in `flyctl` v0.4.39, then

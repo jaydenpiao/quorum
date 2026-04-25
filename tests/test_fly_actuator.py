@@ -241,6 +241,23 @@ def test_deploy_records_previous_digest_from_releases() -> None:
     assert client.deploy_calls[0]["image_digest"] == "sha256:" + "a" * 64
 
 
+def test_deploy_rejects_same_app_self_deploy_before_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FLY_APP_NAME", "quorum-staging")
+    client = _StubClient(
+        releases_response=[{"ImageRef": {"Digest": "sha256:" + "b" * 64}}],
+        deploy_response={"ReleaseId": "rel_123"},
+    )
+
+    with pytest.raises(FlyActionError) as excinfo:
+        deploy(client, _spec())  # type: ignore[arg-type]
+
+    assert "refusing same-app fly.deploy" in str(excinfo.value)
+    assert client.releases_calls == []
+    assert client.deploy_calls == []
+
+
 def test_deploy_tolerates_unreadable_releases() -> None:
     client = _StubClient(
         releases_response=[{"nothing": "useful"}],

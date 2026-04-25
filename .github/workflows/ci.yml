@@ -62,7 +62,10 @@ jobs:
       - name: Audit dependencies
         run: |
           uv sync --frozen --extra dev
-          uv run pip-audit --strict
+          # CVE-2026-3219 currently has no fixed pip release on PyPI.
+          # Keep the audit strict for every other advisory and remove this
+          # ignore once pip publishes a fixed version.
+          uv run pip-audit --strict --ignore-vuln CVE-2026-3219
 
   typecheck:
     name: mypy

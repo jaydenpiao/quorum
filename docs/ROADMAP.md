@@ -106,6 +106,9 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
   copied into the runtime image as `/usr/local/bin/fly`.
 - ✅ Live Fly integration tests (`QUORUM_FLY_LIVE_TESTS=1`) — opt-in,
   skipped in default CI, and proven manually against `quorum-staging`.
+- ✅ Same-app Fly deploy guard — `fly.deploy` refuses to deploy the
+  current `FLY_APP_NAME`, preserving terminal event writes on
+  single-machine Fly apps.
 
 ## Phase 6 — Parallel operator agents ⬜
 
