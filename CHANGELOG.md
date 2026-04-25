@@ -54,6 +54,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- **Neon Postgres URLs use the installed driver** — runtime engine
+  creation and Alembic migrations now normalize plain Neon
+  `postgresql://` URLs to `postgresql+psycopg://`, matching the sync
+  `psycopg` driver shipped by the repo instead of accidentally
+  requiring uninstalled `psycopg2`.
 - **Same-app Fly deploys are rejected before mutation** — `fly.deploy`
   now refuses to run when the executor is inside the target Fly app
   (`FLY_APP_NAME == payload.app`). This preserves terminal event-log

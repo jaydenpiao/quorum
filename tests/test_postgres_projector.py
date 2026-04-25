@@ -48,8 +48,14 @@ def test_make_engine_returns_none_without_database_url(
 def test_make_engine_normalizes_postgres_shorthand(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`postgres://` → `postgresql+psycopg://` and `+asyncpg` → `+psycopg`."""
+    """Cloud Postgres URLs normalize to the installed `psycopg` driver."""
     monkeypatch.setenv("DATABASE_URL", "postgres://u:p@h/d")
+    engine = make_engine()
+    assert engine is not None
+    assert engine.url.drivername == "postgresql+psycopg"
+    engine.dispose()
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@h/d")
     engine = make_engine()
     assert engine is not None
     assert engine.url.drivername == "postgresql+psycopg"
