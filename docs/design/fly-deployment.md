@@ -125,14 +125,14 @@ read-model. Either host works. Comparison at our expected scale:
 | `DATABASE_URL` format | `postgresql://...?sslmode=require` | `postgresql://...`; both rewritten to `postgresql+psycopg://` by `apps/api/app/db/engine.py` lines 29–33 |
 | Backup story  | Point-in-time recovery, managed        | We run `pg_dump` on a schedule, or rely on JSONL replay |
 
-**Recommendation: Neon for both staging and prod.** Zero ops burden,
-the branching story is already assumed by the projection design, and
-the latency gap is not load-bearing for an asynchronous projection.
-Fly Postgres is a reasonable fallback if Neon cost or egress becomes an
-issue at scale, but nothing in the design assumes we'll ever switch.
-
-Marked **open question #5** for the operator — this is a cost / lock-in
-decision worth explicit sign-off.
+**Decision: Neon for both staging and prod.** Zero ops burden, the
+branching story is already assumed by the projection design, and the
+latency gap is not load-bearing for an asynchronous projection.
+`quorum-staging` uses a Neon branch and `quorum-prod` uses the Neon
+main branch; both are migrated to Alembic head and configured through
+Fly `DATABASE_URL` secrets. Fly Postgres remains a reasonable fallback
+if Neon cost or egress becomes an issue at scale, but nothing in the
+design assumes we'll ever switch.
 
 ## Secrets
 
@@ -375,8 +375,8 @@ design-doc PR requires the operator to do anything.
 4. **Custom domain + TLS.** `*.fly.dev` ships with free ACME certs.
    Custom domain adds `fly certs add` + DNS toil; not required for
    v1. Defer.
-5. **Managed Postgres host.** Neon (recommended) vs Fly Postgres — see
-   §Managed Postgres. Needs operator sign-off, not reviewer sign-off.
+5. **Managed Postgres host.** Decided: Neon for both staging and prod;
+   see §Managed Postgres.
 6. **Readiness endpoint scope.** Is `EventLog.verify_chain() completed
    + DB reachable` the full definition? Should we also gate on the
    Anthropic-key health check from

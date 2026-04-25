@@ -29,43 +29,67 @@ authoritative state of the project.
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 69. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, and #69 Neon URL normalization.
+- **Merged PR count:** 70. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, and #70 Neon Fly bootstrap evidence.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
   `vol_4qly1wq329gwx56r`, prod: `vol_v8emwyn2gj70k11v`). The initial
   app-specific volumes were unattached and destroyed to avoid drift
   from `fly.toml`.
+- **Neon operational state:** project `square-tree-95302760` in the
+  `Jayden` org has prod branch `main` (`br-wild-dream-ajhrmye0`) and
+  staging branch `quorum-staging` (`br-still-dust-aj7z7vra`), database
+  `neondb`, role `neondb_owner`. Both branches are migrated to Alembic
+  `0004 (head)`. Local operator Keychain service names:
+  `quorum-neon-prod-database-url` and
+  `quorum-neon-staging-database-url`.
 - **Staging deployment state:** `quorum-staging` is running Fly
-  release v8, which currently reports image ref
-  `registry.fly.io/quorum-staging@sha256:36809cd455123b89a592a70dcf31cc91a27bb8eddb9b9ccd154830bfa0f9bcce`.
-  That release was requested from the PR #66 image-push manifest-list
-  digest `sha256:70af699bb5bcf68f0173181eb80ece15dfe5df767d6166c9b97c212a22d46e67`.
+  release v11, which currently reports image ref
+  `registry.fly.io/quorum-staging@sha256:c5ab943340298c4e0048052899a8c61c615cf5a2d0e78e9534ea1454a111f6f4`.
+  That release was requested from the PR #69 image-push manifest-list
+  digest `sha256:aa267ec52be093acd5b2e8a39c658d073f1927ceeeada5aef55c28fbe7f90f6e`.
   Machine `e2862467be9d78` is started in `iad` with 2/2 checks
   passing. `/readiness`, `/api/v1/health`, `/metrics`, and `/console`
   returned HTTP 200. `QUORUM_API_KEYS` (operator, code-agent,
-  deploy-agent), `FLY_API_TOKEN`, and `QUORUM_ALLOW_DEMO=1` are
-  deployed only on staging; `DATABASE_URL` and
-  `QUORUM_GITHUB_APP_PRIVATE_KEY` are still unset, so the Postgres
-  projection and GitHub actuator are disabled there for now.
+  deploy-agent), `FLY_API_TOKEN`, `DATABASE_URL`, and
+  `QUORUM_ALLOW_DEMO=1` are deployed only on staging;
+  `QUORUM_GITHUB_APP_PRIVATE_KEY` is still unset, so the GitHub
+  actuator is disabled there for now.
 - **Staging persistence evidence:** an authenticated
   `POST /api/v1/intents` created `intent_f40d2794ee55`; before and
   after `fly machine restart e2862467be9d78 --app quorum-staging`,
   `GET /api/v1/events/verify` returned `event_count=1` and
   `last_hash=3b8f54fef545d63b23069ed1daa5877ad9fbb951a78767d20682155c6dd8c7ff`.
   This verifies the Fly Volume is mounted at `/app/data`.
-- **Prod deployment state:** `quorum-prod` is running Fly release v2,
+- **Staging Postgres projection evidence:** after enabling
+  `DATABASE_URL`, `quorum-staging` reconciled 13 existing events from
+  JSONL into Neon with zero errors, then accepted a live smoke intent
+  `intent_ca2cf96dfc15`. Current staging event verification reports
+  `event_count=26` and
+  `last_hash=8c60cbb2fdff0f20d6e60c2e519ed50ba064307891df3cb2d4436f0a31022264`.
+  Neon staging row counts: `events_projected=26`, `intents=4`,
+  `proposals=2`, `executions=4`, `health_check_results=4`.
+  `/api/v1/history/intents?environment=staging` returns the live smoke
+  intent, proving new writes project into Postgres.
+- **Prod deployment state:** `quorum-prod` is running Fly release v4,
   which reports image ref
-  `registry.fly.io/quorum-prod@sha256:36809cd455123b89a592a70dcf31cc91a27bb8eddb9b9ccd154830bfa0f9bcce`.
-  That release was requested from the PR #66 image-push manifest-list
-  digest `sha256:70af699bb5bcf68f0173181eb80ece15dfe5df767d6166c9b97c212a22d46e67`.
+  `registry.fly.io/quorum-prod@sha256:c5ab943340298c4e0048052899a8c61c615cf5a2d0e78e9534ea1454a111f6f4`.
+  That release was requested from the PR #69 image-push manifest-list
+  digest `sha256:aa267ec52be093acd5b2e8a39c658d073f1927ceeeada5aef55c28fbe7f90f6e`.
   Machine `e829625b579d78` is started in `iad` with 2/2 checks
   passing, mounted volume `vol_v8emwyn2gj70k11v`, and `autostop:
   false` so the operator console's SSE stream is not silently dropped
   by scale-to-zero. `/readiness` and `/api/v1/health` returned HTTP
-  200. `QUORUM_API_KEYS` and `FLY_API_TOKEN` are deployed; `DATABASE_URL`,
-  `QUORUM_GITHUB_APP_PRIVATE_KEY`, and `QUORUM_ALLOW_DEMO` are unset in
-  prod.
+  200. `QUORUM_API_KEYS`, `FLY_API_TOKEN`, and `DATABASE_URL` are
+  deployed; `QUORUM_GITHUB_APP_PRIVATE_KEY` and `QUORUM_ALLOW_DEMO`
+  are unset in prod.
+- **Prod Postgres projection evidence:** prod `/api/v1/history/intents`
+  returns HTTP 200 with `[]`, prod `/api/v1/events/verify` returns
+  `event_count=0` and `last_hash=null`, and prod reconciliation against
+  Neon returned `events_seen=0`, `events_applied=0`,
+  `events_skipped_errors=0`. Neon prod row counts are zero across
+  `events_projected`, `intents`, `proposals`, `executions`, and
+  `health_check_results`, which matches the empty prod event log.
 - **Live Fly deploy/rollback evidence:** an operator-run live actuator
   smoke deployed staging to pushed digest
   `sha256:758395f657f1abcdcbd18bffb0cba1261184cc2d8af7320bcb94602e5223092e`,
@@ -91,6 +115,13 @@ authoritative state of the project.
   `health_check_completed`, `execution_succeeded`. Staging
   `/api/v1/events/verify` returned `event_count=13` and
   `last_hash=014293237212070b61472bb5577cd47317625067633d26331b50bcdfb574dbd4`.
+  The latest peer-controller deploy repeated the same gated path with
+  intent `intent_91a13c2a90e3` and proposal
+  `proposal_7ea9efc0cc32`, deploying requested manifest-list digest
+  `sha256:aa267ec52be093acd5b2e8a39c658d073f1927ceeeada5aef55c28fbe7f90f6e`
+  into prod and capturing previous prod digest
+  `sha256:36809cd455123b89a592a70dcf31cc91a27bb8eddb9b9ccd154830bfa0f9bcce`.
+  Prod readiness and API health both passed as HTTP 200.
 - **Same-app deploy invariant:** `fly.deploy` now refuses to run when
   `FLY_APP_NAME` matches the proposal payload's target app. A
   single-machine Quorum app must deploy a peer app or run from an
@@ -126,6 +157,11 @@ authoritative state of the project.
   - **Post-tag dog-food proof** — `quorum-staging` executed a real
     policy-gated, human-approved `fly.deploy` into `quorum-prod`; prod
     health checks passed and staging recorded terminal execution events.
+  - **Post-tag Neon projection** — staging and prod Fly apps now have
+    Neon-backed `DATABASE_URL` secrets; both DB branches are migrated
+    to Alembic head, staging was reconciled from JSONL and smoke-tested
+    through the Postgres-backed history API, and prod was verified
+    empty but reachable.
 - **⬜ Phase 6** — parallel operator-agent worktrees.
 
 All known doc-vs-code drift is closed. No known outstanding tech debt.
@@ -266,6 +302,8 @@ harness under `.claude/`. Codex and other agents can ignore them.
     command shape is `fly machine update <machine-id> --app quorum-prod
     --autostop=off --autostart --yes`. Use `--autostop=off`; pinned
     `flyctl` parses `--autostop off` as an extra positional argument.
+    Re-check and reapply this after `fly deploy` or `fly secrets set`;
+    the prod `DATABASE_URL` secret update reset autostop to `true`.
 22. **[Repo-wide]** Do not confuse image-push manifest-list digests
     with the platform image ref reported by `fly releases`. A docs-only
     merge can push a fresh registry digest without changing or
@@ -280,18 +318,29 @@ harness under `.claude/`. Codex and other agents can ignore them.
     Quorum must normalize those to `postgresql+psycopg://` because the
     repo ships `psycopg`, not `psycopg2`. Keep runtime engine creation
     and Alembic migrations on the same normalization helper.
+25. **[Repo-wide]** Shell one-command env assignments do not affect
+    expansions in the same command. `VAR=... fly secrets set
+    DATABASE_URL="$VAR"` sends an empty value; assign first with
+    `VAR=...; fly secrets set DATABASE_URL="$VAR"` or export the var.
+26. **[Repo-wide]** `fly ssh console -C` does not inherit app secrets
+    into ad-hoc commands, and it execs the given command directly
+    rather than through a shell. To run one-off DB tooling inside the
+    machine, inject the secret from Keychain explicitly and wrap with
+    `sh -lc`, e.g. `fly ssh console -C "sh -lc 'DATABASE_URL=... python
+    -m apps.api.app.tools.reconcile --output json'"`.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Enable the disabled production dependencies
+### A — Enable the GitHub actuator on Fly
 
-Configure real `DATABASE_URL` (Neon prod + staging branch) and
-`QUORUM_GITHUB_APP_PRIVATE_KEY` on staging first, then prod. Re-verify
-`/readiness`, `/api/v1/health`, `/metrics`, the GitHub actuator boot
-path, Postgres projection reconciliation, and event-log verification.
-This is the highest operator-value gap because the live Fly apps are
-healthy but still running without the production read model or GitHub
-actuator credentials.
+Register/install the Quorum GitHub App, replace the placeholder
+non-secret IDs in `config/github.yaml`, set
+`QUORUM_GITHUB_APP_PRIVATE_KEY` on staging first, then prod, and
+exercise the actuator boot path with a low-risk GitHub action. This is
+the highest operator-value gap because the live Fly apps now have
+Postgres projection, API keys, `fly.deploy`, and health checks wired;
+the remaining disabled production dependency is the GitHub App
+credential/config path.
 
 ### B — Turn deploy-agent evidence into the default dog-food loop
 
