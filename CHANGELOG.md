@@ -11,6 +11,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **GitHub App actuator bootstrap helper** —
+  `python -m apps.api.app.tools.bootstrap_github_app` drives the GitHub
+  App manifest flow, stores the one-time PEM as a base64 Keychain
+  secret without printing it, and reports the non-secret
+  App/installation IDs needed to enable the actuator on Fly.
 - **Opt-in live Fly deploy/rollback test** — `tests/test_fly_live_integration.py`
   is marked `integration` and gated by `QUORUM_FLY_LIVE_TESTS=1`. It
   deploys a known staging image digest, captures the previous Fly
@@ -59,6 +64,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- **GitHub App private keys can be single-line Fly secrets** — the
+  GitHub App auth loader now accepts
+  `QUORUM_GITHUB_APP_PRIVATE_KEY_B64`, avoiding brittle multiline PEM
+  handling in Keychain and Fly secret commands.
 - **Neon Postgres URLs use the installed driver** — runtime engine
   creation and Alembic migrations now normalize plain Neon
   `postgresql://` URLs to `postgresql+psycopg://`, matching the sync

@@ -9,6 +9,7 @@ documented in ``docs/SESSION_HANDOFF.md``).
 from __future__ import annotations
 
 from collections.abc import Iterator
+import base64
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -80,6 +81,7 @@ def http_client() -> Iterator[httpx.Client]:
 @pytest.fixture
 def clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("QUORUM_GITHUB_APP_PRIVATE_KEY", raising=False)
+    monkeypatch.delenv("QUORUM_GITHUB_APP_PRIVATE_KEY_B64", raising=False)
     monkeypatch.delenv("QUORUM_GITHUB_APP_PRIVATE_KEY_PATH", raising=False)
 
 
@@ -132,6 +134,35 @@ def test_mint_jwt_reads_private_key_from_env(
     token = AppJWTSigner(app_id=7).mint_jwt()
     claims = jwt.decode(token, public_pem, algorithms=["RS256"], options={"verify_iat": False})
     assert claims["iss"] == "7"
+
+
+def test_mint_jwt_reads_private_key_from_base64_env(
+    clear_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+    private_pem: str,
+    public_pem: str,
+) -> None:
+    encoded = base64.b64encode(private_pem.encode("utf-8")).decode("ascii")
+    monkeypatch.setenv("QUORUM_GITHUB_APP_PRIVATE_KEY_B64", encoded)
+
+    token = AppJWTSigner(app_id=8).mint_jwt()
+
+    claims = jwt.decode(token, public_pem, algorithms=["RS256"], options={"verify_iat": False})
+    assert claims["iss"] == "8"
+
+
+def test_mint_jwt_rejects_invalid_base64_without_leaking_value(
+    clear_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QUORUM_GITHUB_APP_PRIVATE_KEY_B64", "not base64 private key")
+
+    with pytest.raises(GitHubAppAuthError) as exc:
+        AppJWTSigner(app_id=8)
+
+    message = str(exc.value)
+    assert "not base64 private key" not in message
+    assert "base64" in message
 
 
 def test_mint_jwt_reads_private_key_from_path(
@@ -408,9 +439,8 @@ def test_load_github_config_missing_file(tmp_path: Path) -> None:
 
 
 def test_load_github_config_rejects_placeholder_app_id(tmp_path: Path) -> None:
-    """The committed ``config/github.yaml`` uses ``app_id: 0`` as a deploy
-    placeholder. The loader must reject it rather than silently accept a
-    half-configured file."""
+    """The loader must reject placeholder IDs rather than silently accept
+    a half-configured file."""
     path = tmp_path / "github.yaml"
     path.write_text(
         """

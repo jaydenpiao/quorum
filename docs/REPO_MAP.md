@@ -14,6 +14,8 @@ Last refreshed at v0.5.0-alpha.1.
 - `AGENTS.md` — canonical repo-wide agent rules (binding)
 - `CLAUDE.md` — pointer to `AGENTS.md` for Claude Code compatibility
 - `CHANGELOG.md` — versioned feature list (Keep a Changelog format)
+- `docs/GITHUB_APP_ACTUATOR_FLY.md` — operator runbook for enabling
+  the GitHub App actuator on Fly
 - `llms.txt` — shortest file list for LLM navigation
 - `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
 - `pyproject.toml`, `uv.lock` — Python packaging / locked deps
@@ -102,6 +104,9 @@ Last refreshed at v0.5.0-alpha.1.
 
 - `apps/api/app/tools/bootstrap_keys.py` — generate / rotate
   argon2id-hashed API keys
+- `apps/api/app/tools/bootstrap_github_app.py` — run the GitHub App
+  manifest flow, store the generated PEM in Keychain, and report
+  non-secret App / installation IDs
 - `apps/api/app/tools/reconcile.py` — run the JSONL → Postgres
   reconciliation out-of-band
 

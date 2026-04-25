@@ -14,6 +14,7 @@ Key runtime files:
 - apps/api/app/main.py
 - apps/api/app/api/routes.py
 - apps/api/app/api/history.py
+- apps/api/app/tools/bootstrap_github_app.py
 - apps/api/app/domain/models.py
 - apps/api/app/services/event_log.py
 - apps/api/app/services/state_store.py
@@ -47,6 +48,7 @@ Examples:
 - examples/rollback_impossible_event.json
 
 Design docs:
+- docs/GITHUB_APP_ACTUATOR_FLY.md
 - docs/design/fly-deployment.md
 - docs/design/llm-adapter.md
 - docs/design/phase-4-github-actuator.md

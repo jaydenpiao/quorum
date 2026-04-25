@@ -18,18 +18,18 @@ authoritative state of the project.
   production container. Live flyctl smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 364 passing + 12 integration-gated (excluded from CI
+- **Test suite:** 371 passing + 12 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres or Fly.io, with additional env gates for destructive tests).
-- **Coverage:** 84% (gate floor: 60%).
-- **Type check:** `mypy --strict` clean across 47 source files.
+- **Coverage:** 81% (gate floor: 60%).
+- **Type check:** `mypy --strict` clean across 48 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
 - **pip-audit note:** CI temporarily ignores `CVE-2026-3219` because
   it affects the latest published PyPI `pip` (`26.0.1`) and pip-audit
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 70. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, and #70 Neon Fly bootstrap evidence.
+- **Merged PR count:** 71. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, and #71 GitHub App bootstrap helper.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -43,6 +43,16 @@ authoritative state of the project.
   `0004 (head)`. Local operator Keychain service names:
   `quorum-neon-prod-database-url` and
   `quorum-neon-staging-database-url`.
+- **GitHub actuator bootstrap state:** GitHub App `quorum-actuator`
+  exists with non-secret App ID `3496381`; it is installed on fixture
+  repo `jaydenpiao/quorum-actuator-fixtures` with installation ID
+  `126887427`. The fixture repo has smoke issue #1 and label
+  `quorum-smoke`. The generated PEM is stored base64-encoded in local
+  Keychain service `quorum-github-app-private-key-b64`.
+  `config/github.yaml` now points at the fixture installation; Fly
+  still needs the `QUORUM_GITHUB_APP_PRIVATE_KEY_B64` secret and a
+  staging deploy of the config-bearing image before the actuator is
+  live there.
 - **Staging deployment state:** `quorum-staging` is running Fly
   release v11, which currently reports image ref
   `registry.fly.io/quorum-staging@sha256:c5ab943340298c4e0048052899a8c61c615cf5a2d0e78e9534ea1454a111f6f4`.
@@ -53,7 +63,7 @@ authoritative state of the project.
   returned HTTP 200. `QUORUM_API_KEYS` (operator, code-agent,
   deploy-agent), `FLY_API_TOKEN`, `DATABASE_URL`, and
   `QUORUM_ALLOW_DEMO=1` are deployed only on staging;
-  `QUORUM_GITHUB_APP_PRIVATE_KEY` is still unset, so the GitHub
+  `QUORUM_GITHUB_APP_PRIVATE_KEY_B64` is still unset, so the GitHub
   actuator is disabled there for now.
 - **Staging persistence evidence:** an authenticated
   `POST /api/v1/intents` created `intent_f40d2794ee55`; before and
@@ -81,7 +91,7 @@ authoritative state of the project.
   false` so the operator console's SSE stream is not silently dropped
   by scale-to-zero. `/readiness` and `/api/v1/health` returned HTTP
   200. `QUORUM_API_KEYS`, `FLY_API_TOKEN`, and `DATABASE_URL` are
-  deployed; `QUORUM_GITHUB_APP_PRIVATE_KEY` and `QUORUM_ALLOW_DEMO`
+  deployed; `QUORUM_GITHUB_APP_PRIVATE_KEY_B64` and `QUORUM_ALLOW_DEMO`
   are unset in prod.
 - **Prod Postgres projection evidence:** prod `/api/v1/history/intents`
   returns HTTP 200 with `[]`, prod `/api/v1/events/verify` returns
@@ -162,6 +172,9 @@ authoritative state of the project.
     to Alembic head, staging was reconciled from JSONL and smoke-tested
     through the Postgres-backed history API, and prod was verified
     empty but reachable.
+  - **Post-tag GitHub App bootstrap** — the fixture repo exists, the
+    GitHub App is registered/installed on that fixture, and the helper
+    can repeat the manifest flow without printing the generated PEM.
 - **⬜ Phase 6** — parallel operator-agent worktrees.
 
 All known doc-vs-code drift is closed. No known outstanding tech debt.
@@ -180,7 +193,7 @@ Quorum can now dog-food Fly.io deploys through a peer-controller shape.
 The path an operator follows:
 
 1. Provision a Fly app + volume per `docs/design/fly-deployment.md` §Operator pre-reqs.
-2. `fly secrets set QUORUM_API_KEYS=... QUORUM_GITHUB_APP_PRIVATE_KEY=... DATABASE_URL=... --app <app>`.
+2. `fly secrets set QUORUM_API_KEYS=... QUORUM_GITHUB_APP_PRIVATE_KEY_B64=... DATABASE_URL=... --app <app>`.
 3. `fly deploy --app <app>` locally once for the bootstrap.
 4. Optional: set `FLY_API_TOKEN` as a repo secret; every merge to
    `main` pushes tagged images to `registry.fly.io/quorum-staging` and
@@ -328,19 +341,25 @@ harness under `.claude/`. Codex and other agents can ignore them.
     machine, inject the secret from Keychain explicitly and wrap with
     `sh -lc`, e.g. `fly ssh console -C "sh -lc 'DATABASE_URL=... python
     -m apps.api.app.tools.reconcile --output json'"`.
+27. **[Repo-wide]** GitHub App manifest callback codes expire after
+    one hour. If `bootstrap_github_app` captures the App but times out
+    before repository installation, keep the Keychain PEM, install the
+    App from the printed install URL, then use the App JWT path to
+    recover `installation_id`; do not rerun and create duplicate Apps
+    unless the PEM was lost.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Enable the GitHub actuator on Fly
+### A — Complete GitHub actuator enablement on Fly
 
-Register/install the Quorum GitHub App, replace the placeholder
-non-secret IDs in `config/github.yaml`, set
-`QUORUM_GITHUB_APP_PRIVATE_KEY` on staging first, then prod, and
-exercise the actuator boot path with a low-risk GitHub action. This is
-the highest operator-value gap because the live Fly apps now have
-Postgres projection, API keys, `fly.deploy`, and health checks wired;
-the remaining disabled production dependency is the GitHub App
-credential/config path.
+Deploy the new config-bearing image to staging, set
+`QUORUM_GITHUB_APP_PRIVATE_KEY_B64` from Keychain, and execute a
+`github.comment_issue` smoke through Quorum against fixture issue #1.
+After staging proves the fixture path, repeat the secret deployment for
+prod. This is the highest operator-value gap because the live Fly apps
+now have Postgres projection, API keys, `fly.deploy`, and health checks
+wired; the remaining disabled production dependency is the GitHub App
+credential path on Fly.
 
 ### B — Turn deploy-agent evidence into the default dog-food loop
 

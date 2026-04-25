@@ -20,8 +20,8 @@ Fly.io is the chosen host because:
   (`apps/api/app/services/event_log.py`), so shared / multi-writer
   storage would break the invariant.
 - Fly secrets are injected as env vars at boot — matches how the app already
-  reads `QUORUM_API_KEYS`, `QUORUM_GITHUB_APP_PRIVATE_KEY`, `DATABASE_URL`,
-  etc. No code change required to consume them.
+  reads `QUORUM_API_KEYS`, `QUORUM_GITHUB_APP_PRIVATE_KEY_B64`,
+  `DATABASE_URL`, etc. No code change required to consume them.
 - The Fly Registry and `fly deploy --image ...@sha256:...` give us a
   content-addressable deploy primitive the `fly.deploy` actuator can call,
   so dog-food deploys land naturally.
@@ -143,7 +143,7 @@ reads all of them from the environment; no code change required.
 | env var                              | required? | read at                                              | notes |
 |--------------------------------------|-----------|------------------------------------------------------|-------|
 | `QUORUM_API_KEYS`                    | yes       | `apps/api/app/services/auth.py:46`                   | `agent_id:plaintext,...` — bootstrap-CLI-generated; operator rotates |
-| `QUORUM_GITHUB_APP_PRIVATE_KEY`      | yes (for GitHub actuator path) | `apps/api/app/services/github/auth.py:56` | Inline PEM. Prefer over `QUORUM_GITHUB_APP_PRIVATE_KEY_PATH` to avoid filesystem mounts on Fly |
+| `QUORUM_GITHUB_APP_PRIVATE_KEY_B64`  | yes (for GitHub actuator path) | `apps/api/app/services/actuators/github/auth.py:40` | Base64-encoded PEM. Preferred on Fly because it is single-line; raw `QUORUM_GITHUB_APP_PRIVATE_KEY` and path-based `QUORUM_GITHUB_APP_PRIVATE_KEY_PATH` also work |
 | `DATABASE_URL`                       | yes       | `apps/api/app/db/engine.py:23`                       | From the Neon attachment; sync `psycopg` dialect is auto-injected by the rewriter |
 | `FLY_API_TOKEN`                      | yes (for `fly.deploy`) | `flyctl` subprocess environment | Deploy-scoped token used by `/usr/local/bin/fly`; required anywhere the executor may run `fly.deploy` |
 | `ANTHROPIC_API_KEY`                  | no, for now | consumed by the telemetry-llm-agent process only, which is not co-located in Phase 5 | set later if / when we run the LLM agent in-cluster |
@@ -336,7 +336,7 @@ design-doc PR requires the operator to do anything.
    `quorum-prod` because Fly volume names are app-scoped.
 5. Create a Neon project; take a staging branch of the prod DB. Copy
    both connection strings.
-6. `fly secrets set QUORUM_API_KEYS=... QUORUM_GITHUB_APP_PRIVATE_KEY=...
+6. `fly secrets set QUORUM_API_KEYS=... QUORUM_GITHUB_APP_PRIVATE_KEY_B64=...
    DATABASE_URL=... --app quorum-{staging,prod}`. Use the bootstrap CLI
    (`python -m apps.api.app.tools.bootstrap_keys generate`) to mint
    API keys.

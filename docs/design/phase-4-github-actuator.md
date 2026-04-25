@@ -55,13 +55,21 @@ App configuration (out-of-band, one-time per deploy):
 - Install on a per-target basis; install IDs recorded in
   `config/github.yaml` (new; see Config below).
 
+Operational bootstrap is now scripted by
+`python -m apps.api.app.tools.bootstrap_github_app`; see
+`docs/GITHUB_APP_ACTUATOR_FLY.md` for the Fly-specific runbook. The
+script uses GitHub's manifest flow to prefill these settings, but the
+operator still approves App creation and repository installation in
+GitHub's UI.
+
 Secret material:
 
 - **App ID** — non-secret, public in config.
 - **App private key (PEM)** — provided via env var
-  `QUORUM_GITHUB_APP_PRIVATE_KEY` (PEM string) or mounted path
-  `QUORUM_GITHUB_APP_PRIVATE_KEY_PATH`. Never committed, never logged,
-  scrubbed from error messages.
+  `QUORUM_GITHUB_APP_PRIVATE_KEY` (PEM string),
+  `QUORUM_GITHUB_APP_PRIVATE_KEY_B64` (base64-encoded PEM, preferred
+  on Fly), or mounted path `QUORUM_GITHUB_APP_PRIVATE_KEY_PATH`. Never
+  committed, never logged, scrubbed from error messages.
 - **Installation access tokens** — minted on demand via JWT; cached in
   memory with ~50-minute TTL (GitHub's tokens last 60 minutes; rotate early).
 
