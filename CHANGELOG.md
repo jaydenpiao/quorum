@@ -29,6 +29,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- **GitHub App actuator is live on Fly** — staging and prod now carry
+  `QUORUM_GITHUB_APP_PRIVATE_KEY_B64`, run the config-bearing image,
+  and have executed `github.comment_issue` against the fixture issue
+  through Quorum's proposal/vote/execute path. The prod proof used the
+  protected `prod` environment gate, including human approval.
 - **Neon Postgres projection is wired on Fly** — staging and prod now
   have Neon `DATABASE_URL` secrets deployed. Staging was reconciled
   from the canonical JSONL, live-projection smoke tested through the

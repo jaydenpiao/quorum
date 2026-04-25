@@ -16,6 +16,30 @@ Keep the first live proof on the fixture repo. Do not point the actuator
 at `jaydenpiao/quorum` until the fixture path has executed through
 Quorum's proposal, vote, execute, and rollback flow.
 
+## Current live state
+
+As of the latest handoff, the fixture path is proven on both Fly apps.
+
+- GitHub App: `quorum-actuator`
+- App ID: `3496381`
+- Installation ID: `126887427`
+- Fixture repo: `jaydenpiao/quorum-actuator-fixtures`
+- Private-key secret source: local Keychain service
+  `quorum-github-app-private-key-b64`
+- Fly secret name on both apps: `QUORUM_GITHUB_APP_PRIVATE_KEY_B64`
+- Running Fly image ref on both apps:
+  `registry.fly.io/quorum-{staging,prod}@sha256:698e0ca0774a1c31c043a3c11dc698693822c22790509d7aca67b352f87952a0`
+
+Evidence:
+
+- Staging proposal `proposal_3b0dfe573bb9` executed
+  `github.comment_issue`; issue comment:
+  `https://github.com/jaydenpiao/quorum-actuator-fixtures/issues/1#issuecomment-4317876371`.
+- Prod proposal `proposal_53414b49eb06` executed
+  `github.comment_issue` with `environment=prod`, two votes, human
+  approval, and a post-change health check; issue comment:
+  `https://github.com/jaydenpiao/quorum-actuator-fixtures/issues/1#issuecomment-4317901186`.
+
 ## 1. Register and install the GitHub App
 
 Run:
@@ -84,16 +108,18 @@ fly deploy \
   --yes
 ```
 
-## 4. Set the staging private-key secret
+## 4. Set the private-key secret
 
 Read the base64 PEM from Keychain into the Fly secret. Keep the
 assignment and `fly` invocation as separate shell statements so
-expansion is not empty:
+expansion is not empty. Prefer `fly secrets import` so the PEM is not
+placed in argv:
 
 ```bash
 GITHUB_APP_PEM_B64="$(security find-generic-password -a "$USER" -s quorum-github-app-private-key-b64 -w)"
 FLY_API_TOKEN="$(security find-generic-password -a "$USER" -s quorum-fly-api-token -w)"
-fly secrets set QUORUM_GITHUB_APP_PRIVATE_KEY_B64="$GITHUB_APP_PEM_B64" --app quorum-staging
+printf 'QUORUM_GITHUB_APP_PRIVATE_KEY_B64=%s\n' "$GITHUB_APP_PEM_B64" | \
+  fly secrets import --app quorum-staging
 ```
 
 Re-check staging:
@@ -124,7 +150,15 @@ Payload shape:
   },
   "risk": "low",
   "environment": "staging",
-  "health_checks": [],
+  "health_checks": [
+    {
+      "name": "fixture issue reachable after comment",
+      "kind": "http",
+      "url": "https://api.github.com/repos/jaydenpiao/quorum-actuator-fixtures/issues/1",
+      "expected_status": 200,
+      "timeout_seconds": 10.0
+    }
+  ],
   "rollback_steps": ["Delete the created issue comment via actuator rollback."]
 }
 ```
@@ -137,9 +171,10 @@ Expected Quorum event chain:
 - at least two `proposal_voted`
 - `proposal_approved`
 - `execution_started`
+- `health_check_completed`
 - `execution_succeeded`
 
-Only after staging proves the fixture path should prod receive
-`QUORUM_GITHUB_APP_PRIVATE_KEY_B64`. Keep prod installed on the fixture
-repo until a separate PR switches `config/github.yaml` to a production
-target.
+For prod runtime proof, use `environment: "prod"` so the protected
+environment override requires explicit human approval before execution.
+Keep both apps installed only on the fixture repo until a separate PR
+switches `config/github.yaml` to a production target.
