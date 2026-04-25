@@ -243,6 +243,13 @@ new main image digest, wrote terminal `execution_succeeded` plus two
 `health_check_completed` events to staging's event log, and verified
 prod `/readiness` + `/api/v1/health` returned HTTP 200.
 
+Live GitHub actuator evidence: both Fly apps now carry the base64
+GitHub App private-key secret and run the config-bearing image. Staging
+executed `github.comment_issue` against fixture issue #1 through the
+proposal/vote/execute path. Prod repeated the fixture smoke with
+`environment=prod`, two votes, explicit human approval, and a
+post-change HTTP health check before recording `execution_succeeded`.
+
 **Event shape (for review, not implementation):**
 
 ```python

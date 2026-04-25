@@ -115,6 +115,11 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
 - ✅ Neon projection enabled on Fly — staging uses a Neon branch,
   prod uses the Neon main branch, both are migrated to Alembic head,
   and staging's Postgres-backed history endpoints are live.
+- ✅ GitHub App actuator enabled on Fly — staging and prod carry the
+  base64 GitHub App private-key secret, run the config-bearing image,
+  and have executed fixture `github.comment_issue` smokes through the
+  Quorum proposal/vote/execute path. The prod proof used the protected
+  `prod` environment gate with human approval.
 
 ## Phase 6 — Parallel operator agents ⬜
 
