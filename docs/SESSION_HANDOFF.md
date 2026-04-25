@@ -29,7 +29,7 @@ authoritative state of the project.
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 66. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, and #66 same-app Fly deploy guard.
+- **Merged PR count:** 67. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, and #67 peer-controller deploy evidence.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -37,10 +37,10 @@ authoritative state of the project.
   app-specific volumes were unattached and destroyed to avoid drift
   from `fly.toml`.
 - **Staging deployment state:** `quorum-staging` is deployed from the
-  pushed main image
-  `registry.fly.io/quorum-staging@sha256:96ea324970bd369e86422e6d92764d35290e636cb9a2c7b0fe0cf2f3c415f677`;
-  Fly release v7 currently reports image ref
-  `registry.fly.io/quorum-staging@sha256:6bcea0b7426c60fe21c2000d837f08ef195aa48345d34c7fda603df308da74e0`.
+  pushed main image digest
+  `sha256:70af699bb5bcf68f0173181eb80ece15dfe5df767d6166c9b97c212a22d46e67`;
+  Fly release v8 currently reports image ref
+  `registry.fly.io/quorum-staging@sha256:36809cd455123b89a592a70dcf31cc91a27bb8eddb9b9ccd154830bfa0f9bcce`.
   Machine `e2862467be9d78` is started in `iad` with 2/2 checks
   passing. `/readiness`, `/api/v1/health`, `/metrics`, and `/console`
   returned HTTP 200. `QUORUM_API_KEYS` (operator, code-agent,
@@ -54,9 +54,16 @@ authoritative state of the project.
   `GET /api/v1/events/verify` returned `event_count=1` and
   `last_hash=3b8f54fef545d63b23069ed1daa5877ad9fbb951a78767d20682155c6dd8c7ff`.
   This verifies the Fly Volume is mounted at `/app/data`.
-- **Prod deployment state:** `quorum-prod` exists with the correct
-  `quorum_data` volume but no machine/release yet. `QUORUM_ALLOW_DEMO`
-  is unset in prod.
+- **Prod deployment state:** `quorum-prod` is deployed from the same
+  main image as staging; Fly release v2 reports image ref
+  `registry.fly.io/quorum-prod@sha256:36809cd455123b89a592a70dcf31cc91a27bb8eddb9b9ccd154830bfa0f9bcce`.
+  Machine `e829625b579d78` is started in `iad` with 2/2 checks
+  passing, mounted volume `vol_v8emwyn2gj70k11v`, and `autostop:
+  false` so the operator console's SSE stream is not silently dropped
+  by scale-to-zero. `/readiness` and `/api/v1/health` returned HTTP
+  200. `QUORUM_API_KEYS` and `FLY_API_TOKEN` are deployed; `DATABASE_URL`,
+  `QUORUM_GITHUB_APP_PRIVATE_KEY`, and `QUORUM_ALLOW_DEMO` are unset in
+  prod.
 - **Live Fly deploy/rollback evidence:** an operator-run live actuator
   smoke deployed staging to pushed digest
   `sha256:758395f657f1abcdcbd18bffb0cba1261184cc2d8af7320bcb94602e5223092e`,
@@ -65,6 +72,23 @@ authoritative state of the project.
   then `rollback_deploy` returned staging to that previous digest.
   `/readiness`, `/api/v1/health`, and `/api/v1/events/verify` returned
   HTTP 200 after rollback.
+- **Peer-controller dog-food evidence:** `quorum-staging` executed a
+  real Quorum API-gated `fly.deploy` into `quorum-prod` with intent
+  `intent_bead5a2f36fd` and proposal `proposal_a8803f47488e`.
+  Policy allowed the action with `requires_human=true` and 2 votes
+  required; `code-agent` and `operator` voted; the operator granted
+  human approval. The execution deployed requested digest
+  `sha256:70af699bb5bcf68f0173181eb80ece15dfe5df767d6166c9b97c212a22d46e67`,
+  captured previous prod digest
+  `sha256:07167f6706325481c902c5f79e95f9ca18389e9624abfa8e28bcab68961f4999`,
+  verified `prod-readiness` and `prod-api-health` as HTTP 200, and
+  appended this proposal chain in staging:
+  `proposal_created`, `policy_evaluated`, `human_approval_requested`,
+  two `proposal_voted`, `proposal_approved`,
+  `human_approval_granted`, `execution_started`, two
+  `health_check_completed`, `execution_succeeded`. Staging
+  `/api/v1/events/verify` returned `event_count=13` and
+  `last_hash=014293237212070b61472bb5577cd47317625067633d26331b50bcdfb574dbd4`.
 - **Same-app deploy invariant:** `fly.deploy` now refuses to run when
   `FLY_APP_NAME` matches the proposal payload's target app. A
   single-machine Quorum app must deploy a peer app or run from an
@@ -97,6 +121,9 @@ authoritative state of the project.
   - **Post-tag execution safety** — same-app `fly.deploy` is blocked
     when Fly exposes `FLY_APP_NAME`, preserving terminal event writes
     for single-machine apps.
+  - **Post-tag dog-food proof** — `quorum-staging` executed a real
+    policy-gated, human-approved `fly.deploy` into `quorum-prod`; prod
+    health checks passed and staging recorded terminal execution events.
 - **⬜ Phase 6** — parallel operator-agent worktrees.
 
 All known doc-vs-code drift is closed. No known outstanding tech debt.
@@ -111,7 +138,8 @@ Three PRs close the last two Phase 4 roadmap items:
 
 ## Phase 5 — what it unlocks
 
-Quorum can now deploy itself on Fly.io. The path an operator follows:
+Quorum can now dog-food Fly.io deploys through a peer-controller shape.
+The path an operator follows:
 
 1. Provision a Fly app + volume per `docs/design/fly-deployment.md` §Operator pre-reqs.
 2. `fly secrets set QUORUM_API_KEYS=... QUORUM_GITHUB_APP_PRIVATE_KEY=... DATABASE_URL=... --app <app>`.
@@ -120,13 +148,19 @@ Quorum can now deploy itself on Fly.io. The path an operator follows:
    `main` pushes tagged images to `registry.fly.io/quorum-staging` and
    `registry.fly.io/quorum-prod`.
 5. Run the `deploy-llm-agent` process (`python -m apps.llm_agent.run --agent-id deploy-llm-agent`) to watch for new image digests and propose `fly.deploy` actions.
-6. Approve each proposal via the operator console. Quorum executes `fly deploy --image registry.fly.io/quorum-prod@sha256:...` under the policy + human-approval gate.
+6. Approve each proposal via the operator console. The peer Quorum app
+   executes `fly deploy --image registry.fly.io/quorum-prod@sha256:...`
+   under the policy + human-approval gate. Same-app deploys are blocked
+   until a separate executor lifecycle is designed and proven.
 
 Three design-level invariants that hold across the whole flow:
 
 - **Single-machine-per-app.** Fly Volumes are per-machine; `EventLog` is single-writer. Multi-machine fleets are explicitly deferred.
 - **Content-addressed deploys.** `FlyDeploySpec` rejects tags at the pydantic boundary; only `sha256:<64 hex>` passes.
 - **Human in the loop for every prod deploy.** `fly.deploy` policy rule is `votes_required: 2, requires_human: true`. Deploys never execute without an explicit approval entity event.
+- **Peer controller for live dog-food.** A single-machine Fly app does
+  not deploy itself; it deploys the peer app so terminal execution
+  events survive machine replacement.
 
 ## Reading order for a fresh session
 
@@ -225,41 +259,44 @@ harness under `.claude/`. Codex and other agents can ignore them.
     near-term dog-food shape is a peer controller app or external
     runner deploying the target app. Do not remove this guard unless a
     separate executor lifecycle has been designed and live-proven.
-21. **[Repo-wide]** `pip-audit` currently ignores only
+21. **[Repo-wide]** Prod always-on requires disabling Fly machine
+    autostop, not just keeping one machine in the app. The verified
+    command shape is `fly machine update <machine-id> --app quorum-prod
+    --autostop=off --autostart --yes`. Use `--autostop=off`; pinned
+    `flyctl` parses `--autostop off` as an extra positional argument.
+22. **[Repo-wide]** `pip-audit` currently ignores only
     `CVE-2026-3219` in CI because the advisory affects the latest
     published PyPI `pip` and has no fixed version. Do not add broad
     ignores; remove this one as soon as a fixed pip release exists.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Prove the peer-controller dog-food deploy path
+### A — Enable the disabled production dependencies
 
-Same-app self-deploy is blocked; the next operator-value smoke is a
-real Quorum API-gated deploy from `quorum-staging` into `quorum-prod`:
+Configure real `DATABASE_URL` (Neon prod + staging branch) and
+`QUORUM_GITHUB_APP_PRIVATE_KEY` on staging first, then prod. Re-verify
+`/readiness`, `/api/v1/health`, `/metrics`, the GitHub actuator boot
+path, Postgres projection reconciliation, and event-log verification.
+This is the highest operator-value gap because the live Fly apps are
+healthy but still running without the production read model or GitHub
+actuator credentials.
 
-- Bootstrap `quorum-prod` with `QUORUM_API_KEYS` and `FLY_API_TOKEN`
-  only; keep `QUORUM_ALLOW_DEMO` unset.
-- Use two known prod registry digests from image-push.
-- From `quorum-staging`, create an intent + `fly.deploy` proposal
-  targeting `quorum-prod`, cast two votes, grant human approval, and
-  execute.
-- Verify `execution_started`, `health_check_completed`, and
-  `execution_succeeded` are present in staging's event log, and
-  `/readiness` + `/api/v1/health` return 200 on prod.
+### B — Turn deploy-agent evidence into the default dog-food loop
 
-### B — Minor follow-ups worth batching into a single PR
+The manual peer-controller deploy is proven. Next, make
+`deploy-llm-agent` consume the image-push evidence, propose staging
+first, wait for staging health evidence, then propose prod with the
+exact prod registry digest. Keep same-app deploys blocked and keep prod
+under 2 votes + human approval.
 
-- Configure real staging `DATABASE_URL` (Neon branch) and
-  `QUORUM_GITHUB_APP_PRIVATE_KEY`; then re-verify `/readiness` with
-  Postgres enabled and the GitHub actuator booting.
-- Bootstrap `quorum-prod` only after staging has the DB/GitHub secrets
-  and live deploy/rollback evidence. Keep `QUORUM_ALLOW_DEMO` unset.
+### C — Minor hardening worth batching into one PR
+
 - Prometheus counters for the LLM adapter (design-doc §Observability): `quorum_llm_tokens_total{agent_id, model, kind}`, `quorum_llm_ticks_total{agent_id, outcome}`, `quorum_llm_proposals_created_total{agent_id, action_type}`. Needs the adapter process to run a Prometheus endpoint on a separate port.
+- System-prompt hash in `llm_call_completed` events for audit reproducibility (design-doc open question #4).
 - `demo_seed` optionally spawns the LLM adapter process (feature-flagged).
 - Richer context in `_log.warning("projector_status_update_for_missing_proposal", ...)`.
-- System-prompt hash in `llm_call_completed` events for audit reproducibility (design-doc open question #4).
 
-### C — LLM adapter voter role
+### D — LLM adapter voter role
 
 Open question from `docs/design/llm-adapter.md`. Requires its own design pass first:
 - Per-action trust caps (e.g. vote on `github.add_labels` but not `github.open_pr`).

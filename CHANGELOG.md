@@ -24,6 +24,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- **Peer-controller Fly deploy evidence is recorded** — docs now
+  capture the live Quorum API-gated deploy from `quorum-staging` into
+  `quorum-prod`, including proposal/event evidence, health checks,
+  prod always-on machine state, and the supported peer-controller
+  shape after same-app deploys were blocked.
 - **`pip-audit` ignores one unfixed pip advisory** — CI keeps
   `pip-audit --strict` but temporarily ignores `CVE-2026-3219`, which
   currently affects the latest PyPI `pip` release and has no fixed

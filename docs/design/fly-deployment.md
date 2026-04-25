@@ -236,6 +236,13 @@ controller deployment: for example, `quorum-staging` may execute an
 approved `fly.deploy` targeting `quorum-prod`, but `quorum-staging` may
 not deploy `quorum-staging` from inside its own API process.
 
+Live peer-controller evidence: `quorum-staging` executed an API-gated
+`fly.deploy` targeting `quorum-prod` after two votes and explicit human
+approval. The execution captured the previous prod digest, deployed the
+new main image digest, wrote terminal `execution_succeeded` plus two
+`health_check_completed` events to staging's event log, and verified
+prod `/readiness` + `/api/v1/health` returned HTTP 200.
+
 **Event shape (for review, not implementation):**
 
 ```python
@@ -335,6 +342,10 @@ design-doc PR requires the operator to do anything.
    API keys.
 7. (Optional) `fly certs add api.<domain>` per app. `*.fly.dev` is
    fine for v1.
+8. After the first prod deploy, opt prod out of scale-to-zero:
+   `fly machine update <machine-id> --app quorum-prod --autostop=off --autostart --yes`.
+   Use `--autostop=off`; pinned `flyctl` parses `--autostop off` as an
+   extra positional argument.
 
 ## Open questions (for review)
 
@@ -359,7 +370,8 @@ design-doc PR requires the operator to do anything.
    (`GET /api/v1/events/stream`, PR #48); Fly terminates idle machines
    and drops in-flight connections. Flag: if scale-to-zero is
    attempted in prod, SSE breaks silently from the operator's
-   perspective.
+   perspective. The verified prod command is
+   `fly machine update <machine-id> --app quorum-prod --autostop=off --autostart --yes`.
 4. **Custom domain + TLS.** `*.fly.dev` ships with free ACME certs.
    Custom domain adds `fly certs add` + DNS toil; not required for
    v1. Defer.

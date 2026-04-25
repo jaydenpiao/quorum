@@ -109,6 +109,9 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
 - ✅ Same-app Fly deploy guard — `fly.deploy` refuses to deploy the
   current `FLY_APP_NAME`, preserving terminal event writes on
   single-machine Fly apps.
+- ✅ Peer-controller dog-food deploy smoke — `quorum-staging` executed
+  a real Quorum API-gated `fly.deploy` into `quorum-prod`, with policy,
+  two votes, human approval, health checks, and terminal events verified.
 
 ## Phase 6 — Parallel operator agents ⬜
 
