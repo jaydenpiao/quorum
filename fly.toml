@@ -7,8 +7,9 @@
 # Per docs/design/fly-deployment.md: one machine per app (single-writer
 # EventLog + per-machine volume), region pinned, two http_checks
 # (liveness on /api/v1/health, readiness on /readiness). Prod opts out
-# of scale-to-zero via `fly scale count 1 --app quorum-prod` because
-# the operator console holds long-lived SSE connections.
+# of scale-to-zero via `fly machine update <machine-id> --app
+# quorum-prod --autostop=off --autostart --yes` because the operator
+# console holds long-lived SSE connections.
 #
 # Secrets (QUORUM_API_KEYS, QUORUM_GITHUB_APP_PRIVATE_KEY, DATABASE_URL)
 # are set via `fly secrets set ... --app <app>`, never here.
@@ -34,9 +35,11 @@ primary_region = "iad"
   internal_port = 8080
   force_https = true
   # Default is scale-to-zero (staging behavior). For prod:
-  #   fly scale count 1 --app quorum-prod
-  # This overrides min_machines_running and keeps the machine warm for
-  # SSE connections from the operator console.
+  #   fly machine update <machine-id> --app quorum-prod \
+  #     --autostop=off --autostart --yes
+  # This keeps the machine warm for SSE connections from the operator
+  # console. Use `--autostop=off`; `flyctl` parses `--autostop off` as
+  # an extra positional argument.
   auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 0
