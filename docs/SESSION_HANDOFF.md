@@ -18,7 +18,7 @@ authoritative state of the project.
   production container. Live flyctl smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 371 passing + 12 integration-gated (excluded from CI
+- **Test suite:** 376 passing + 12 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres or Fly.io, with additional env gates for destructive tests).
 - **Coverage:** 81% (gate floor: 60%).
@@ -29,13 +29,16 @@ authoritative state of the project.
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 72. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, and #72 live GitHub actuator Fly proof.
+- **Merged PR count:** 73. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, and #73 image-push evidence events.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
   `vol_4qly1wq329gwx56r`, prod: `vol_v8emwyn2gj70k11v`). The initial
   app-specific volumes were unattached and destroyed to avoid drift
-  from `fly.toml`.
+  from `fly.toml`. Image-push CI now has an optional best-effort
+  `POST /api/v1/image-pushes` notifier controlled by repo secrets
+  `QUORUM_IMAGE_PUSH_API_URL` and `QUORUM_IMAGE_PUSH_API_KEY`; deploy
+  the route to staging before relying on that notification.
 - **Neon operational state:** project `square-tree-95302760` in the
   `Jayden` org has prod branch `main` (`br-wild-dream-ajhrmye0`) and
   staging branch `quorum-staging` (`br-still-dust-aj7z7vra`), database
@@ -155,7 +158,7 @@ authoritative state of the project.
   single-machine Quorum app must deploy a peer app or run from an
   external runner; it must not replace the process that is responsible
   for appending terminal execution and health-check events.
-- **Event types dispatched:** 20 — `intent_created`, `finding_created`, `proposal_created`, `policy_evaluated`, `proposal_voted`, `proposal_approved`, `proposal_blocked`, `execution_started`, `execution_succeeded`, `execution_failed`, `health_check_completed`, `rollback_started`, `rollback_completed`, `rollback_impossible`, `human_approval_requested`, `human_approval_granted`, `human_approval_denied`. No Phase 5 event types — `fly.deploy` reuses the existing `proposal_created` / `execution_*` / `rollback_*` chain.
+- **Event types dispatched:** 18 — `intent_created`, `finding_created`, `proposal_created`, `policy_evaluated`, `proposal_voted`, `proposal_approved`, `proposal_blocked`, `execution_started`, `execution_succeeded`, `execution_failed`, `health_check_completed`, `rollback_started`, `rollback_completed`, `rollback_impossible`, `human_approval_requested`, `human_approval_granted`, `human_approval_denied`, `image_push_completed`. `fly.deploy` reuses the existing `proposal_created` / `execution_*` / `rollback_*` chain; `image_push_completed` is evidence only and never executes a deploy.
 
 ## Phase status
 
@@ -179,6 +182,11 @@ authoritative state of the project.
   - **Post-tag image supply** — image-push CI now publishes the same
     commit image to both `quorum-staging` and `quorum-prod` Fly
     Registry namespaces and records both digests in the job summary.
+  - **Post-tag image-push evidence** — image-push CI can optionally
+    post a signed `image_push_completed` evidence event into Quorum
+    once `QUORUM_IMAGE_PUSH_API_URL` and `QUORUM_IMAGE_PUSH_API_KEY`
+    repo secrets are set. The notifier is best-effort so bootstrap
+    runs stay green before staging carries the new route.
   - **Post-tag execution safety** — same-app `fly.deploy` is blocked
     when Fly exposes `FLY_APP_NAME`, preserving terminal event writes
     for single-machine apps.
@@ -376,18 +384,33 @@ harness under `.claude/`. Codex and other agents can ignore them.
     protected-environment human-approval gate. The canonical prod
     GitHub actuator proof is `proposal_53414b49eb06`, not the earlier
     non-protected smoke `proposal_1d5c2538f403`.
+29. **[Repo-wide]** The image-push evidence notifier is intentionally
+    best-effort. Until the image containing `POST /api/v1/image-pushes`
+    is actually deployed to staging, the workflow can warn instead of
+    appending `image_push_completed`. Do not treat a successful
+    image-push workflow as Quorum-ingested evidence unless staging's
+    event stream contains the event.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Turn deploy-agent evidence into the default dog-food loop
+### A — Deploy and prove image-push evidence ingestion
 
-The manual peer-controller deploy is proven. Next, make
-`deploy-llm-agent` consume the image-push evidence, propose staging
-first, wait for staging health evidence, then propose prod with the
-exact prod registry digest. Keep same-app deploys blocked and keep prod
-under 2 votes + human approval.
+Deploy the PR #73 image to `quorum-staging`, set
+`QUORUM_IMAGE_PUSH_API_URL` and `QUORUM_IMAGE_PUSH_API_KEY` repo
+secrets, rerun `image-push`, and verify staging records
+`image_push_completed` with both staging/prod Fly registry digests.
+Then run `deploy-llm-agent` against staging and confirm it proposes the
+staging deploy from that event.
 
-### B — Add opt-in live GitHub actuator integration coverage
+### B — Complete deploy-agent prod follow-up
+
+After the staging deploy proposed from `image_push_completed` reaches
+`execution_succeeded` with passing `health_check_completed` events, run
+`deploy-llm-agent` again and verify it proposes prod with the matching
+prod digest. Keep prod under 2 votes + human approval and preserve the
+same-app deploy guard.
+
+### C — Add opt-in live GitHub actuator integration coverage
 
 The fixture `github.comment_issue` path is proven manually on both Fly
 apps. Add skipped-by-default integration coverage gated by
@@ -397,14 +420,14 @@ with `rollback_comment_issue`, and verifies the comment disappears.
 Keep it out of default CI because it requires the GitHub App private
 key and mutates a live fixture repo.
 
-### C — Minor hardening worth batching into one PR
+### D — Minor hardening worth batching into one PR
 
 - Prometheus counters for the LLM adapter (design-doc §Observability): `quorum_llm_tokens_total{agent_id, model, kind}`, `quorum_llm_ticks_total{agent_id, outcome}`, `quorum_llm_proposals_created_total{agent_id, action_type}`. Needs the adapter process to run a Prometheus endpoint on a separate port.
 - System-prompt hash in `llm_call_completed` events for audit reproducibility (design-doc open question #4).
 - `demo_seed` optionally spawns the LLM adapter process (feature-flagged).
 - Richer context in `_log.warning("projector_status_update_for_missing_proposal", ...)`.
 
-### D — LLM adapter voter role
+### E — LLM adapter voter role
 
 Open question from `docs/design/llm-adapter.md`. Requires its own design pass first:
 - Per-action trust caps (e.g. vote on `github.add_labels` but not `github.open_pr`).

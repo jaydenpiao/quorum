@@ -59,6 +59,16 @@ def test_deploy_agent_prompt_file_exists() -> None:
     assert "fly.deploy" in text
 
 
+def test_deploy_agent_prompt_requires_image_push_evidence() -> None:
+    text = Path("apps/llm_agent/prompts/deploy-agent.md").read_text(encoding="utf-8")
+
+    assert "image_push_completed" in text
+    assert "staging_image_ref" in text
+    assert "prod_image_ref" in text
+    assert "propose staging first" in text
+    assert "prod waits for staging" in text
+
+
 def test_telemetry_agent_profile_still_loads() -> None:
     """Regression: the existing telemetry-llm-agent entry must keep working."""
     profile = load_agent_profile(_AGENTS_YAML, "telemetry-llm-agent")

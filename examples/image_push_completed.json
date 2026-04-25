@@ -1,0 +1,20 @@
+{
+  "id": "evt_example_image_push_completed",
+  "event_type": "image_push_completed",
+  "entity_type": "image_push",
+  "entity_id": "imgpush_example",
+  "payload": {
+    "id": "imgpush_example",
+    "commit_sha": "dddddddddddddddddddddddddddddddddddddddd",
+    "workflow_run_id": "24922064550",
+    "workflow_url": "https://github.com/jaydenpiao/quorum/actions/runs/24922064550",
+    "staging_image_ref": "registry.fly.io/quorum-staging@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "staging_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "prod_image_ref": "registry.fly.io/quorum-prod@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "prod_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "reported_by": "deploy-llm-agent",
+    "created_at": "2026-04-25T00:00:00Z"
+  },
+  "prev_hash": "previous_hash",
+  "hash": "event_hash"
+}

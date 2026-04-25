@@ -28,3 +28,15 @@ def test_image_push_records_staging_and_prod_digests() -> None:
     assert "registry.fly.io/quorum-prod:${{ github.sha }}" in text
     assert "staging digest" in text
     assert "prod digest" in text
+
+
+def test_image_push_optionally_posts_quorum_evidence() -> None:
+    text = _workflow_text()
+
+    assert "QUORUM_IMAGE_PUSH_API_URL" in text
+    assert "QUORUM_IMAGE_PUSH_API_KEY" in text
+    assert "/api/v1/image-pushes" in text
+    assert "image_push_completed" in text
+    assert "image_push_completed evidence post failed" in text
+    assert "staging_image_ref" in text
+    assert "prod_image_ref" in text

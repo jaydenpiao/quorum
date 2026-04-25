@@ -142,7 +142,82 @@ class Finding(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+_HEX = frozenset("0123456789abcdef")
+_SHA256_PREFIX = "sha256:"
+_SHA256_HEX_LEN = 64
 _UNSAFE_URL_CHARS = frozenset(";`$\n\r\t ")
+
+
+def _validate_digest(value: str, *, field_name: str) -> str:
+    if not value.startswith(_SHA256_PREFIX):
+        raise ValueError(f"{field_name} must start with '{_SHA256_PREFIX}'")
+    hex_part = value[len(_SHA256_PREFIX) :]
+    if len(hex_part) != _SHA256_HEX_LEN:
+        raise ValueError(f"{field_name} hex part must be {_SHA256_HEX_LEN} chars")
+    if any(c not in _HEX for c in hex_part):
+        raise ValueError(f"{field_name} hex part must be lowercase hex")
+    return value
+
+
+def _validate_image_ref(value: str, *, app: str, digest: str, field_name: str) -> str:
+    expected = f"registry.fly.io/{app}@{digest}"
+    if value != expected:
+        raise ValueError(f"{field_name} must equal {expected!r}")
+    return value
+
+
+class ImagePushCreate(BaseModel):
+    """Authenticated report from image-push CI after both Fly tags exist."""
+
+    model_config = STRICT_INPUT
+
+    commit_sha: str = Field(min_length=7, max_length=64)
+    workflow_run_id: str = Field(min_length=1, max_length=128)
+    workflow_url: str = Field(min_length=1, max_length=512)
+    staging_image_ref: str = Field(min_length=1, max_length=256)
+    staging_digest: str = Field(min_length=len(_SHA256_PREFIX) + _SHA256_HEX_LEN)
+    prod_image_ref: str = Field(min_length=1, max_length=256)
+    prod_digest: str = Field(min_length=len(_SHA256_PREFIX) + _SHA256_HEX_LEN)
+
+    @model_validator(mode="after")
+    def _validate_fields(self) -> "ImagePushCreate":
+        if any(c not in _HEX for c in self.commit_sha):
+            raise ValueError("commit_sha must be lowercase hex")
+        if not (
+            self.workflow_url.startswith("https://") or self.workflow_url.startswith("http://")
+        ):
+            raise ValueError("workflow_url must use http:// or https://")
+        if any(c in _UNSAFE_URL_CHARS for c in self.workflow_url):
+            raise ValueError("workflow_url contains unsafe characters")
+
+        staging_digest = _validate_digest(self.staging_digest, field_name="staging_digest")
+        prod_digest = _validate_digest(self.prod_digest, field_name="prod_digest")
+        _validate_image_ref(
+            self.staging_image_ref,
+            app="quorum-staging",
+            digest=staging_digest,
+            field_name="staging_image_ref",
+        )
+        _validate_image_ref(
+            self.prod_image_ref,
+            app="quorum-prod",
+            digest=prod_digest,
+            field_name="prod_image_ref",
+        )
+        return self
+
+
+class ImagePushRecord(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("imgpush"))
+    commit_sha: str
+    workflow_run_id: str
+    workflow_url: str
+    staging_image_ref: str
+    staging_digest: str
+    prod_image_ref: str
+    prod_digest: str
+    reported_by: str
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class HealthCheckSpec(BaseModel):

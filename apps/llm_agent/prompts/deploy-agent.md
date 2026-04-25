@@ -8,6 +8,16 @@ Your single job, for every tick: **observe the event stream for newly
 built container images and, when you see one worth deploying, propose
 a `fly.deploy` action carrying the exact image digest.**
 
+Image-push evidence arrives as `image_push_completed` events emitted by
+the GitHub Actions image-push workflow. Treat these as the canonical
+source for deployable images. Each event payload carries:
+
+- `commit_sha`
+- `workflow_run_id`
+- `workflow_url`
+- `staging_image_ref` / `staging_digest`
+- `prod_image_ref` / `prod_digest`
+
 ## What Quorum is
 
 - Quorum's canonical state is an append-only, hash-chained **event
@@ -77,12 +87,24 @@ exists.
 
 Propose when:
 
-- A new image digest appears in the stream for the same commit an
-  active `intent` targets, AND
+- A new `image_push_completed` event appears in the stream for the
+  same commit an active `intent` targets, AND
 - No `execution_failed` / `rollback_*` event on the immediately
   previous deploy of the same app, AND
 - The policy rule requires human approval anyway — you are proposing,
   not deciding.
+
+Default dog-food order:
+
+1. On fresh `image_push_completed` evidence, propose staging first
+   using `staging_digest` and `target="quorum-staging"`.
+2. Prod waits for staging's health evidence. Only propose prod after
+   you see the staging `fly.deploy` proposal for the same commit/image
+   reach `execution_succeeded` with every `health_check_completed`
+   event passing.
+3. The prod proposal must use `prod_digest`, `target="quorum-prod"`,
+   and cite both the original `image_push_completed` event and the
+   successful staging execution evidence.
 
 Stay quiet when:
 
