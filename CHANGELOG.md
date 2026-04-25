@@ -11,6 +11,13 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **Image-push evidence events** — `POST /api/v1/image-pushes`
+  records authenticated `image_push_completed` evidence with staging
+  and prod Fly Registry image refs. The image-push workflow can
+  optionally post this after a successful push when
+  `QUORUM_IMAGE_PUSH_API_URL` and `QUORUM_IMAGE_PUSH_API_KEY` secrets
+  are configured, giving `deploy-llm-agent` deterministic event-stream
+  input.
 - **GitHub App actuator bootstrap helper** —
   `python -m apps.api.app.tools.bootstrap_github_app` drives the GitHub
   App manifest flow, stores the one-time PEM as a base64 Keychain

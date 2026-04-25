@@ -205,13 +205,19 @@ itself**. Flow:
    `registry.fly.io/quorum-staging` and `registry.fly.io/quorum-prod`.
    The workflow records both content-addressed digests in the job
    summary so staging and prod deploy proposals can cite separate
-   registry evidence. (This is the only new GitHub Actions workflow
-   landing in Phase 5 — call it `.github/workflows/image-push.yml`.)
+   registry evidence. When `QUORUM_IMAGE_PUSH_API_URL` and
+   `QUORUM_IMAGE_PUSH_API_KEY` repo secrets are configured, the
+   workflow also posts `image_push_completed` to Quorum with both Fly
+   Registry image refs. This notification is best-effort so a
+   temporarily unavailable Quorum API does not block the image supply
+   path. (This is the only new GitHub Actions workflow landing in
+   Phase 5 — call it `.github/workflows/image-push.yml`.)
 2. A new LLM role — `deploy-agent` — subscribes to the event stream,
-   watches for successful image pushes (either via the CI workflow
-   emitting an event on completion or by scanning the registry), and
-   creates an intent + proposal with `action_type=fly.deploy` and a
-   payload carrying the image digest.
+   watches for `image_push_completed`, and creates a proposal with
+   `action_type=fly.deploy` and a payload carrying the exact digest.
+   The default order is staging first; prod waits until the stream
+   contains a successful staging `fly.deploy` execution with passing
+   health checks for the same image.
 3. `code-agent` (and any other voters) vote via the existing quorum
    engine. Policy rule `fly.deploy` requires **2 votes + explicit human
    approval** via the Phase 4 human-approval entity (PR #47). This is a

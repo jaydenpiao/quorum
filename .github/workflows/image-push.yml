@@ -35,6 +35,8 @@ jobs:
     # job-level conditions — push through env.
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      QUORUM_IMAGE_PUSH_API_URL: ${{ secrets.QUORUM_IMAGE_PUSH_API_URL }}
+      QUORUM_IMAGE_PUSH_API_KEY: ${{ secrets.QUORUM_IMAGE_PUSH_API_KEY }}
     steps:
       - name: Check for Fly API token
         id: gate
@@ -93,3 +95,46 @@ jobs:
           echo "- staging digest: \`${STAGING_DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- prod tag:       \`registry.fly.io/quorum-prod:${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- prod digest:    \`${PROD_DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "STAGING_DIGEST=${STAGING_DIGEST}" >> "$GITHUB_ENV"
+          echo "PROD_DIGEST=${PROD_DIGEST}" >> "$GITHUB_ENV"
+
+      - name: Notify Quorum image-push evidence
+        if: steps.gate.outputs.has_token == 'true' && env.QUORUM_IMAGE_PUSH_API_URL != '' && env.QUORUM_IMAGE_PUSH_API_KEY != ''
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          base_url = os.environ["QUORUM_IMAGE_PUSH_API_URL"].rstrip("/")
+          payload = {
+              "commit_sha": os.environ["COMMIT_SHA"],
+              "workflow_run_id": os.environ["WORKFLOW_RUN_ID"],
+              "workflow_url": os.environ["WORKFLOW_URL"],
+              "staging_image_ref": f"registry.fly.io/quorum-staging@{os.environ['STAGING_DIGEST']}",
+              "staging_digest": os.environ["STAGING_DIGEST"],
+              "prod_image_ref": f"registry.fly.io/quorum-prod@{os.environ['PROD_DIGEST']}",
+              "prod_digest": os.environ["PROD_DIGEST"],
+          }
+          request = urllib.request.Request(
+              f"{base_url}/api/v1/image-pushes",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Accept": "application/json",
+                  "Authorization": f"Bearer {os.environ['QUORUM_IMAGE_PUSH_API_KEY']}",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  response.read()
+          except Exception as exc:
+              print(f"::warning::image_push_completed evidence post failed: {type(exc).__name__}")
+          else:
+              print("image_push_completed evidence posted to Quorum")
+          PY

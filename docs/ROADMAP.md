@@ -100,7 +100,8 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
   content-addressed push to both
   `registry.fly.io/quorum-staging:<sha>` and
   `registry.fly.io/quorum-prod:<sha>` on merge to `main`, gated on
-  `FLY_API_TOKEN`.
+  `FLY_API_TOKEN`, with optional Quorum `image_push_completed`
+  evidence notification for `deploy-llm-agent`.
 - ✅ Dockerfile runtime hardening — pinned `python:3.12-slim`
   linux/amd64 digest, pinned `uv`, and checksummed `flyctl` binary
   copied into the runtime image as `/usr/local/bin/fly`.

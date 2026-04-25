@@ -24,6 +24,7 @@ class StateStore:
         # ``HumanApprovalOutcome`` payloads; see apply() + the helper
         # ``proposal_has_granted_approval`` below.
         self.human_approvals: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        self.image_pushes: dict[str, dict[str, Any]] = {}
         self.events: list[dict[str, Any]] = []
 
     def replay(self, events: list[EventEnvelope]) -> None:
@@ -111,6 +112,9 @@ class StateStore:
                     ProposalStatus.approval_denied.value
                 )
 
+        elif event.event_type == "image_push_completed":
+            self.image_pushes[event.entity_id] = payload
+
     def snapshot(self) -> dict[str, Any]:
         return {
             "intents": list(self.intents.values()),
@@ -122,6 +126,7 @@ class StateStore:
             "rollbacks": self.rollbacks,
             "health_check_results": self.health_check_results,
             "human_approvals": self.human_approvals,
+            "image_pushes": list(self.image_pushes.values()),
             "event_count": len(self.events),
         }
 

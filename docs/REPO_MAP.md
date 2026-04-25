@@ -141,6 +141,8 @@ Last refreshed at v0.5.0-alpha.1.
 - `examples/sample_proposal.json` — sample proposal payload
 - `examples/rollback_impossible_event.json` — example of the terminal
   rollback-impossible event shape
+- `examples/image_push_completed.json` — example image-push evidence
+  event consumed by the deploy-agent flow
 
 ## Docs
 
@@ -178,7 +180,10 @@ files:
 - `tests/test_dockerfile_runtime.py` — container runtime pinning
   checks for Python base image, `uv`, and `flyctl`
 - `tests/test_image_push_workflow.py` — image-push workflow checks
-  for staging/prod registry tags and digest summaries
+  for staging/prod registry tags, digest summaries, and optional
+  Quorum evidence notification
+- `tests/test_image_push_evidence.py` — authenticated
+  `image_push_completed` route + reducer coverage
 - `tests/test_readiness.py` — Phase 5 readiness probe
 - `tests/test_human_approval.py` — human-approval flow
 - `tests/test_sse_stream.py` — SSE route wiring

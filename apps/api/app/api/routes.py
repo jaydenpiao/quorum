@@ -17,6 +17,8 @@ from apps.api.app.domain.models import (
     FindingCreate,
     HumanApprovalOutcome,
     HumanApprovalRequest,
+    ImagePushCreate,
+    ImagePushRecord,
     Intent,
     IntentCreate,
     Proposal,
@@ -191,6 +193,31 @@ def create_intent(
     request.app.state.event_log.append(event)
     refresh_state(request)
     return intent.model_dump(mode="json")
+
+
+@router.post("/image-pushes")
+def record_image_push(
+    payload: ImagePushCreate,
+    request: Request,
+    agent_id: str = Depends(require_agent),
+) -> dict[str, Any]:
+    """Record CI image-push evidence for deploy-agent consumption.
+
+    This is evidence only. It does not execute a deploy, vote, or
+    approve anything; deploys still flow through `fly.deploy` proposals.
+    """
+
+    record = ImagePushRecord(**payload.model_dump(), reported_by=agent_id)
+    request.app.state.event_log.append(
+        EventEnvelope(
+            event_type="image_push_completed",
+            entity_type="image_push",
+            entity_id=record.id,
+            payload=record.model_dump(mode="json"),
+        )
+    )
+    refresh_state(request)
+    return record.model_dump(mode="json")
 
 
 @router.post("/findings")

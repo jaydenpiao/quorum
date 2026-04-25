@@ -121,6 +121,8 @@ Public (no auth):
 
 Auth-required (all mutating `POST` routes):
 - `POST /api/v1/intents`
+- `POST /api/v1/image-pushes` — CI evidence endpoint that appends
+  `image_push_completed`; it does not deploy anything.
 - `POST /api/v1/findings`
 - `POST /api/v1/proposals`
 - `POST /api/v1/votes`
@@ -256,6 +258,22 @@ sequenceDiagram
     X->>L: execution_failed
 ```
 
+Image-push CI can also append deploy evidence without mutating runtime
+state:
+
+```mermaid
+sequenceDiagram
+    participant CI as GitHub Actions image-push
+    participant API as Quorum API
+    participant L as EventLog
+    participant D as deploy-llm-agent
+
+    CI->>API: POST /api/v1/image-pushes
+    API->>L: image_push_completed
+    D->>API: read /api/v1/events
+    D->>API: create fly.deploy proposal for staging first
+```
+
 Rollback has two terminal variants:
 
 - `rollback_completed` — steps were applied (text-only path) or the
@@ -306,6 +324,21 @@ responsible for appending `health_check_completed` and
 external runner instead.
 
 See `docs/design/fly-deployment.md` for the full design.
+
+### Image-push evidence
+
+`image_push_completed` is a non-execution event emitted by
+`POST /api/v1/image-pushes`, normally from the GitHub Actions
+image-push workflow after both Fly Registry tags have been pushed. The
+payload carries `commit_sha`, `workflow_run_id`, `workflow_url`,
+`staging_image_ref` / `staging_digest`, and
+`prod_image_ref` / `prod_digest`. The API stamps `reported_by` from
+the bearer token.
+
+This event is intentionally only evidence. It gives
+`deploy-llm-agent` something deterministic to consume, but deploys
+still require a `fly.deploy` proposal, policy evaluation, quorum
+votes, and human approval for prod.
 
 ### GitHub actuator (`github.*`)
 

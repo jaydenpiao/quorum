@@ -474,6 +474,10 @@ def _handle_human_approval_denied(session: Session, event: EventEnvelope) -> Non
     _update_proposal_status(session, event.payload["proposal_id"], "approval_denied")
 
 
+def _handle_image_push_completed(session: Session, event: EventEnvelope) -> None:
+    """No dedicated table yet; the envelope in events_projected is sufficient."""
+
+
 _ENTITY_HANDLERS = {
     "intent_created": _handle_intent_created,
     "finding_created": _handle_finding_created,
@@ -492,4 +496,5 @@ _ENTITY_HANDLERS = {
     "human_approval_requested": _handle_human_approval_requested,
     "human_approval_granted": _handle_human_approval_granted,
     "human_approval_denied": _handle_human_approval_denied,
+    "image_push_completed": _handle_image_push_completed,
 }
