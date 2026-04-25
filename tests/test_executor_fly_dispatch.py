@@ -164,6 +164,31 @@ def test_fly_unknown_action_fails_cleanly(event_log: EventLog, policy: PolicyEng
     assert "fly.deploy" in result["detail"]  # enumerates supported
 
 
+def test_fly_deploy_refuses_same_app_self_deploy(
+    monkeypatch: pytest.MonkeyPatch,
+    event_log: EventLog,
+    policy: PolicyEngine,
+) -> None:
+    monkeypatch.setenv("FLY_APP_NAME", "quorum-staging")
+    fly = _StubFlyClient(
+        releases_response=[{"ImageRef": {"Digest": "sha256:" + "b" * 64}}],
+        deploy_response={"ReleaseId": "rel_xyz"},
+    )
+    executor = Executor(event_log, policy, fly_client=fly)  # type: ignore[arg-type]
+
+    result = executor.execute(_deploy_proposal(app="quorum-staging"), actor_id="operator")
+
+    assert result["status"] == "failed"
+    assert "refusing same-app fly.deploy" in result["detail"]
+    assert fly.deploy_calls == []
+
+    events = event_log.read_all()
+    event_types = [e.event_type for e in events]
+    assert "execution_started" in event_types
+    assert "execution_failed" in event_types
+    assert "execution_succeeded" not in event_types
+
+
 # ---------------------------------------------------------------------------
 # Rollback paths
 # ---------------------------------------------------------------------------

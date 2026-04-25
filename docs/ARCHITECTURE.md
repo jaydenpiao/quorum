@@ -298,6 +298,13 @@ captured at forward-deploy time. If no previous digest was captured
 `rollback_impossible` and the proposal lands in
 `ProposalStatus.rollback_impossible`.
 
+Same-app deploys are refused before release lookup or mutation when
+the runtime exposes `FLY_APP_NAME` equal to `FlyDeploySpec.app`. A
+single-machine Fly app must not replace the process currently
+responsible for appending `health_check_completed` and
+`execution_succeeded`; run deploys from another Quorum app or an
+external runner instead.
+
 See `docs/design/fly-deployment.md` for the full design.
 
 ### GitHub actuator (`github.*`)
