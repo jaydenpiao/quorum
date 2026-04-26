@@ -234,6 +234,21 @@ def test_tick_records_actual_input_tokens(
     assert budget.status().daily_used == 5678
 
 
+def test_user_content_includes_control_plane_context() -> None:
+    content = loop_module._build_user_content(
+        cursor="evt_0",
+        events=_events("evt_1"),
+        control_plane_fly_app="quorum-staging",
+    )
+
+    payload = json.loads(content)
+    assert payload["control_plane"] == {
+        "fly_app": "quorum-staging",
+        "same_app_fly_deploy_allowed": False,
+    }
+    assert payload["events"] == _events("evt_1")
+
+
 def test_llm_call_completed_logs_system_prompt_sha256(
     monkeypatch: pytest.MonkeyPatch,
     budget: LlmBudget,

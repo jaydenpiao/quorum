@@ -103,7 +103,11 @@ def run_tick(
         )
         return TickOutcome(events_seen=0, cursor=cursor)
 
-    user_content = _build_user_content(cursor, events)
+    user_content = _build_user_content(
+        cursor,
+        events,
+        control_plane_fly_app=quorum.control_plane_fly_app,
+    )
 
     # Pre-flight the budget with a conservative estimate. The actual
     # token count from response.usage feeds record_tick() after the
@@ -260,7 +264,12 @@ def _persist_cursor(path: Path, cursor: str | None) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _build_user_content(cursor: str | None, events: list[dict[str, Any]]) -> str:
+def _build_user_content(
+    cursor: str | None,
+    events: list[dict[str, Any]],
+    *,
+    control_plane_fly_app: str | None = None,
+) -> str:
     """Deterministic JSON blob for the per-tick user message.
 
     Stable key order + compact separators so repeated ticks with the
@@ -268,7 +277,14 @@ def _build_user_content(cursor: str | None, events: list[dict[str, Any]]) -> str
     cares about.
     """
     return json.dumps(
-        {"cursor_from": cursor, "events": events},
+        {
+            "control_plane": {
+                "fly_app": control_plane_fly_app,
+                "same_app_fly_deploy_allowed": False if control_plane_fly_app else None,
+            },
+            "cursor_from": cursor,
+            "events": events,
+        },
         sort_keys=True,
         separators=(",", ":"),
     )

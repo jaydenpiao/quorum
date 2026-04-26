@@ -113,6 +113,10 @@ Branch protection on `main` currently requires **5 checks**: `lint + format + te
 - ✅ Peer-controller dog-food deploy smoke — `quorum-staging` executed
   a real Quorum API-gated `fly.deploy` into `quorum-prod`, with policy,
   two votes, human approval, health checks, and terminal events verified.
+- ✅ Deploy-agent same-control-plane proposal guard — the standalone
+  LLM adapter includes control-plane Fly app context in each tick and
+  refuses LLM-authored `fly.deploy` proposals targeting that same app
+  before they reach the API.
 - ✅ Neon projection enabled on Fly — staging uses a Neon branch,
   prod uses the Neon main branch, both are migrated to Alembic head,
   and staging's Postgres-backed history endpoints are live.

@@ -125,9 +125,11 @@ Last refreshed at v0.5.0-alpha.1.
 - `apps/llm_agent/budget.py` — per-tick + daily input-token caps
   with atomic JSON checkpoints under `data/llm_usage/`
 - `apps/llm_agent/tools.py` — `create_finding` + `create_proposal`
-  tool schemas + dispatcher
+  tool schemas + dispatcher, including the deploy-agent same-control-
+  plane `fly.deploy` proposal guard
 - `apps/llm_agent/quorum_api.py` — httpx client authenticated as the
-  configured agent
+  configured agent; infers the control-plane Fly app from `*.fly.dev`
+  URLs or `QUORUM_LLM_CONTROL_PLANE_FLY_APP`
 - `apps/llm_agent/prompts/telemetry-agent.md` — telemetry role prompt
 - `apps/llm_agent/prompts/deploy-agent.md` — Phase 5 deploy-agent role
 

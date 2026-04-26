@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 from types import TracebackType
 from typing import Any, cast
+from urllib.parse import urlparse
 
 import httpx
 
@@ -41,6 +42,7 @@ class QuorumApiClient:
         base_url: str,
         agent_id: str,
         api_key: str | None = None,
+        control_plane_fly_app: str | None = None,
         http_client: httpx.Client | None = None,
     ) -> None:
         if not base_url:
@@ -50,6 +52,11 @@ class QuorumApiClient:
         self._base_url = base_url.rstrip("/")
         self._agent_id = agent_id
         self._api_key = api_key or _resolve_api_key_from_env(agent_id)
+        self._control_plane_fly_app = (
+            _clean_app_name(control_plane_fly_app)
+            or _clean_app_name(os.environ.get("QUORUM_LLM_CONTROL_PLANE_FLY_APP"))
+            or _infer_fly_app_from_url(self._base_url)
+        )
         self._owns_http = http_client is None
         self._http = http_client or httpx.Client(
             timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=10.0),
@@ -60,6 +67,11 @@ class QuorumApiClient:
     @property
     def agent_id(self) -> str:
         return self._agent_id
+
+    @property
+    def control_plane_fly_app(self) -> str | None:
+        """Fly app serving the Quorum API, when the adapter can know it."""
+        return self._control_plane_fly_app
 
     def list_events(self, *, since_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         """Return events from the control plane.
@@ -166,6 +178,21 @@ def _resolve_api_key_from_env(agent_id: str) -> str:
         f"QUORUM_API_KEYS has no entry for agent_id={agent_id!r}; "
         "add '<agent_id>:<plaintext>' to the comma-separated list"
     )
+
+
+def _clean_app_name(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
+def _infer_fly_app_from_url(base_url: str) -> str | None:
+    host = urlparse(base_url).hostname or ""
+    if host.endswith(".fly.dev"):
+        app = host[: -len(".fly.dev")]
+        return _clean_app_name(app)
+    return None
 
 
 def _extract_message(response: httpx.Response) -> str:

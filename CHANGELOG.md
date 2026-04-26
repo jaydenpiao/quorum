@@ -11,6 +11,12 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **LLM deploy-agent same-app proposal guard** — the adapter now
+  infers the Quorum API control-plane Fly app from `*.fly.dev` URLs
+  (or `QUORUM_LLM_CONTROL_PLANE_FLY_APP` for internal URLs), includes
+  that context in each tick, and refuses LLM-authored `fly.deploy`
+  proposals targeting the same control-plane app before they reach the
+  API.
 - **LLM adapter Prometheus metrics** — the standalone adapter now
   records token, tick-outcome, and proposal-created counters via
   `apps/llm_agent/metrics.py`. Operators can expose them on a

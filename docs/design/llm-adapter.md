@@ -131,7 +131,9 @@ Every tick:
    the new events include no events the agent is configured to react
    to (scope filter), skip. This keeps idle cost at zero.
 3. **Build a request.** System prompt + last-N events as a compact
-   JSON array in the user message. Tools are `create_finding` and
+   JSON object in the user message. The payload also includes
+   non-secret `control_plane` metadata so deployment prompts know which
+   Fly app is serving the Quorum API. Tools are `create_finding` and
    `create_proposal` (see below).
 4. **Call Claude.** Stream or block; for v1 block. Enforce
    `per_tick_token_cap` on the input side; the SDK errors if output
@@ -211,6 +213,13 @@ Tool-input validation matches the Quorum DTOs exactly (same pydantic
 constraints, pydantic-derived JSON Schema if possible — open question
 on the right library to do that cleanly).
 
+**Deploy-agent same-app proposal guard.** `QuorumApiClient` infers the
+control-plane Fly app from `https://<app>.fly.dev` or
+`QUORUM_LLM_CONTROL_PLANE_FLY_APP`. When the deploy-agent attempts a
+`fly.deploy` proposal targeting that same app, the dispatcher returns
+`ok=False` before POSTing to Quorum. This keeps LLM-authored deploy
+proposals aligned with the executor's same-app Fly deploy invariant.
+
 ## Prompt architecture
 
 Prompt caching is critical for cost. Claude's cache bills ~10% of
@@ -228,6 +237,7 @@ costs.
 
 [user]        ← per-tick; NOT cached
   - cursor: "events since evt_abc123"
+  - control_plane: known Fly app + same-app deploy allowance
   - events: [...]
   - ask: "emit zero or more tool calls"
 ```

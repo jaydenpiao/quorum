@@ -382,6 +382,17 @@ def _dispatch_create_proposal(
             ),
         )
 
+    same_app_detail = _same_control_plane_fly_deploy_detail(
+        tool_input, quorum.control_plane_fly_app
+    )
+    if same_app_detail is not None:
+        return ToolDispatchResult(
+            tool_name="create_proposal",
+            tool_use_id=tool_use_id,
+            ok=False,
+            detail=same_app_detail,
+        )
+
     try:
         response = quorum.create_proposal(tool_input)
     except QuorumApiError as exc:
@@ -424,6 +435,25 @@ def _proposal_id_from_response(response: dict[str, Any]) -> str | None:
         if isinstance(nested_id, str) and nested_id:
             return nested_id
     return None
+
+
+def _same_control_plane_fly_deploy_detail(
+    tool_input: dict[str, Any],
+    control_plane_fly_app: str | None,
+) -> str | None:
+    if tool_input.get("action_type") != "fly.deploy" or not control_plane_fly_app:
+        return None
+    payload = tool_input.get("payload")
+    if not isinstance(payload, dict):
+        return None
+    target_app = payload.get("app")
+    if target_app != control_plane_fly_app:
+        return None
+    return (
+        f"refusing fly.deploy proposal for same control-plane app {target_app!r}; "
+        "create a finding or use a peer/external executor so terminal execution "
+        "events can be written after the target machine is replaced"
+    )
 
 
 _HANDLERS: dict[str, _Handler] = {
