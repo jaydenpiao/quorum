@@ -30,7 +30,7 @@ authoritative state of the project.
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 83. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, and #83 handoff refresh for the live guard proof.
+- **Merged PR count:** 85. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, and #85 final handoff refresh.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -40,7 +40,10 @@ authoritative state of the project.
   `POST /api/v1/image-pushes` notifier controlled by repo secrets
   `QUORUM_IMAGE_PUSH_API_URL` and `QUORUM_IMAGE_PUSH_API_KEY`; those
   secrets point at `https://quorum-staging.fly.dev` and the staging
-  `deploy-agent` API key.
+  `deploy-agent` API key. PR #84 adds `paths-ignore` so future
+  Markdown/docs-only pushes do not build images or post
+  `image_push_completed` evidence; mixed code+docs pushes and manual
+  `workflow_dispatch` still build.
 - **Neon operational state:** project `square-tree-95302760` in the
   `Jayden` org has prod branch `main` (`br-wild-dream-ajhrmye0`) and
   staging branch `quorum-staging` (`br-still-dust-aj7z7vra`), database
@@ -92,11 +95,11 @@ authoritative state of the project.
   `DATABASE_URL`, `quorum-staging` reconciled 13 existing events from
   JSONL into Neon with zero errors, then accepted a live smoke intent
   `intent_ca2cf96dfc15`. Current staging event verification reports
-  `event_count=83` and
-  `last_hash=33817f8274654d29c7d67d206d865fb63d83eec1c01409dba833fbfbcb4bab74`.
+  `event_count=85` and
+  `last_hash=000348c873914c4990136d7bb20f4813a66e451d808ceeb6a374473a730fabf7`.
   Reduced state counts are `intents=11`, `findings=1`,
   `proposals=8`, `votes=10`, `executions=5`, and
-  `image_pushes=10`.
+  `image_pushes=12`.
 - **Image-push evidence proof:** workflow run
   `24925601409` posted `image_push_completed` into staging as
   `evt_fd0e051dca4b` / `imgpush_2e6a1c26fdd3`, reported by
@@ -177,6 +180,17 @@ authoritative state of the project.
   and did not create a `fly.deploy` proposal. Staging
   `/api/v1/events/verify` returned `event_count=83` and
   `last_hash=33817f8274654d29c7d67d206d865fb63d83eec1c01409dba833fbfbcb4bab74`.
+- **Final image-push evidence before docs-only skip:** PR #83's
+  docs-only handoff merge still triggered image-push run
+  `24952112311`, then PR #84's workflow change triggered image-push
+  run `24952195664`. The latter posted
+  `evt_6394c585ff8e` / `imgpush_35d69d877e3c` for commit
+  `d2a7384b34daedc55000f38f88897c30d7965cca` with staging/prod
+  digest
+  `sha256:06c5de817374255b6bc8f876b14381c0ec67c158b3dc65271f5ff236f2c1d3d6`.
+  This is expected to be the last docs-adjacent image-push noise,
+  because PR #84's `paths-ignore` is active for future docs-only
+  merges.
 - **Prod deployment state:** `quorum-prod` is running Fly release v7,
   which reports platform image ref
   `registry.fly.io/quorum-prod@sha256:4cecb6bebf72e0c0fa75fc347854c1196947b7b07de25ee63c475d3265ee8828`.
