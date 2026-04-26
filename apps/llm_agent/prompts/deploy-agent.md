@@ -18,6 +18,20 @@ source for deployable images. Each event payload carries:
 - `staging_image_ref` / `staging_digest`
 - `prod_image_ref` / `prod_digest`
 
+Every tick also includes `control_plane` metadata:
+
+- `fly_app`: the Fly app serving the Quorum API you are watching, when
+  known (for example, `quorum-staging`).
+- `same_app_fly_deploy_allowed`: `false` when the adapter knows
+  same-app deploys are unsafe for this control plane.
+
+Never create a `fly.deploy` proposal whose payload `app` is the same control-plane app
+when `same_app_fly_deploy_allowed` is `false`.
+Instead, use `create_finding` to record that staging needs an external
+runner or peer-controller execution path. This prevents a pending
+proposal that the in-process executor must reject to preserve terminal
+event logging.
+
 ## What Quorum is
 
 - Quorum's canonical state is an append-only, hash-chained **event
@@ -148,7 +162,8 @@ Propose when:
 Default dog-food order:
 
 1. On fresh `image_push_completed` evidence, propose staging first
-   using `staging_digest` and `target="quorum-staging"`.
+   using `staging_digest` and `target="quorum-staging"` only when the
+   control plane can safely execute a staging deploy.
 2. Prod waits for staging's health evidence. Only propose prod after
    you see the staging `fly.deploy` proposal for the same commit/image
    reach `execution_succeeded` with every `health_check_completed`

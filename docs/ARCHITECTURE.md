@@ -329,6 +329,11 @@ responsible for appending `health_check_completed` and
 `execution_succeeded`; run deploys from another Quorum app or an
 external runner instead.
 
+The standalone deploy LLM adapter mirrors that invariant before it
+posts proposals: when it can identify the Quorum API's control-plane
+Fly app, it refuses LLM-authored `fly.deploy` proposals targeting that
+same app and records the failed tool dispatch outside the event log.
+
 See `docs/design/fly-deployment.md` for the full design.
 
 ### Image-push evidence

@@ -18,11 +18,11 @@ authoritative state of the project.
   production container. Live flyctl smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 392 passing + 13 integration-gated (excluded from CI
+- **Test suite:** 398 passing + 13 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres, Fly.io, or GitHub, with additional env gates for destructive
   tests).
-- **Coverage:** 81% (gate floor: 60%).
+- **Coverage:** 82% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 49 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
 - **pip-audit note:** CI temporarily ignores `CVE-2026-3219` because
@@ -30,7 +30,7 @@ authoritative state of the project.
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 81. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, and #81 LLM adapter Prometheus metrics.
+- **Merged PR count:** 82. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, and #82 deploy-agent same-control-plane proposal guard.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -152,6 +152,15 @@ authoritative state of the project.
   execution was claimed or attempted; this same-app staging proposal
   should remain pending unless a separate external/peer executor plan
   is intentionally run.
+- **Deploy-agent same-control-plane guard:** the LLM adapter now
+  includes non-secret `control_plane` metadata in every tick. It infers
+  the Quorum API's Fly app from `https://<app>.fly.dev`, or from
+  `QUORUM_LLM_CONTROL_PLANE_FLY_APP` for internal URLs, and rejects
+  LLM-authored `fly.deploy` proposals whose payload targets that same
+  app before POSTing to `/api/v1/proposals`. In practice, an adapter
+  pointed at `https://quorum-staging.fly.dev` must create a finding
+  instead of another same-app staging deploy proposal until a real
+  external executor exists.
 - **Prod deployment state:** `quorum-prod` is running Fly release v7,
   which reports platform image ref
   `registry.fly.io/quorum-prod@sha256:4cecb6bebf72e0c0fa75fc347854c1196947b7b07de25ee63c475d3265ee8828`.
@@ -504,7 +513,9 @@ harness under `.claude/`. Codex and other agents can ignore them.
     empty `health_checks`. Before approving any LLM-authored deploy
     proposal, verify it includes the target app's `/readiness` and
     `/api/v1/health` checks. Same-app staging proposals should still
-    remain pending unless run from a proven external or peer executor.
+    remain pending unless run from a proven external or peer executor;
+    new deploy-agent ticks pointed at `https://quorum-staging.fly.dev`
+    are guarded from posting those same-app proposals.
 32. **[Repo-wide]** New `fly.deploy` proposals without
     `health_checks` are rejected before the event log is mutated, and
     the executor refuses historical empty-check Fly deploys before
@@ -514,21 +525,26 @@ harness under `.claude/`. Codex and other agents can ignore them.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Design and prove safe execution for LLM-authored deploy proposals
+### A — Prove LLM-authored prod deploy proposals through the peer controller
 
-`deploy-llm-agent` now creates health-checked `fly.deploy` proposals.
-The next operator-value step is deciding how those proposals should be
-executed safely:
+`deploy-llm-agent` now creates health-checked `fly.deploy` proposals
+and refuses same-control-plane deploy proposals before posting them to
+Quorum. The next operator-value step is proving the LLM-authored prod
+path through the supported peer-controller shape:
 
-- External runner path: vote/approve/execute `proposal_7e096a4d63fe`
-  from outside Fly so the same-app guard does not apply, then verify
-  terminal execution + health-check events survive the staging deploy.
-- Peer-controller path: have one Quorum app deploy the other, then
-  teach the deploy-agent evidence flow to propose staging first, wait
-  for staging health evidence, and only then propose prod.
+- Seed or wait for fresh `image_push_completed` evidence.
+- Make sure staging health evidence exists for the same image digest.
+- Run `deploy-llm-agent` against `https://quorum-staging.fly.dev` and
+  verify it proposes `target="quorum-prod"` only after citing the
+  staging evidence.
+- Vote, approve, execute through the staging Quorum API, then verify
+  prod `/readiness`, `/api/v1/health`, and staging event-chain
+  terminal events.
 
-Do not execute a same-app staging proposal from inside the
-`quorum-staging` Fly process.
+Do not execute `proposal_7e096a4d63fe` from inside
+`quorum-staging`; it remains the historical same-app proposal proof.
+If a true external executor is desired, design that as its own PR
+before attempting same-app staging execution.
 
 ### B — Minor operator hardening worth batching into one PR
 

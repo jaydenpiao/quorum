@@ -362,6 +362,39 @@ def test_dispatch_create_proposal_rejects_disallowed_action_type(
     assert route.call_count == 0, "client-side reject — never contacts Quorum"
 
 
+def test_dispatch_rejects_same_control_plane_fly_deploy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QUORUM_API_KEYS", "deploy-llm-agent:test-plaintext-abc")
+    quorum = QuorumApiClient(
+        base_url="https://quorum-staging.fly.dev",
+        agent_id="deploy-llm-agent",
+    )
+    block = _FakeToolUse(
+        id="toolu_same_app",
+        name="create_proposal",
+        input={
+            "intent_id": "intent_x",
+            "title": "deploy staging",
+            "action_type": "fly.deploy",
+            "target": "quorum-staging",
+            "rationale": "fresh image-push evidence",
+            "payload": {
+                "app": "quorum-staging",
+                "image_digest": "sha256:" + "a" * 64,
+            },
+        },
+    )
+
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post("https://quorum-staging.fly.dev/api/v1/proposals")
+        result = dispatch_tool_use(block, quorum)  # type: ignore[arg-type]
+
+    assert result.ok is False
+    assert "same control-plane app" in result.detail
+    assert route.call_count == 0
+
+
 def test_dispatch_create_proposal_handles_server_403(
     quorum: QuorumApiClient,
 ) -> None:

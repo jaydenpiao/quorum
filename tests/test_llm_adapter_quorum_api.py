@@ -57,6 +57,38 @@ def test_construction_raises_when_env_lacks_agent(monkeypatch: pytest.MonkeyPatc
         QuorumApiClient(base_url="http://x", agent_id="telemetry-llm-agent")
 
 
+def test_control_plane_app_infers_from_fly_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("QUORUM_API_KEYS", "deploy-llm-agent:test-plaintext-abc")
+    client = QuorumApiClient(
+        base_url="https://quorum-staging.fly.dev",
+        agent_id="deploy-llm-agent",
+    )
+
+    assert client.control_plane_fly_app == "quorum-staging"
+
+
+def test_control_plane_app_can_be_set_explicitly(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("QUORUM_API_KEYS", "deploy-llm-agent:test-plaintext-abc")
+    client = QuorumApiClient(
+        base_url="http://internal-quorum-api",
+        agent_id="deploy-llm-agent",
+        control_plane_fly_app="quorum-prod",
+    )
+
+    assert client.control_plane_fly_app == "quorum-prod"
+
+
+def test_control_plane_app_can_be_set_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("QUORUM_API_KEYS", "deploy-llm-agent:test-plaintext-abc")
+    monkeypatch.setenv("QUORUM_LLM_CONTROL_PLANE_FLY_APP", "quorum-staging")
+    client = QuorumApiClient(
+        base_url="http://internal-quorum-api",
+        agent_id="deploy-llm-agent",
+    )
+
+    assert client.control_plane_fly_app == "quorum-staging"
+
+
 # ---------------------------------------------------------------------------
 # list_events
 # ---------------------------------------------------------------------------

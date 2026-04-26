@@ -161,6 +161,13 @@ low-risk GitHub actions. Add `--metrics-port 9107` or set
 `QUORUM_LLM_METRICS_PORT=9107` to expose adapter Prometheus counters
 from the standalone process.
 
+For deploy-agent runs pointed at a Fly-hosted Quorum API, the adapter
+infers the control-plane app from `https://<app>.fly.dev` and rejects
+LLM-authored `fly.deploy` proposals targeting that same app before they
+hit the API. If the adapter uses an internal URL, set
+`QUORUM_LLM_CONTROL_PLANE_FLY_APP=<app>` so the same guard still
+applies.
+
 ## Reading order for new contributors (human or AI)
 
 1. [INIT.md](INIT.md) — shortest startup context.

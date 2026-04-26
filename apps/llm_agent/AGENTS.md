@@ -11,6 +11,11 @@ consumer.
 
 - Never bypass the authenticated `/api/v1/*` routes. The adapter has
   exactly the same permissions as any human-authored POST.
+- Preserve the deploy-agent same-control-plane guard: when the adapter
+  knows the Quorum API is served by a Fly app, it must not POST a
+  `fly.deploy` proposal targeting that same app. Same-app deploys need
+  a peer controller or a future external executor that can write
+  terminal events after the target machine is replaced.
 - Never echo LLM prompt content or Claude responses into structlog
   events. Keep `llm_call_completed` metadata-only (model, token counts,
   cache counts, `system_prompt_sha256`, latency, tool-call names).
@@ -38,7 +43,8 @@ consumer.
 - `config.py` — parses `llm:` sub-block from `config/agents.yaml`.
 - `budget.py` — per-tick + daily token caps; the only enforcement.
 - `claude_client.py` — body builder + Anthropic SDK wrapper.
-- `quorum_api.py` — the adapter's HTTP client for Quorum.
+- `quorum_api.py` — the adapter's HTTP client for Quorum; infers the
+  control-plane Fly app for same-app deploy guards.
 - `loop.py` — tick orchestration (read → decide → act → persist cursor).
 - `metrics.py` — Prometheus counters + optional sidecar metrics server.
 - `run.py` — CLI entrypoint.

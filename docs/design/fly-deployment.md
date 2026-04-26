@@ -290,6 +290,10 @@ manually instead of seeing a false rollback success.
   before invoking `fly`.
 - The actuator refuses same-app deploys when `FLY_APP_NAME` matches
   `FlyDeploySpec.app`; this is a runtime invariant, not a policy knob.
+- The deploy LLM adapter also refuses to POST a `fly.deploy` proposal
+  when it knows the proposal targets the same Fly app serving the
+  Quorum API. It infers that app from `https://<app>.fly.dev`, or from
+  `QUORUM_LLM_CONTROL_PLANE_FLY_APP` when the API URL is internal.
 - Dog-food deploys of `quorum-prod` require `requires_human=true` in
   policy. Non-negotiable.
 

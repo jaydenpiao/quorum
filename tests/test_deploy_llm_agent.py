@@ -70,6 +70,14 @@ def test_deploy_agent_prompt_requires_image_push_evidence() -> None:
     assert "prod waits for staging" in text
 
 
+def test_deploy_agent_prompt_forbids_same_control_plane_staging_deploys() -> None:
+    text = _DEPLOY_AGENT_PROMPT.read_text(encoding="utf-8")
+
+    assert "same control-plane app" in text
+    assert "same_app_fly_deploy_allowed" in text
+    assert "create_finding" in text
+
+
 def test_deploy_agent_prompt_requires_health_checks_on_proposals() -> None:
     text = _DEPLOY_AGENT_PROMPT.read_text(encoding="utf-8")
 
