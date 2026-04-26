@@ -175,6 +175,23 @@ PROPOSAL_TOOL_SCHEMA: dict[str, Any] = {
                     "an issue or PR. Matches the payload below."
                 ),
             },
+            "environment": {
+                "type": "string",
+                "maxLength": 64,
+                "description": (
+                    "Runtime environment for policy and audit context, "
+                    "for example 'staging', 'prod', or 'local'."
+                ),
+            },
+            "risk": {
+                "type": "string",
+                "enum": ["low", "medium", "high", "critical"],
+                "description": (
+                    "Operator-facing risk level. Use 'high' or "
+                    "'critical' only for actions that can mutate "
+                    "production or cause broad service impact."
+                ),
+            },
             "rationale": {
                 "type": "string",
                 "minLength": 1,
@@ -185,12 +202,54 @@ PROPOSAL_TOOL_SCHEMA: dict[str, Any] = {
                     "evidence-grounded."
                 ),
             },
+            "evidence_refs": {
+                "type": "array",
+                "items": {"type": "string"},
+                "maxItems": 50,
+                "description": (
+                    "Up to 50 event ids, workflow URLs, release refs, or "
+                    "other operator-checkable evidence. Prefer event ids "
+                    "from Quorum's stream when available."
+                ),
+            },
             "rollback_steps": {
                 "type": "array",
                 "items": {"type": "string"},
                 "maxItems": 50,
                 "description": (
                     "Plain-text rollback instructions the actuator will automate where possible."
+                ),
+            },
+            "health_checks": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "kind": {
+                            "type": "string",
+                            "enum": ["always_pass", "always_fail", "http", "github_check_run"],
+                        },
+                        "url": {"type": "string"},
+                        "method": {"type": "string", "enum": ["GET", "HEAD"]},
+                        "expected_status": {
+                            "type": "integer",
+                            "minimum": 100,
+                            "maximum": 599,
+                        },
+                        "timeout_seconds": {
+                            "type": "number",
+                            "minimum": 0.1,
+                            "maximum": 1800.0,
+                        },
+                    },
+                    "required": ["name"],
+                    "additionalProperties": True,
+                },
+                "maxItems": 20,
+                "description": (
+                    "Post-change checks Quorum should run after execution. "
+                    "The API validates the final HealthCheckSpec shape."
                 ),
             },
             "payload": {
@@ -334,7 +393,7 @@ def _dispatch_create_proposal(
             api_status_code=exc.status_code,
         )
 
-    proposal_id = response.get("id") if isinstance(response, dict) else None
+    proposal_id = _proposal_id_from_response(response)
     if not isinstance(proposal_id, str) or not proposal_id:
         return ToolDispatchResult(
             tool_name="create_proposal",
@@ -352,6 +411,19 @@ def _dispatch_create_proposal(
         api_status_code=200,
         quorum_entity_id=proposal_id,
     )
+
+
+def _proposal_id_from_response(response: dict[str, Any]) -> str | None:
+    """Extract a proposal id from both historical and current route shapes."""
+    proposal_id = response.get("id")
+    if isinstance(proposal_id, str) and proposal_id:
+        return proposal_id
+    proposal = response.get("proposal")
+    if isinstance(proposal, dict):
+        nested_id = proposal.get("id")
+        if isinstance(nested_id, str) and nested_id:
+            return nested_id
+    return None
 
 
 _HANDLERS: dict[str, _Handler] = {

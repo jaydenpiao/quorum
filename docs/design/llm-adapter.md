@@ -184,9 +184,12 @@ Two tools in v1, both thin wrappers over existing API routes:
     "properties": {
       "intent_id":       { "type": "string" },
       "title":           { "type": "string", "maxLength": 500 },
-      "action_type":     { "type": "string", "enum": ["github.comment_issue", "github.add_labels"] },
+      "action_type":     { "type": "string", "enum": ["fly.deploy", "github.add_labels", "github.comment_issue"] },
       "target":          { "type": "string", "maxLength": 256 },
+      "environment":     { "type": "string", "maxLength": 64 },
+      "risk":            { "type": "string", "enum": ["low", "medium", "high", "critical"] },
       "rationale":       { "type": "string", "maxLength": 4000 },
+      "evidence_refs":   { "type": "array",  "items": { "type": "string" }, "maxItems": 50 },
       "rollback_steps":  { "type": "array",  "items": { "type": "string" }, "maxItems": 50 },
       "health_checks":   { "type": "array",  "items": { "type": "object" }, "maxItems": 20 },
       "payload":         { "type": "object" }
@@ -196,11 +199,12 @@ Two tools in v1, both thin wrappers over existing API routes:
 }
 ```
 
-**Deliberately restricted action_type enum.** v1 only lets the LLM
-propose low-risk actions (`comment_issue`, `add_labels`). `open_pr`
-and `close_pr` require an operator. This is enforced client-side
-(tool schema) and server-side can add a same-day follow-up — a per-
-agent `allowed_action_types` list in `config/agents.yaml` that
+**Deliberately restricted action_type enum.** The shared tool schema
+only includes action types assigned to LLM roles:
+`github.comment_issue`, `github.add_labels`, and `fly.deploy`.
+`open_pr` and `close_pr` require an operator. The schema is a UX /
+prompt-discipline boundary; the security boundary is the per-agent
+`allowed_action_types` list in `config/agents.yaml`, which
 `routes.create_proposal` honours.
 
 Tool-input validation matches the Quorum DTOs exactly (same pydantic

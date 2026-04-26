@@ -76,6 +76,13 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- **LLM proposal dispatch recognizes API response envelopes** — the
+  `create_proposal` tool now treats the current
+  `POST /api/v1/proposals` response shape (`proposal` +
+  `policy_decision`) as successful, and the tool schema exposes
+  optional proposal metadata (`environment`, `risk`, `evidence_refs`,
+  `rollback_steps`, `health_checks`) needed for evidence-rich deploy
+  proposals.
 - **GitHub App private keys can be single-line Fly secrets** — the
   GitHub App auth loader now accepts
   `QUORUM_GITHUB_APP_PRIVATE_KEY_B64`, avoiding brittle multiline PEM
