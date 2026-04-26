@@ -29,7 +29,7 @@ authoritative state of the project.
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 76. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, and #76 deploy-agent health-check prompt contract.
+- **Merged PR count:** 77. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, and #77 health-checked deploy-agent proof handoff.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -89,10 +89,10 @@ authoritative state of the project.
   `DATABASE_URL`, `quorum-staging` reconciled 13 existing events from
   JSONL into Neon with zero errors, then accepted a live smoke intent
   `intent_ca2cf96dfc15`. Current staging event verification reports
-  `event_count=70` and
-  `last_hash=b2646558e4fd7a291a38ed1125e305f8beddda733334efb23421b5549de37862`.
-  Reduced state counts are `intents=9`, `proposals=7`, `votes=10`,
-  `executions=5`, and `image_pushes=3`.
+  `event_count=75` and
+  `last_hash=70d4d19f84050acd8a547f93f27e6407bd010b9fd19f5ccf9d26802389e9fa1c`.
+  Reduced state counts are `intents=10`, `proposals=8`, `votes=10`,
+  `executions=5`, and `image_pushes=4`.
 - **Image-push evidence proof:** workflow run
   `24925601409` posted `image_push_completed` into staging as
   `evt_fd0e051dca4b` / `imgpush_2e6a1c26fdd3`, reported by
@@ -129,6 +129,26 @@ authoritative state of the project.
   an empty `health_checks` list, so PR #76 hardens the deploy-agent
   prompt to require target-specific `/readiness` and `/api/v1/health`
   checks on every `fly.deploy` proposal.
+- **Health-checked `deploy-llm-agent` proposal proof:** after PR #76
+  merged, image-push run `24949842912` posted `image_push_completed`
+  into staging as `evt_112ad64b8cc1` / `imgpush_a2f29f5cacee` for
+  commit `f33c2e5b17bdfb49f440df6867ae57c08c20033b`, carrying
+  staging/prod digest
+  `sha256:8f1ddd83795d1fcfd9bf4cd629d19e381f26907486c2cf689c20eeed5ac83a0d`.
+  The operator created intent `intent_1c7609faa698`, then ran the
+  real Anthropic-backed adapter once as `deploy-llm-agent`. The tick
+  logged `llm_tool_dispatch_completed ok=True` and `tools_ok=1`, and
+  created `proposal_7e096a4d63fe` for `fly.deploy` targeting
+  `quorum-staging`. The proposal includes `staging-readiness`
+  (`https://quorum-staging.fly.dev/readiness`) and
+  `staging-api-health`
+  (`https://quorum-staging.fly.dev/api/v1/health`) HTTP checks with
+  expected status 200 and 10s timeouts. Policy evaluated it as
+  `allowed=true`, `requires_human=true`, `votes_required=2`, and
+  opened human approval request `approval_req_e534744bce80`. No
+  execution was claimed or attempted; this same-app staging proposal
+  should remain pending unless a separate external/peer executor plan
+  is intentionally run.
 - **Prod deployment state:** `quorum-prod` is running Fly release v7,
   which reports platform image ref
   `registry.fly.io/quorum-prod@sha256:4cecb6bebf72e0c0fa75fc347854c1196947b7b07de25ee63c475d3265ee8828`.
@@ -248,7 +268,9 @@ authoritative state of the project.
     current proposal response envelope logs as a successful tool
     dispatch. PR #76 fixed the prompt contract so future `fly.deploy`
     proposals include target-specific readiness and API health checks
-    instead of leaving `health_checks` empty.
+    instead of leaving `health_checks` empty. PR #77 records the live
+    proof: `proposal_7e096a4d63fe` carries the standard staging
+    readiness and API-health checks.
   - **Post-tag execution safety** — same-app `fly.deploy` is blocked
     when Fly exposes `FLY_APP_NAME`, preserving terminal event writes
     for single-machine apps.
@@ -468,15 +490,21 @@ harness under `.claude/`. Codex and other agents can ignore them.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Prove health-checked `deploy-llm-agent` proposals, then design peer execution
+### A — Design and prove safe execution for LLM-authored deploy proposals
 
-After PR #76 is deployed, run `deploy-llm-agent` once against a fresh
-`image_push_completed` event or a reset cursor and confirm the new
-proposal records `health_checks` for the target app's `/readiness` and
-`/api/v1/health` endpoints. Do not execute same-app staging proposals.
-The next useful product step is a peer-controller flow where the LLM
-proposes staging first, waits for operator-attached staging health
-evidence, then proposes prod.
+`deploy-llm-agent` now creates health-checked `fly.deploy` proposals.
+The next operator-value step is deciding how those proposals should be
+executed safely:
+
+- External runner path: vote/approve/execute `proposal_7e096a4d63fe`
+  from outside Fly so the same-app guard does not apply, then verify
+  terminal execution + health-check events survive the staging deploy.
+- Peer-controller path: have one Quorum app deploy the other, then
+  teach the deploy-agent evidence flow to propose staging first, wait
+  for staging health evidence, and only then propose prod.
+
+Do not execute a same-app staging proposal from inside the
+`quorum-staging` Fly process.
 
 ### B — Add opt-in live GitHub actuator integration coverage
 
