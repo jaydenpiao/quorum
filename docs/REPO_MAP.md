@@ -116,6 +116,9 @@ Last refreshed at v0.5.0-alpha.1.
 - `apps/llm_agent/run.py` — CLI entry point
   (`python -m apps.llm_agent.run --agent-id <id>`)
 - `apps/llm_agent/loop.py` — tick loop + event cursor
+- `apps/llm_agent/metrics.py` — Prometheus counters for token usage,
+  tick outcomes, and successful LLM-created proposals; also starts the
+  adapter sidecar `/metrics` HTTP server when requested
 - `apps/llm_agent/claude_client.py` — Anthropic Messages API client
   with prompt caching + adaptive thinking
 - `apps/llm_agent/config.py` — agents.yaml `llm:` block loader
@@ -161,7 +164,7 @@ Last refreshed at v0.5.0-alpha.1.
 
 ## Tests — `tests/`
 
-Pytest tests, colocated by feature. 386 default tests + 13 integration-
+Pytest tests, colocated by feature. 392 default tests + 13 integration-
 gated tests, ~81% coverage. Key
 files:
 
@@ -193,7 +196,8 @@ files:
 - `tests/test_sse_stream.py` — SSE route wiring
 - `tests/test_postgres_projector.py`, `tests/test_reconcile.py` —
   projection (integration-gated)
-- `tests/test_llm_adapter_*.py` — LLM adapter components
+- `tests/test_llm_adapter_*.py` — LLM adapter components, including
+  token/tick/proposal metrics and CLI metrics-port wiring
 
 Integration tests are marked `@pytest.mark.integration` and excluded
 from default CI; opt in with `pytest -m integration`.

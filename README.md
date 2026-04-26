@@ -157,7 +157,9 @@ is capped per-tick and per-day with atomic JSON checkpoints under
 `data/llm_usage/`. Per-agent `allowed_action_types` in the same
 config server-side caps what each LLM role can propose — deploy-agent
 can only propose `fly.deploy`; telemetry-agent can only propose the
-low-risk GitHub actions.
+low-risk GitHub actions. Add `--metrics-port 9107` or set
+`QUORUM_LLM_METRICS_PORT=9107` to expose adapter Prometheus counters
+from the standalone process.
 
 ## Reading order for new contributors (human or AI)
 

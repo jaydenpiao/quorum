@@ -74,6 +74,22 @@ class _CapturedLogger:
         self.events.append((event, dict(kwargs)))
 
 
+class _CapturedMetrics:
+    def __init__(self) -> None:
+        self.llm_calls: list[dict[str, Any]] = []
+        self.ticks: list[dict[str, str]] = []
+        self.proposals: list[dict[str, str]] = []
+
+    def record_llm_call(self, **kwargs: Any) -> None:
+        self.llm_calls.append(dict(kwargs))
+
+    def record_tick(self, *, agent_id: str, outcome: str) -> None:
+        self.ticks.append({"agent_id": agent_id, "outcome": outcome})
+
+    def record_proposal_created(self, *, agent_id: str, action_type: str) -> None:
+        self.proposals.append({"agent_id": agent_id, "action_type": action_type})
+
+
 def _claude_response(
     *,
     tool_calls: list[dict[str, Any]] | None = None,
@@ -244,6 +260,80 @@ def test_llm_call_completed_logs_system_prompt_sha256(
     assert call_logs[0]["system_prompt_sha256"] == expected
     assert len(call_logs[0]["system_prompt_sha256"]) == 64
     assert claude.system_prompt_text not in json.dumps(call_logs[0])
+
+
+def test_tick_records_prometheus_metrics_for_successful_proposal(
+    monkeypatch: pytest.MonkeyPatch,
+    budget: LlmBudget,
+    claude: ClaudeClient,
+    quorum: QuorumApiClient,
+    cursor_path: Path,
+) -> None:
+    captured = _CapturedMetrics()
+    monkeypatch.setattr(loop_module, "_metrics", captured)
+
+    proposal_input = {
+        "intent_id": "intent_123",
+        "title": "Comment on fixture issue",
+        "action_type": "github.comment_issue",
+        "target": "github:jaydenpiao/quorum-actuator-fixtures#1",
+        "risk": "low",
+        "rationale": "fixture smoke",
+        "payload": {
+            "owner": "jaydenpiao",
+            "repo": "quorum-actuator-fixtures",
+            "issue_number": 1,
+            "body": "hello",
+        },
+    }
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.get("http://localhost:8080/api/v1/events").mock(
+            return_value=httpx.Response(200, json=_events("evt_1"))
+        )
+        mock.post("https://api.anthropic.com/v1/messages").mock(
+            return_value=httpx.Response(
+                200,
+                json=_claude_response(
+                    tool_calls=[
+                        {
+                            "id": "toolu_proposal",
+                            "name": "create_proposal",
+                            "input": proposal_input,
+                        }
+                    ],
+                    input_tokens=123,
+                    output_tokens=45,
+                ),
+            )
+        )
+        mock.post("http://localhost:8080/api/v1/proposals").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "proposal": {"id": "proposal_123"},
+                    "policy_decision": {"allowed": True},
+                },
+            )
+        )
+
+        outcome = run_tick(budget=budget, claude=claude, quorum=quorum, cursor_path=cursor_path)
+
+    assert outcome.tool_calls[0].ok is True
+    assert captured.llm_calls == [
+        {
+            "agent_id": "telemetry-llm-agent",
+            "model": "claude-opus-4-7",
+            "input_tokens": 123,
+            "output_tokens": 45,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+        }
+    ]
+    assert captured.proposals == [
+        {"agent_id": "telemetry-llm-agent", "action_type": "github.comment_issue"}
+    ]
+    assert captured.ticks == [{"agent_id": "telemetry-llm-agent", "outcome": "acted"}]
 
 
 # ---------------------------------------------------------------------------

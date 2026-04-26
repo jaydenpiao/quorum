@@ -48,12 +48,14 @@ from typing import Any
 import anthropic
 import structlog
 
-from apps.llm_agent.budget import LlmBudget
+from apps.llm_agent.budget import DailyBudgetExceeded, LlmBudget, TickBudgetExceeded
 from apps.llm_agent.claude_client import ClaudeClient
+from apps.llm_agent.metrics import DEFAULT_METRICS
 from apps.llm_agent.quorum_api import QuorumApiClient
 from apps.llm_agent.tools import TOOL_SCHEMAS, ToolDispatchResult, dispatch_tool_use
 
 _log = structlog.get_logger(__name__)
+_metrics = DEFAULT_METRICS
 
 
 @dataclass(frozen=True)
@@ -91,6 +93,7 @@ def run_tick(
         limit=claude.config.max_events_per_tick,
     )
     if not events:
+        _metrics.record_tick(agent_id=agent_id, outcome="skipped_idle")
         _log.info(
             "llm_tick_completed",
             agent_id=agent_id,
@@ -109,7 +112,11 @@ def run_tick(
     estimated_tokens = _rough_token_estimate(user_content) + _rough_token_estimate(
         claude.system_prompt_text
     )
-    budget.check_tick(estimated_tokens)
+    try:
+        budget.check_tick(estimated_tokens)
+    except (DailyBudgetExceeded, TickBudgetExceeded):
+        _metrics.record_tick(agent_id=agent_id, outcome="skipped_cap")
+        raise
 
     # Actual Claude call. TOOL_SCHEMAS is pre-sorted (see tools.py) so
     # the prefix bytes are stable across ticks.
@@ -127,6 +134,14 @@ def run_tick(
     cache_write_tokens = int(getattr(usage, "cache_creation_input_tokens", 0) or 0)
 
     budget.record_tick(input_tokens)
+    _metrics.record_llm_call(
+        agent_id=agent_id,
+        model=claude.config.model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cache_read_tokens=cache_read_tokens,
+        cache_write_tokens=cache_write_tokens,
+    )
 
     _log.info(
         "llm_call_completed",
@@ -163,9 +178,21 @@ def run_tick(
                     quorum_entity_id=result.quorum_entity_id,
                 )
                 tool_results.append(result)
+                action_type = (
+                    block.input.get("action_type") if isinstance(block.input, dict) else None
+                )
+                if (
+                    result.ok
+                    and result.tool_name == "create_proposal"
+                    and isinstance(action_type, str)
+                ):
+                    _metrics.record_proposal_created(agent_id=agent_id, action_type=action_type)
 
     new_cursor = _last_event_id(events) or cursor
     _persist_cursor(cursor_path, new_cursor)
+
+    tick_outcome = "acted" if response.stop_reason != "refusal" else "error"
+    _metrics.record_tick(agent_id=agent_id, outcome=tick_outcome)
 
     _log.info(
         "llm_tick_completed",

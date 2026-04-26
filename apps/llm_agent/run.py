@@ -14,6 +14,7 @@ a single tick and exits.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -28,9 +29,11 @@ from apps.llm_agent.budget import (
 from apps.llm_agent.claude_client import ClaudeClient
 from apps.llm_agent.config import load_agent_profile, read_prompt
 from apps.llm_agent.loop import run_tick
+from apps.llm_agent.metrics import DEFAULT_METRICS, start_metrics_server
 from apps.llm_agent.quorum_api import QuorumApiClient
 
 _log = structlog.get_logger(__name__)
+_metrics = DEFAULT_METRICS
 
 # Back-off interval after a daily-cap hit. The counter rolls
 # automatically at the next UTC day boundary; we don't compute the
@@ -66,6 +69,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Run one tick and exit (useful for cron-style runs or smoke tests)",
     )
+    parser.add_argument(
+        "--metrics-port",
+        type=int,
+        default=_metrics_port_from_env(),
+        help=(
+            "Expose Prometheus metrics on this sidecar port. "
+            "Default: 0 / disabled, or QUORUM_LLM_METRICS_PORT if set."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -94,6 +106,10 @@ def main(argv: list[str] | None = None) -> int:
     quorum = QuorumApiClient(base_url=args.quorum_url, agent_id=profile.id)
 
     cursor_path = Path(args.cursor_dir) / f"{profile.id}.json"
+
+    if args.metrics_port:
+        start_metrics_server(args.metrics_port)
+        _log.info("llm_metrics_server_started", agent_id=profile.id, port=args.metrics_port)
 
     _log.info(
         "llm_adapter_started",
@@ -131,6 +147,10 @@ def main(argv: list[str] | None = None) -> int:
                     backoff_seconds=DAILY_CAP_BACKOFF_SECONDS,
                 )
                 sleep_seconds = DAILY_CAP_BACKOFF_SECONDS
+            except Exception:
+                _metrics.record_tick(agent_id=profile.id, outcome="error")
+                _log.exception("llm_tick_failed", agent_id=profile.id)
+                raise
             if args.once:
                 return 0
             time.sleep(sleep_seconds)
@@ -139,6 +159,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     finally:
         quorum.close()
+
+
+def _metrics_port_from_env() -> int:
+    raw = os.environ.get("QUORUM_LLM_METRICS_PORT", "").strip()
+    if not raw:
+        return 0
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ValueError("QUORUM_LLM_METRICS_PORT must be an integer") from exc
 
 
 if __name__ == "__main__":  # pragma: no cover — entrypoint

@@ -311,6 +311,7 @@ apps/llm_agent/
   AGENTS.md                   # area-specific rules for this codepath
   run.py                      # CLI entrypoint; argparse; loads config
   loop.py                     # the tick loop; cursor persistence
+  metrics.py                  # Prometheus counters + sidecar server
   claude_client.py            # thin wrapper over anthropic.Anthropic
   tools.py                    # tool schemas + tool-call dispatch
   prompts/
@@ -319,12 +320,14 @@ apps/llm_agent/
   budget.py                   # per-tick + daily cap enforcement + accounting
 ```
 
-Three tests files:
+Key test files:
 
 ```
 tests/test_llm_adapter_budget.py       # cap math
 tests/test_llm_adapter_tools.py        # tool-call → POST translation
 tests/test_llm_adapter_loop.py         # cursor advance + idle skip
+tests/test_llm_adapter_metrics.py      # Prometheus counter samples
+tests/test_llm_adapter_run.py          # CLI metrics-port wiring
 ```
 
 ## Policy interaction
@@ -385,6 +388,9 @@ schema change, no auth change.
   - `quorum_llm_ticks_total{agent_id, outcome}` where outcome ∈
     `{acted, skipped_idle, skipped_cap, error}`.
   - `quorum_llm_proposals_created_total{agent_id, action_type}`.
+  Expose the standalone adapter's metrics endpoint with
+  `python -m apps.llm_agent.run --metrics-port <port>` or
+  `QUORUM_LLM_METRICS_PORT=<port>`.
 - **Logs (structlog JSON).**
   - `llm_tick_started` / `llm_tick_completed` bookending each tick.
   - `llm_call_completed` with token counts, latency, and
