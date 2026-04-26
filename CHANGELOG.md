@@ -76,6 +76,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- **Deploy-agent proposals carry health checks** — the
+  `deploy-llm-agent` prompt now requires non-empty
+  `health_checks` for every `fly.deploy` proposal, using the target
+  app's `/readiness` and `/api/v1/health` endpoints as post-change
+  HTTP gates.
 - **LLM proposal dispatch recognizes API response envelopes** — the
   `create_proposal` tool now treats the current
   `POST /api/v1/proposals` response shape (`proposal` +

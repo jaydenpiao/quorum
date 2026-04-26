@@ -214,10 +214,11 @@ itself**. Flow:
    Phase 5 — call it `.github/workflows/image-push.yml`.)
 2. A new LLM role — `deploy-agent` — subscribes to the event stream,
    watches for `image_push_completed`, and creates a proposal with
-   `action_type=fly.deploy` and a payload carrying the exact digest.
-   The default order is staging first; prod waits until the stream
-   contains a successful staging `fly.deploy` execution with passing
-   health checks for the same image.
+   `action_type=fly.deploy`, a payload carrying the exact digest, and
+   target-specific HTTP `health_checks` for `/readiness` and
+   `/api/v1/health`. The default order is staging first; prod waits
+   until the stream contains a successful staging `fly.deploy`
+   execution with passing health checks for the same image.
 3. `code-agent` (and any other voters) vote via the existing quorum
    engine. Policy rule `fly.deploy` requires **2 votes + explicit human
    approval** via the Phase 4 human-approval entity (PR #47). This is a
