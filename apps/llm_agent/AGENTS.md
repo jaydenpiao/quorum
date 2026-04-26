@@ -13,8 +13,9 @@ consumer.
   exactly the same permissions as any human-authored POST.
 - Never echo LLM prompt content or Claude responses into structlog
   events. Keep `llm_call_completed` metadata-only (model, token counts,
-  latency, tool-call names). Prompts are reviewable in source; runtime
-  content is not for the event log.
+  cache counts, `system_prompt_sha256`, latency, tool-call names).
+  Prompts are reviewable in source; runtime content is not for the
+  event log.
 - Never log the `ANTHROPIC_API_KEY` or the adapter's Quorum bearer
   token. Scrub errors the same way `services/actuators/github/auth.py`
   does — exception type, not exception content.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,7 @@ import respx
 from apps.llm_agent.budget import LlmBudget, TickBudgetExceeded
 from apps.llm_agent.claude_client import ClaudeClient
 from apps.llm_agent.config import LlmAgentConfig
+import apps.llm_agent.loop as loop_module
 from apps.llm_agent.loop import run_tick
 from apps.llm_agent.quorum_api import QuorumApiClient
 
@@ -59,6 +61,17 @@ def cursor_path(tmp_path: Path) -> Path:
 
 def _events(*ids: str) -> list[dict[str, Any]]:
     return [{"id": i, "event_type": "intent_created"} for i in ids]
+
+
+class _CapturedLogger:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, dict[str, Any]]] = []
+
+    def info(self, event: str, **kwargs: Any) -> None:
+        self.events.append((event, dict(kwargs)))
+
+    def warning(self, event: str, **kwargs: Any) -> None:
+        self.events.append((event, dict(kwargs)))
 
 
 def _claude_response(
@@ -203,6 +216,34 @@ def test_tick_records_actual_input_tokens(
         run_tick(budget=budget, claude=claude, quorum=quorum, cursor_path=cursor_path)
 
     assert budget.status().daily_used == 5678
+
+
+def test_llm_call_completed_logs_system_prompt_sha256(
+    monkeypatch: pytest.MonkeyPatch,
+    budget: LlmBudget,
+    claude: ClaudeClient,
+    quorum: QuorumApiClient,
+    cursor_path: Path,
+) -> None:
+    captured = _CapturedLogger()
+    monkeypatch.setattr(loop_module, "_log", captured)
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.get("http://localhost:8080/api/v1/events").mock(
+            return_value=httpx.Response(200, json=_events("evt_1"))
+        )
+        mock.post("https://api.anthropic.com/v1/messages").mock(
+            return_value=httpx.Response(200, json=_claude_response())
+        )
+
+        run_tick(budget=budget, claude=claude, quorum=quorum, cursor_path=cursor_path)
+
+    call_logs = [payload for event, payload in captured.events if event == "llm_call_completed"]
+    assert len(call_logs) == 1
+    expected = hashlib.sha256(claude.system_prompt_text.encode("utf-8")).hexdigest()
+    assert call_logs[0]["system_prompt_sha256"] == expected
+    assert len(call_logs[0]["system_prompt_sha256"]) == 64
+    assert claude.system_prompt_text not in json.dumps(call_logs[0])
 
 
 # ---------------------------------------------------------------------------

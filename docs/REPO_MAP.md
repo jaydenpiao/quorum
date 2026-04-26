@@ -161,7 +161,7 @@ Last refreshed at v0.5.0-alpha.1.
 
 ## Tests — `tests/`
 
-Pytest tests, colocated by feature. 384 default tests + 12 integration-
+Pytest tests, colocated by feature. 385 default tests + 12 integration-
 gated tests, ~81% coverage. Key
 files:
 

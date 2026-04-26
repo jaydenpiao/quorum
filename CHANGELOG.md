@@ -11,6 +11,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **LLM prompt hash audit metadata** — `llm_call_completed` structured
+  logs now include `system_prompt_sha256`, letting operators tie an
+  adapter tick back to the exact reviewed prompt bytes without logging
+  prompt content.
 - **Image-push evidence events** — `POST /api/v1/image-pushes`
   records authenticated `image_push_completed` evidence with staging
   and prod Fly Registry image refs. The image-push workflow can

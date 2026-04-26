@@ -276,8 +276,10 @@ Accounting is in-memory for v1 with a local JSON checkpoint at
 projection later if multi-process deployment lands.
 
 Also emit a `structlog` event `llm_call_completed` per tick with all
-token counts + `cache_read_tokens` / `cache_write_tokens`. Surface
-this as a Prometheus counter (`quorum_llm_tokens_total{agent_id,
+token counts + `cache_read_tokens` / `cache_write_tokens` plus
+`system_prompt_sha256`. The hash lets auditors tie a call back to the
+exact reviewed prompt bytes without logging the prompt itself. Surface
+token counts as a Prometheus counter (`quorum_llm_tokens_total{agent_id,
 model, kind}`) so operators see the spend live.
 
 ## Testing
@@ -385,8 +387,8 @@ schema change, no auth change.
   - `quorum_llm_proposals_created_total{agent_id, action_type}`.
 - **Logs (structlog JSON).**
   - `llm_tick_started` / `llm_tick_completed` bookending each tick.
-  - `llm_call_completed` with token counts + latency. No prompt /
-    response content.
+  - `llm_call_completed` with token counts, latency, and
+    `system_prompt_sha256`. No prompt / response content.
   - `llm_cap_exceeded` when the daily cap blocks a tick.
 
 ## Open questions (for review)
@@ -403,10 +405,9 @@ schema change, no auth change.
 3. **Cursor persistence on crash.** JSON checkpoint is fine for dev
    but racy with concurrent adapter processes. Defer concurrency
    story to Phase 6 (worktrees) and keep JSON for v1.
-4. **System prompt versioning.** Check hashes of the rendered
-   prompt into `llm_call_completed` so audits can trace which
-   prompt a given call used. Lean: yes — one extra field, one extra
-   assertion in tests.
+4. **System prompt versioning.** Shipped post-Phase 5:
+   `llm_call_completed` includes `system_prompt_sha256` so audits can
+   trace which prompt a given call used.
 5. **Model auto-pin.** The repo's `AGENTS.md` already names Opus 4.7
    / Sonnet 4.6 / Haiku 4.5. Hard-code the version? Lean: version-
    pinned in `agents.yaml` per-agent; env override for debugging.
