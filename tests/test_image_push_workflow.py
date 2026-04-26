@@ -19,6 +19,14 @@ def test_image_push_publishes_staging_and_prod_tags() -> None:
     assert "registry.fly.io/quorum-prod:${{ github.sha }}" in text
 
 
+def test_image_push_skips_docs_only_pushes() -> None:
+    text = _workflow_text()
+
+    assert "paths-ignore:" in text
+    assert "'**/*.md'" in text
+    assert "'docs/**'" in text
+
+
 def test_image_push_records_staging_and_prod_digests() -> None:
     text = _workflow_text()
 

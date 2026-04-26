@@ -11,12 +11,17 @@ name: image-push
 #
 # Trigger surface:
 #   - push to main (automatic; gated on secret)
+#     Docs-only pushes are ignored so handoff/README/changelog refreshes
+#     don't create deploy-agent image evidence for non-runtime changes.
 #   - workflow_dispatch (manual; useful for back-filling a digest from an
 #     older commit)
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:

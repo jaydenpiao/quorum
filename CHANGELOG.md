@@ -56,6 +56,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- **Image-push skips docs-only merges** — the `image-push` workflow now
+  ignores pushes where every changed file is Markdown/docs content, so
+  handoff refreshes do not build containers or emit deploy-agent image
+  evidence for non-runtime changes.
 - **GitHub App actuator is live on Fly** — staging and prod now carry
   `QUORUM_GITHUB_APP_PRIVATE_KEY_B64`, run the config-bearing image,
   and have executed `github.comment_issue` against the fixture issue
