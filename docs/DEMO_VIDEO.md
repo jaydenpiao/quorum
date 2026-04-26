@@ -30,7 +30,14 @@ open http://127.0.0.1:8080/console
 ```
 
 Enter bearer token `operator-key-dev`, then click **Seed dog-food
-deploy demo**.
+deploy demo**. If you click the seed button with the field still empty,
+the console fills the demo token automatically.
+
+If the browser still shows the old dark POC console with **Seed demo
+incident**, that is a stale tab. The server now sends no-cache headers
+for `/console` and `/console-static/*`; close the tab and open
+`http://127.0.0.1:8080/console` again, or hard-refresh once with
+`Cmd-Shift-R`.
 
 ## Recording layout
 

@@ -9,6 +9,7 @@
 'use strict';
 
 var TOKEN_KEY = 'quorum.bearerToken';
+var DEMO_TOKEN_FALLBACK = 'operator-key-dev';
 var TIMELINE_LIMIT = 500;
 var _state = null;
 var _events = [];
@@ -98,6 +99,22 @@ function setToken(value) {
   } else {
     window.localStorage.removeItem(TOKEN_KEY);
   }
+}
+
+function ensureDemoToken() {
+  var token = getToken();
+  if (token) return token;
+
+  var tokenInput = byId('bearer-token');
+  token = tokenInput && tokenInput.value.trim()
+    ? tokenInput.value.trim()
+    : (tokenInput && tokenInput.placeholder) || DEMO_TOKEN_FALLBACK;
+
+  if (tokenInput) {
+    tokenInput.value = token;
+  }
+  setToken(token);
+  return token;
 }
 
 function authHeaders(extra) {
@@ -511,6 +528,7 @@ async function submitApprovalForm(event) {
 }
 
 async function seedDemo() {
+  ensureDemoToken();
   var result = await postJson('/api/v1/demo/incident', {});
   if (!result.ok) {
     alert('demo seed failed: ' + ((result.body && result.body.detail) || result.status));

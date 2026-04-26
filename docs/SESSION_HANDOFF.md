@@ -39,7 +39,10 @@ authoritative state of the project.
   so recordings exercise Quorum's executor/event path without mutating
   live Fly. Local browser verification showed the seeded dashboard
   rendering the prod deploy proposal, policy/vote/approval gate,
-  execution result, health checks, and event-chain preview.
+  execution result, health checks, and event-chain preview. Follow-up
+  polish on `fix/console-demo-cache-token` adds no-cache headers for
+  console assets and auto-fills the local demo token when the seed
+  button is clicked with an empty token field.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -567,6 +570,11 @@ harness under `.claude/`. Codex and other agents can ignore them.
     records. Use `docs/DEMO_VIDEO.md`'s read-only Fly checks when
     recording; run opt-in live integration tests separately when you
     need fresh actuator proof.
+34. **[Console]** If a browser tab still shows the old dark POC console
+    with **Seed demo incident**, it is stale client state, not the
+    current server output. Hard-refresh or reopen `/console`. The
+    console now sends no-cache headers and the recording guide calls
+    this out explicitly.
 
 ## Next-session candidates (pick one, by priority)
 
