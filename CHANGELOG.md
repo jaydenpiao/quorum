@@ -11,6 +11,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **LLM adapter Prometheus metrics** — the standalone adapter now
+  records token, tick-outcome, and proposal-created counters via
+  `apps/llm_agent/metrics.py`. Operators can expose them on a
+  sidecar `/metrics` server with `--metrics-port` or
+  `QUORUM_LLM_METRICS_PORT`.
 - **Opt-in live GitHub actuator rollback test** —
   `tests/test_github_live_integration.py` is marked `integration` and
   gated by `QUORUM_GITHUB_LIVE_TESTS=1`. It creates a fixture issue

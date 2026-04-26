@@ -40,6 +40,7 @@ consumer.
 - `claude_client.py` — body builder + Anthropic SDK wrapper.
 - `quorum_api.py` — the adapter's HTTP client for Quorum.
 - `loop.py` — tick orchestration (read → decide → act → persist cursor).
+- `metrics.py` — Prometheus counters + optional sidecar metrics server.
 - `run.py` — CLI entrypoint.
 
 ## Safe extension points
