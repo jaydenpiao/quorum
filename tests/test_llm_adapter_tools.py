@@ -239,7 +239,12 @@ def test_proposal_tool_schema_is_complete() -> None:
         "title",
         "action_type",
         "target",
+        "environment",
+        "risk",
         "rationale",
+        "evidence_refs",
+        "rollback_steps",
+        "health_checks",
         "payload",
     ):
         assert field in props, f"missing {field}"
@@ -292,6 +297,43 @@ def test_dispatch_create_proposal_happy_path(quorum: QuorumApiClient) -> None:
     assert result.tool_name == "create_proposal"
     assert result.quorum_entity_id == "proposal_xyz"
     assert route.call_count == 1
+
+
+def test_dispatch_create_proposal_accepts_route_response_envelope(
+    quorum: QuorumApiClient,
+) -> None:
+    """POST /proposals returns proposal + policy_decision, not a top-level id."""
+    block = _FakeToolUse(
+        id="toolu_p_envelope",
+        name="create_proposal",
+        input={
+            "intent_id": "intent_x",
+            "title": "deploy staging",
+            "action_type": "fly.deploy",
+            "target": "quorum-staging",
+            "rationale": "fresh image-push evidence",
+            "payload": {
+                "app": "quorum-staging",
+                "image_digest": "sha256:" + "a" * 64,
+            },
+        },
+    )
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.post("http://localhost:8080/api/v1/proposals").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "proposal": {"id": "proposal_nested"},
+                    "policy_decision": {"proposal_id": "proposal_nested"},
+                },
+            )
+        )
+        result = dispatch_tool_use(block, quorum)  # type: ignore[arg-type]
+
+    assert result.ok is True
+    assert result.quorum_entity_id == "proposal_nested"
+    assert result.detail == "created proposal proposal_nested"
 
 
 def test_dispatch_create_proposal_rejects_disallowed_action_type(

@@ -18,7 +18,7 @@ authoritative state of the project.
   production container. Live flyctl smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 377 passing + 12 integration-gated (excluded from CI
+- **Test suite:** 378 passing + 12 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres or Fly.io, with additional env gates for destructive tests).
 - **Coverage:** 81% (gate floor: 60%).
@@ -29,7 +29,7 @@ authoritative state of the project.
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 74. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, and #74 image-push evidence proof handoff.
+- **Merged PR count:** 75. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, and #75 LLM proposal dispatch envelope fix.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -72,10 +72,13 @@ authoritative state of the project.
   and the same platform image ref. Machine `e2862467be9d78` is the
   single staging machine in `iad`; `/readiness`, `/api/v1/health`,
   `/metrics`, and `/console` returned HTTP 200 after wake.
-  `QUORUM_API_KEYS` (operator, code-agent, deploy-agent),
-  `FLY_API_TOKEN`, `DATABASE_URL`, and `QUORUM_ALLOW_DEMO=1` are
-  deployed only on staging; `QUORUM_GITHUB_APP_PRIVATE_KEY_B64` is
-  deployed on staging.
+  `QUORUM_API_KEYS` (operator, code-agent, deploy-agent,
+  deploy-llm-agent), `FLY_API_TOKEN`, `DATABASE_URL`, and
+  `QUORUM_ALLOW_DEMO=1` are deployed only on staging;
+  `QUORUM_GITHUB_APP_PRIVATE_KEY_B64` is deployed on staging. Local
+  operator Keychain service names for the LLM proof are
+  `quorum-staging-deploy-llm-agent-api-key` and
+  `quorum-anthropic-api-key`.
 - **Staging persistence evidence:** an authenticated
   `POST /api/v1/intents` created `intent_f40d2794ee55`; before and
   after `fly machine restart e2862467be9d78 --app quorum-staging`,
@@ -86,10 +89,10 @@ authoritative state of the project.
   `DATABASE_URL`, `quorum-staging` reconciled 13 existing events from
   JSONL into Neon with zero errors, then accepted a live smoke intent
   `intent_ca2cf96dfc15`. Current staging event verification reports
-  `event_count=60` and
-  `last_hash=3033c7d11a6f5ae96786a712c8b7ffbafcb030198731c9bb9f209c2e82932871`.
-  Reduced state counts are `intents=7`, `proposals=5`, `votes=10`,
-  `executions=5`, and `image_pushes=1`.
+  `event_count=65` and
+  `last_hash=b014b261281f3977c733a147cbdddcd9139d72c7580fa728b38610b24f4bdf76`.
+  Reduced state counts are `intents=8`, `proposals=6`, `votes=10`,
+  `executions=5`, and `image_pushes=2`.
 - **Image-push evidence proof:** workflow run
   `24925601409` posted `image_push_completed` into staging as
   `evt_fd0e051dca4b` / `imgpush_2e6a1c26fdd3`, reported by
@@ -102,6 +105,22 @@ authoritative state of the project.
   `event_count=48` with
   `last_hash=8efdf62df7635b0cacd20856c0c171fbfff9c4a64565e1829f41b4fe6988301b`
   immediately after the notifier.
+- **Live `deploy-llm-agent` proposal proof:** workflow run
+  `24925781387` later posted `image_push_completed` into staging as
+  `evt_74ef7a99cb5d` / `imgpush_eadad713af0b` for commit
+  `52c3802fbd18e38f0542f5176b468f7bf6950b72`, carrying staging/prod
+  digest
+  `sha256:3f3a144ec2145b6bc8be2b8cd7a4ca3e3c3742231c48e85832b5e95f60d76971`.
+  The operator created intent `intent_8b92f439d2c0`, then ran the real
+  Anthropic-backed adapter once as `deploy-llm-agent` against
+  `https://quorum-staging.fly.dev`. The call completed against
+  `claude-opus-4-7` and submitted `proposal_b07ba69ae657`
+  (`fly.deploy` target `quorum-staging`) plus human-approval request
+  `approval_req_4fc1b863ca1f`. No execution was claimed or attempted;
+  same-app staging deploy remains blocked by invariant. The adapter
+  initially logged the tool dispatch as `ok=False` because it expected
+  a top-level `id`; PR #75 fixes the dispatcher to recognize the
+  current `POST /api/v1/proposals` response envelope.
 - **Prod deployment state:** `quorum-prod` is running Fly release v7,
   which reports platform image ref
   `registry.fly.io/quorum-prod@sha256:4cecb6bebf72e0c0fa75fc347854c1196947b7b07de25ee63c475d3265ee8828`.
@@ -214,6 +233,12 @@ authoritative state of the project.
     repo secrets are set. The notifier is configured against staging
     and workflow run `24925601409` proved it appends hash-chained
     evidence.
+  - **Post-tag LLM proposal proof** — `deploy-llm-agent` has run
+    against the live staging event stream with a real Anthropic call
+    and created a `fly.deploy` proposal from `image_push_completed`
+    evidence. PR #75 fixed the adapter-side result parsing so the
+    current proposal response envelope logs as a successful tool
+    dispatch.
   - **Post-tag execution safety** — same-app `fly.deploy` is blocked
     when Fly exposes `FLY_APP_NAME`, preserving terminal event writes
     for single-machine apps.
@@ -417,26 +442,25 @@ harness under `.claude/`. Codex and other agents can ignore them.
     failing the image supply path. Do not treat a successful image-push
     workflow as Quorum-ingested evidence unless staging's event stream
     contains `image_push_completed`.
-30. **[Repo-wide]** The deployed `deploy-agent` key is not the same as
-    the `deploy-llm-agent` identity in `config/agents.yaml`, and this
-    workstation currently has no `ANTHROPIC_API_KEY`. The image-push
-    evidence and prod deploy are proven, but a real LLM-driven
-    deploy-agent tick still needs a `deploy-llm-agent` API key deployed
-    to staging plus an Anthropic key for the adapter process.
+30. **[Repo-wide]** Older checkouts before PR #75 log a successful
+    `deploy-llm-agent` proposal tool call as `ok=False` if
+    `POST /api/v1/proposals` returns the current
+    `{proposal, policy_decision}` envelope. Inspect the event log for
+    `proposal_created` before assuming the proposal failed. The
+    staging key and local Anthropic key now exist in Keychain; do not
+    print them in logs or docs.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Prove real `deploy-llm-agent` proposal generation
+### A — Prove fixed `deploy-llm-agent` result logging, then design peer execution
 
-Provision a staging API key for `deploy-llm-agent`, add it to
-`quorum-staging`'s `QUORUM_API_KEYS`, provide `ANTHROPIC_API_KEY` to
-the adapter process, then run:
-
-`python -m apps.llm_agent.run --agent-id deploy-llm-agent --quorum-url https://quorum-staging.fly.dev --once`
-
-Use a fresh image-push event or reset the adapter cursor so it sees
-`image_push_completed`; confirm the LLM creates a `fly.deploy`
-proposal without any direct execution. Keep same-app deploys blocked.
+After PR #75 is deployed, run `deploy-llm-agent` once against a fresh
+`image_push_completed` event or a reset cursor and confirm
+`llm_tool_dispatch_completed` records `ok=True`, `tools_ok=1`, and the
+new proposal id. Do not execute same-app staging proposals. The next
+useful product step is a peer-controller flow where the LLM proposes
+staging first, waits for operator-attached staging health evidence,
+then proposes prod.
 
 ### B — Add opt-in live GitHub actuator integration coverage
 
