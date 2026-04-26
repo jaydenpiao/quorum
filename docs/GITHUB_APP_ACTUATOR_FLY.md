@@ -178,3 +178,18 @@ For prod runtime proof, use `environment: "prod"` so the protected
 environment override requires explicit human approval before execution.
 Keep both apps installed only on the fixture repo until a separate PR
 switches `config/github.yaml` to a production target.
+
+## 6. Optional live integration test
+
+The repo has skipped-by-default fixture coverage for the same
+comment/rollback path. It creates one issue comment on
+`jaydenpiao/quorum-actuator-fixtures#1`, deletes it through
+`rollback_comment_issue`, and verifies the comment is gone.
+
+Run it only when the GitHub App private key is available locally:
+
+```bash
+QUORUM_GITHUB_LIVE_TESTS=1 \
+QUORUM_GITHUB_APP_PRIVATE_KEY_B64="$(security find-generic-password -a "$USER" -s quorum-github-app-private-key-b64 -w)" \
+uv run pytest -m integration tests/test_github_live_integration.py -q
+```

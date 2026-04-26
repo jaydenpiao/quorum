@@ -174,6 +174,26 @@ def test_rollback_deletes_comment(client: GitHubAppClient) -> None:
     assert delete.call_count == 1
 
 
+def test_get_issue_comment_returns_comment(client: GitHubAppClient) -> None:
+    with respx.mock(assert_all_called=False) as mock:
+        _token(mock)
+        mock.get("https://api.github.com/repos/jaydenpiao/quorum/issues/comments/12345").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "id": 12345,
+                    "body": "automated note",
+                    "html_url": "https://github.com/jaydenpiao/quorum/issues/99#issuecomment-12345",
+                },
+            )
+        )
+
+        comment = client.get_issue_comment(7, "jaydenpiao", "quorum", 12345)
+
+    assert comment["id"] == 12345
+    assert comment["body"] == "automated note"
+
+
 def test_rollback_idempotent_on_404(client: GitHubAppClient) -> None:
     with respx.mock(assert_all_called=False) as mock:
         _token(mock)

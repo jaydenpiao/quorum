@@ -220,9 +220,12 @@ Three layers:
    action type's happy and failure paths, reject-on-protected-base, branch
    name derivation.
 2. **Integration against fixture repo** (slow, gated by env var
-   `QUORUM_GITHUB_LIVE_TESTS=1`) — a throwaway repo
-   `jaydenpiao/quorum-actuator-fixtures`, marked via `pytest.mark.live`.
-   CI runs them only on a manually triggered workflow; not on every PR.
+   `QUORUM_GITHUB_LIVE_TESTS=1`) — fixture repo
+   `jaydenpiao/quorum-actuator-fixtures`, marked via
+   `pytest.mark.integration` and excluded from default CI. Current
+   coverage creates a `github.comment_issue`, rolls it back with
+   `rollback_comment_issue`, and verifies GitHub returns 404 for the
+   deleted comment.
 3. **Contract** — a `schemathesis` run over the new pydantic specs to
    catch shape regressions.
 

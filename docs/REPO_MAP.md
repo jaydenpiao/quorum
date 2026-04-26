@@ -161,7 +161,7 @@ Last refreshed at v0.5.0-alpha.1.
 
 ## Tests — `tests/`
 
-Pytest tests, colocated by feature. 385 default tests + 12 integration-
+Pytest tests, colocated by feature. 386 default tests + 13 integration-
 gated tests, ~81% coverage. Key
 files:
 
@@ -173,6 +173,8 @@ files:
 - `tests/test_executor_github_dispatch.py`,
   `tests/test_executor_fly_dispatch.py`
 - `tests/test_github_*.py` — one per GitHub action
+- `tests/test_github_live_integration.py` — opt-in fixture
+  comment/rollback test, gated by `QUORUM_GITHUB_LIVE_TESTS=1`
 - `tests/test_fly_actuator.py` — spec / client / actions
 - `tests/test_fly_deploy_proposal_gate.py` — API and executor gates
   that prevent `fly.deploy` proposals from skipping health checks
