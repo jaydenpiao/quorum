@@ -310,6 +310,12 @@ Policy rule (`config/policies.yaml`): `fly.deploy` requires 2 votes
 AND `requires_human=true` — every deploy pauses for explicit approval
 via the Phase 4 human-approval entity.
 
+Proposal gate: `fly.deploy` proposals must include at least one
+post-change `health_checks` entry before the API appends
+`proposal_created`. The executor repeats that check for older
+already-logged proposals and fails before calling Fly if the list is
+empty.
+
 Rollback: `rollback_deploy` redeploys the `previous_image_digest`
 captured at forward-deploy time. If no previous digest was captured
 (first deploy, release-list introspection failed), the executor emits

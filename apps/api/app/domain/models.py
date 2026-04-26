@@ -18,6 +18,11 @@ STRICT_INPUT = ConfigDict(extra="forbid", str_strip_whitespace=True)
 # so typical patches (a handful of small/medium source files) fit, while
 # still keeping individual log lines tractable for replay.
 MAX_PROPOSAL_PAYLOAD_BYTES = 262144  # 256 KiB
+FLY_DEPLOY_ACTION_TYPE = "fly.deploy"
+FLY_DEPLOY_HEALTH_CHECKS_REQUIRED_DETAIL = (
+    "fly.deploy proposals require health_checks; include target-specific "
+    "/readiness and /api/v1/health checks"
+)
 
 
 def _validated_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -283,6 +288,8 @@ class ProposalCreate(BaseModel):
     @model_validator(mode="after")
     def _check_payload_size(self) -> ProposalCreate:
         _validated_payload(self.payload)
+        if self.action_type == FLY_DEPLOY_ACTION_TYPE and not self.health_checks:
+            raise ValueError(FLY_DEPLOY_HEALTH_CHECKS_REQUIRED_DETAIL)
         return self
 
 

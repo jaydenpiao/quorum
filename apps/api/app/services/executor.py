@@ -51,6 +51,8 @@ from apps.api.app.domain.models import (
     EventEnvelope,
     ExecutionRecord,
     ExecutionStatus,
+    FLY_DEPLOY_ACTION_TYPE,
+    FLY_DEPLOY_HEALTH_CHECKS_REQUIRED_DETAIL,
     HealthCheckResult,
     Proposal,
     RollbackImpossibleRecord,
@@ -194,6 +196,17 @@ class Executor:
             )
         )
 
+        preflight_error = self._preflight_error(proposal)
+        if preflight_error:
+            return self._fail_and_rollback(
+                proposal=proposal,
+                actor_id=actor_id,
+                health_results=[],
+                detail=preflight_error,
+                result={},
+                rollback=False,
+            )
+
         try:
             action_result = self._dispatch_action(proposal)
         except ExecutorDispatchError as exc:
@@ -279,6 +292,11 @@ class Executor:
     # Dispatch
     # ------------------------------------------------------------------
 
+    def _preflight_error(self, proposal: Proposal) -> str | None:
+        if proposal.action_type == FLY_DEPLOY_ACTION_TYPE and not proposal.health_checks:
+            return FLY_DEPLOY_HEALTH_CHECKS_REQUIRED_DETAIL
+        return None
+
     def _dispatch_action(self, proposal: Proposal) -> dict[str, Any]:
         action_type = proposal.action_type
         if action_type.startswith(_GITHUB_PREFIX):
@@ -341,6 +359,7 @@ class Executor:
         health_results: list[HealthCheckResult],
         detail: str,
         result: dict[str, Any],
+        rollback: bool = True,
     ) -> dict[str, Any]:
         failed_record = ExecutionRecord(
             proposal_id=proposal.id,
@@ -360,7 +379,7 @@ class Executor:
         )
 
         rollback_payload: dict[str, Any] | None = None
-        if self.policy_engine.auto_rollback_enabled:
+        if rollback and self.policy_engine.auto_rollback_enabled:
             rollback_payload = self._do_rollback(
                 proposal=proposal, actor_id=actor_id, result=result
             )

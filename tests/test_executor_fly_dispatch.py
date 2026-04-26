@@ -81,6 +81,11 @@ def _deploy_proposal(
     image_digest: str = "sha256:" + "a" * 64,
     health_checks: list[HealthCheckSpec] | None = None,
 ) -> Proposal:
+    checks = (
+        [HealthCheckSpec(name="post-deploy-smoke", kind=HealthCheckKind.always_pass)]
+        if health_checks is None
+        else health_checks
+    )
     return Proposal(
         intent_id="intent_deploy",
         agent_id="deploy-agent",
@@ -94,7 +99,7 @@ def _deploy_proposal(
             "image_digest": image_digest,
             "strategy": "rolling",
         },
-        health_checks=health_checks or [],
+        health_checks=checks,
         status=ProposalStatus.approved,
     )
 
@@ -184,6 +189,27 @@ def test_fly_deploy_refuses_same_app_self_deploy(
 
     events = event_log.read_all()
     event_types = [e.event_type for e in events]
+    assert "execution_started" in event_types
+    assert "execution_failed" in event_types
+    assert "execution_succeeded" not in event_types
+
+
+def test_fly_deploy_without_health_checks_fails_before_mutation(
+    event_log: EventLog, policy: PolicyEngine
+) -> None:
+    fly = _StubFlyClient(
+        releases_response=[{"ImageRef": {"Digest": "sha256:" + "b" * 64}}],
+        deploy_response={"ReleaseId": "rel_xyz"},
+    )
+    executor = Executor(event_log, policy, fly_client=fly)  # type: ignore[arg-type]
+
+    result = executor.execute(_deploy_proposal(health_checks=[]), actor_id="operator")
+
+    assert result["status"] == "failed"
+    assert "fly.deploy proposals require health_checks" in result["detail"]
+    assert fly.deploy_calls == []
+
+    event_types = [e.event_type for e in event_log.read_all()]
     assert "execution_started" in event_types
     assert "execution_failed" in event_types
     assert "execution_succeeded" not in event_types

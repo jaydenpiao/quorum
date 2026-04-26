@@ -18,7 +18,7 @@ authoritative state of the project.
   production container. Live flyctl smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 380 passing + 12 integration-gated (excluded from CI
+- **Test suite:** 384 passing + 12 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres or Fly.io, with additional env gates for destructive tests).
 - **Coverage:** 81% (gate floor: 60%).
@@ -29,7 +29,7 @@ authoritative state of the project.
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 77. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, and #77 health-checked deploy-agent proof handoff.
+- **Merged PR count:** 78. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, and #78 API/executor health-check gate for `fly.deploy`.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -270,7 +270,10 @@ authoritative state of the project.
     proposals include target-specific readiness and API health checks
     instead of leaving `health_checks` empty. PR #77 records the live
     proof: `proposal_7e096a4d63fe` carries the standard staging
-    readiness and API-health checks.
+    readiness and API-health checks. PR #78 turns that prompt contract
+    into a server-side safety gate: new `fly.deploy` proposals with no
+    health checks are rejected before `proposal_created`, and older
+    empty-check proposals fail before the executor calls Fly.
   - **Post-tag execution safety** — same-app `fly.deploy` is blocked
     when Fly exposes `FLY_APP_NAME`, preserving terminal event writes
     for single-machine apps.
@@ -487,6 +490,12 @@ harness under `.claude/`. Codex and other agents can ignore them.
     proposal, verify it includes the target app's `/readiness` and
     `/api/v1/health` checks. Same-app staging proposals should still
     remain pending unless run from a proven external or peer executor.
+32. **[Repo-wide]** New `fly.deploy` proposals without
+    `health_checks` are rejected before the event log is mutated, and
+    the executor refuses historical empty-check Fly deploys before
+    invoking Fly. If you inspect older logs, a pending empty-check
+    proposal may still exist as evidence, but it should not be
+    considered executable.
 
 ## Next-session candidates (pick one, by priority)
 
