@@ -41,4 +41,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         for name, value in _SECURITY_HEADERS.items():
             response.headers.setdefault(name, value)
         response.headers.setdefault("Content-Security-Policy", _CSP)
+        if request.url.path == "/console" or request.url.path.startswith("/console-static/"):
+            response.headers["Cache-Control"] = "no-store, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
         return response

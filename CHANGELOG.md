@@ -65,6 +65,7 @@ artifact against that tag (see `.github/workflows/release.yml`).
   LLM-style findings, a `fly.deploy` proposal for `quorum-prod`, policy
   evaluation, quorum votes, human approval, stubbed execution, health
   checks, and hash-chain continuity without mutating live Fly.
+
 - **Image-push skips docs-only merges** — the `image-push` workflow now
   ignores pushes where every changed file is Markdown/docs content, so
   handoff refreshes do not build containers or emit deploy-agent image
@@ -109,6 +110,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- **Console demo recording foot-guns** — `/console` and
+  `/console-static/*` now send no-cache headers so stale browser tabs do
+  not keep showing the old POC console, and the dog-food demo seed
+  action fills the local demo bearer token when the token field is
+  still empty.
 - **Fly deploy proposals cannot skip verification** — `fly.deploy`
   proposals are now rejected at the API boundary unless they include
   post-change `health_checks`, and the executor refuses any historical
