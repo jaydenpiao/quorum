@@ -11,6 +11,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **Professional operator console + dog-food demo runbook** —
+  `/console` now has a light SaaS dashboard shell, external stylesheet,
+  proposal inspector, image-push evidence view, live event timeline, and
+  a recording guide at `docs/DEMO_VIDEO.md`.
 - **LLM deploy-agent same-app proposal guard** — the adapter now
   infers the Quorum API control-plane Fly app from `*.fly.dev` URLs
   (or `QUORUM_LLM_CONTROL_PLANE_FLY_APP` for internal URLs), includes
@@ -56,6 +60,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- **Demo seeder now shows Quorum dog-food deploy flow** —
+  `POST /api/v1/demo/incident` seeds an image-push evidence event,
+  LLM-style findings, a `fly.deploy` proposal for `quorum-prod`, policy
+  evaluation, quorum votes, human approval, stubbed execution, health
+  checks, and hash-chain continuity without mutating live Fly.
 - **Image-push skips docs-only merges** — the `image-push` workflow now
   ignores pushes where every changed file is Markdown/docs content, so
   handoff refreshes do not build containers or emit deploy-agent image

@@ -1,113 +1,191 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Quorum Operator Console</title>
-  <style>
-    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; background: #0b1020; color: #eef2ff; }
-    h1, h2, h3 { margin-bottom: 8px; }
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-    .card { background: #141b34; padding: 16px; border-radius: 16px; border: 1px solid #263154; }
-    pre { background: #0f1530; padding: 12px; border-radius: 12px; overflow: auto; max-height: 350px; }
-    button { padding: 10px 14px; border-radius: 10px; border: none; cursor: pointer; background: #4c5edb; color: #fff; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    input, select, textarea { padding: 8px 10px; border-radius: 8px; border: 1px solid #263154; background: #0f1530; color: #eef2ff; font-family: inherit; width: 100%; box-sizing: border-box; }
-    label { display: block; font-size: 0.85em; color: #b6c0df; margin-bottom: 4px; margin-top: 8px; }
-    .toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
-    .muted { color: #b6c0df; }
-    .pill { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #263154; margin-right: 8px; }
-    .pill.live { background: #1f6b3a; }
-    .pill.disconnected { background: #6b1f1f; }
-    form { display: flex; flex-direction: column; }
-    form button { margin-top: 12px; align-self: flex-start; }
-    .status { font-size: 0.85em; margin-top: 8px; min-height: 1.2em; }
-    .status.ok { color: #7dd492; }
-    .status.err { color: #f28b82; }
-  </style>
-</head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quorum Operator Console</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/console-static/styles.css" />
+  </head>
 <body>
-  <h1>Quorum Operator Console</h1>
-  <p class="muted">POC console for intents, proposals, votes, executions, rollbacks, and event history.</p>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Q</div>
+        <div>
+          <div class="brand-name">Quorum</div>
+          <div class="brand-subtitle">Control plane</div>
+        </div>
+      </div>
+      <nav class="nav-list" aria-label="Console sections">
+        <a href="#overview" class="nav-link active">Overview</a>
+        <a href="#proposals" class="nav-link">Proposals</a>
+        <a href="#timeline" class="nav-link">Timeline</a>
+        <a href="#actions" class="nav-link">Actions</a>
+      </nav>
+      <div class="sidebar-footer">
+        <span id="stream-status" class="connection disconnected">stream disconnected</span>
+      </div>
+    </aside>
 
-  <div class="toolbar">
-    <label style="margin-top:0; flex: 1 1 260px; max-width: 460px;">
-      Bearer token (saved in localStorage)
-      <input id="bearer-token" type="password" placeholder="operator-key-dev" autocomplete="off" />
-    </label>
-    <button id="btn-seed">Seed demo incident</button>
-    <button id="btn-refresh">Refresh</button>
-    <span id="stream-status" class="pill disconnected">stream: disconnected</span>
-  </div>
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Operator console</p>
+          <h1>Agentic change control</h1>
+        </div>
+        <div class="topbar-actions">
+          <label class="token-field">
+            <span>Bearer token</span>
+            <input id="bearer-token" type="text" placeholder="operator-key-dev" autocomplete="off" spellcheck="false" />
+          </label>
+          <button id="btn-refresh" class="button secondary" type="button">Refresh</button>
+          <button id="btn-seed" class="button primary" type="button">Seed dog-food deploy demo</button>
+        </div>
+      </header>
 
-  <div class="grid">
-    <div class="card">
-      <h2>Summary</h2>
-      <div id="summary"></div>
-    </div>
-    <div class="card">
-      <h2>Intents</h2>
-      <form id="form-intent">
-        <label>Title <input name="title" required minlength="1" maxlength="500" placeholder="customer signup failing" /></label>
-        <label>Description <input name="description" required minlength="1" maxlength="4000" placeholder="5xx on /signup since deploy X" /></label>
-        <label>Environment <input name="environment" value="local" maxlength="64" /></label>
-        <button type="submit">Create intent</button>
-        <div id="form-intent-status" class="status"></div>
-      </form>
-      <h3 style="margin-top:16px;">Existing</h3>
-      <pre id="intents"></pre>
-    </div>
-    <div class="card">
-      <h2>Proposals</h2>
-      <pre id="proposals"></pre>
-    </div>
-    <div class="card">
-      <h2>Policy decisions</h2>
-      <pre id="policy"></pre>
-    </div>
-    <div class="card">
-      <h2>Cast a vote</h2>
-      <form id="form-vote">
-        <label>Proposal ID <input name="proposal_id" required placeholder="proposal_abc123def456" /></label>
-        <label>Decision
-          <select name="decision" required>
-            <option value="approve">approve</option>
-            <option value="reject">reject</option>
-          </select>
-        </label>
-        <label>Reason <input name="reason" maxlength="2000" placeholder="reviewed the diff" /></label>
-        <button type="submit">Submit vote</button>
-        <div id="form-vote-status" class="status"></div>
-      </form>
-      <h3 style="margin-top:16px;">Executions</h3>
-      <pre id="executions"></pre>
-    </div>
-    <div class="card">
-      <h2>Grant / deny approval</h2>
-      <p class="muted" style="margin-top:0;">Only applies to proposals whose policy decision set <code>requires_human=true</code>.</p>
-      <form id="form-approval">
-        <label>Proposal ID <input name="proposal_id" required placeholder="proposal_abc123def456" /></label>
-        <label>Decision
-          <select name="decision" required>
-            <option value="granted">granted</option>
-            <option value="denied">denied</option>
-          </select>
-        </label>
-        <label>Reason <input name="reason" maxlength="2000" placeholder="reviewed the diff, LGTM" /></label>
-        <button type="submit">Submit approval</button>
-        <div id="form-approval-status" class="status"></div>
-      </form>
-      <h3 style="margin-top:16px;">Human approvals</h3>
-      <pre id="approvals"></pre>
-    </div>
-    <div class="card">
-      <h2>Rollbacks</h2>
-      <pre id="rollbacks"></pre>
-    </div>
-  </div>
+      <section id="overview" class="status-strip" aria-label="Runtime status">
+        <div class="status-tile">
+          <span class="tile-label">Environment</span>
+          <strong id="metric-environment">local</strong>
+        </div>
+        <div class="status-tile">
+          <span class="tile-label">Open proposals</span>
+          <strong id="metric-open-proposals">0</strong>
+        </div>
+        <div class="status-tile">
+          <span class="tile-label">Pending approvals</span>
+          <strong id="metric-pending-approvals">0</strong>
+        </div>
+        <div class="status-tile">
+          <span class="tile-label">Health pass rate</span>
+          <strong id="metric-health">0/0</strong>
+        </div>
+        <div class="status-tile">
+          <span class="tile-label">Event chain</span>
+          <strong id="metric-events">0 events</strong>
+        </div>
+      </section>
 
-  <div class="card" style="margin-top:16px;">
-    <h2>Event timeline <span class="muted" style="font-size: 0.7em;">(live via SSE)</span></h2>
-    <pre id="events"></pre>
+      <section class="main-grid">
+        <div class="primary-column">
+          <section id="proposals" class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Governance queue</p>
+                <h2>Proposals</h2>
+              </div>
+              <span id="proposal-count" class="count-badge">0</span>
+            </div>
+            <div class="table-wrap">
+              <table class="proposal-table">
+                <thead>
+                  <tr>
+                    <th>Proposal</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Risk</th>
+                    <th>Status</th>
+                    <th>Votes</th>
+                  </tr>
+                </thead>
+                <tbody id="proposal-rows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Supply evidence</p>
+                <h2>Image pushes</h2>
+              </div>
+            </div>
+            <div id="image-pushes" class="evidence-list"></div>
+          </section>
+
+          <section id="timeline" class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Append-only audit</p>
+                <h2>Event timeline</h2>
+              </div>
+              <span id="last-hash" class="hash-pill">no hash</span>
+            </div>
+            <div id="events" class="timeline"></div>
+          </section>
+        </div>
+
+        <aside class="inspector-column">
+          <section class="panel sticky-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Selected object</p>
+                <h2>Proposal inspector</h2>
+              </div>
+            </div>
+            <div id="proposal-inspector" class="inspector-empty">No proposal selected.</div>
+          </section>
+
+          <section id="actions" class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Operator actions</p>
+                <h2>Control gates</h2>
+              </div>
+            </div>
+
+            <form id="form-intent" class="stacked-form">
+              <h3>Create intent</h3>
+              <label>Title <input name="title" required minlength="1" maxlength="500" placeholder="Investigate failed deploy" /></label>
+              <label>Description <input name="description" required minlength="1" maxlength="4000" placeholder="Evidence, impact, and target system" /></label>
+              <label>Environment <input name="environment" value="local" maxlength="64" /></label>
+              <button type="submit" class="button secondary">Create intent</button>
+              <div id="form-intent-status" class="status"></div>
+            </form>
+
+            <form id="form-vote" class="stacked-form">
+              <h3>Cast vote</h3>
+              <label>Proposal ID <input name="proposal_id" required placeholder="proposal_abc123def456" /></label>
+              <label>Decision
+                <select name="decision" required>
+                  <option value="approve">approve</option>
+                  <option value="reject">reject</option>
+                </select>
+              </label>
+              <label>Reason <input name="reason" maxlength="2000" placeholder="reviewed evidence" /></label>
+              <button type="submit" class="button secondary">Submit vote</button>
+              <div id="form-vote-status" class="status"></div>
+            </form>
+
+            <form id="form-approval" class="stacked-form">
+              <h3>Human approval</h3>
+              <label>Proposal ID <input name="proposal_id" required placeholder="proposal_abc123def456" /></label>
+              <label>Decision
+                <select name="decision" required>
+                  <option value="granted">granted</option>
+                  <option value="denied">denied</option>
+                </select>
+              </label>
+              <label>Reason <input name="reason" maxlength="2000" placeholder="reviewed digest and checks" /></label>
+              <button type="submit" class="button secondary">Submit approval</button>
+              <div id="form-approval-status" class="status"></div>
+            </form>
+          </section>
+        </aside>
+      </section>
+
+      <section class="raw-grid" aria-label="Raw audit data">
+        <details class="raw-block">
+          <summary>Raw state JSON</summary>
+          <pre id="raw-state"></pre>
+        </details>
+        <details class="raw-block">
+          <summary>Raw event JSON</summary>
+          <pre id="raw-events"></pre>
+        </details>
+      </section>
+    </main>
   </div>
 
   <script defer src="/console-static/app.js"></script>

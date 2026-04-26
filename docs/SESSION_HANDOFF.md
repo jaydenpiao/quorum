@@ -18,7 +18,7 @@ authoritative state of the project.
   production container. Live flyctl smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 398 passing + 13 integration-gated (excluded from CI
+- **Test suite:** 401 passing + 13 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres, Fly.io, or GitHub, with additional env gates for destructive
   tests).
@@ -31,6 +31,15 @@ authoritative state of the project.
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
 - **Merged PR count:** 85. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, and #85 final handoff refresh.
+- **Current console/demo candidate:** `feat/professional-console-demo`
+  refreshes `/console` into a light operator dashboard, moves styles to
+  `apps/console/styles.css`, and changes `POST /api/v1/demo/incident`
+  from the generic checkout rollback seed to a deterministic Quorum
+  dog-food `fly.deploy` story. The local demo uses a stubbed Fly client
+  so recordings exercise Quorum's executor/event path without mutating
+  live Fly. Local browser verification showed the seeded dashboard
+  rendering the prod deploy proposal, policy/vote/approval gate,
+  execution result, health checks, and event-chain preview.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -552,6 +561,12 @@ harness under `.claude/`. Codex and other agents can ignore them.
     invoking Fly. If you inspect older logs, a pending empty-check
     proposal may still exist as evidence, but it should not be
     considered executable.
+33. **[Repo-wide]** The polished local demo is evidence of Quorum's
+    control-plane path, not a live Fly mutation. The demo seeder uses a
+    `_DemoFlyClient` to produce deterministic `fly.deploy` execution
+    records. Use `docs/DEMO_VIDEO.md`'s read-only Fly checks when
+    recording; run opt-in live integration tests separately when you
+    need fresh actuator proof.
 
 ## Next-session candidates (pick one, by priority)
 

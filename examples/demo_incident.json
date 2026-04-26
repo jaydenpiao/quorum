@@ -1,39 +1,67 @@
 {
+  "image_push": {
+    "commit_sha": "2c1e6e17eff7b3428418efb3bc0d8535146f67dc",
+    "workflow_run_id": "24952257426",
+    "workflow_url": "https://github.com/jaydenpiao/quorum/actions/runs/24952257426",
+    "staging_image_ref": "registry.fly.io/quorum-staging@sha256:aa267ec52be093acd5b2e8a39c658d073f1927ceeeada5aef55c28fbe7f90f6e",
+    "staging_digest": "sha256:aa267ec52be093acd5b2e8a39c658d073f1927ceeeada5aef55c28fbe7f90f6e",
+    "prod_image_ref": "registry.fly.io/quorum-prod@sha256:aa267ec52be093acd5b2e8a39c658d073f1927ceeeada5aef55c28fbe7f90f6e",
+    "prod_digest": "sha256:aa267ec52be093acd5b2e8a39c658d073f1927ceeeada5aef55c28fbe7f90f6e",
+    "reported_by": "deploy-agent"
+  },
   "intent": {
-    "title": "Investigate elevated p99 latency in checkout-service",
-    "description": "Error rate and latency rose after deploy v184",
+    "title": "Promote verified Quorum image from staging to prod",
+    "description": "Image-push CI published a new content-addressed Quorum image; agents need to verify evidence and propose the gated prod deploy.",
     "environment": "prod",
     "requested_by": "operator"
   },
   "findings": [
     {
-      "agent_id": "telemetry-agent",
-      "summary": "p99 latency doubled after deploy v184; DB errors correlate with spike",
-      "evidence_refs": ["grafana:checkout-p99", "logs:error-rate"],
-      "confidence": 0.91
+      "agent_id": "deploy-llm-agent",
+      "summary": "Image-push evidence shows the same immutable digest is available for quorum-staging and quorum-prod.",
+      "evidence_refs": [
+        "image_push:imgpush_demo",
+        "workflow:24952257426",
+        "digest:sha256:aa267ec52be093acd5b2e8a39c658d073f1927ceeeada5aef55c28fbe7f90f6e"
+      ],
+      "confidence": 0.94
     },
     {
-      "agent_id": "deploy-agent",
-      "summary": "deploy v184 introduced new DB pool settings 6 minutes before spike",
-      "evidence_refs": ["deploy:v184", "release-notes:v184"],
-      "confidence": 0.87
+      "agent_id": "telemetry-agent",
+      "summary": "Staging and prod readiness probes are the required post-change checks for a safe Quorum dog-food deploy.",
+      "evidence_refs": [
+        "https://quorum-staging.fly.dev/readiness",
+        "https://quorum-prod.fly.dev/api/v1/health"
+      ],
+      "confidence": 0.9
     }
   ],
   "proposal": {
-    "title": "Rollback checkout-service from v184 to v183",
-    "action_type": "rollback-deploy",
-    "target": "checkout-service",
+    "title": "Deploy Quorum prod image sha256:aa267ec52",
+    "action_type": "fly.deploy",
+    "target": "quorum-prod",
     "environment": "prod",
     "risk": "high",
-    "rationale": "Independent telemetry and deploy findings agree that v184 caused the regression",
+    "rationale": "CI produced a pinned Fly image digest and agents verified the post-change readiness checks required for production promotion.",
+    "evidence_refs": [
+      "image_push:imgpush_demo",
+      "workflow:24952257426",
+      "staging-readiness",
+      "prod-api-health"
+    ],
     "rollback_steps": [
-      "set deployment image to v183",
-      "wait for rollout complete",
-      "confirm connection errors drop"
+      "redeploy previous prod image sha256:36809cd455123b89a592a70dcf31cc91a27bb8eddb9b9ccd154830bfa0f9bcce",
+      "wait for Fly release health checks",
+      "verify prod readiness and API health return HTTP 200"
     ],
     "health_checks": [
-      { "name": "error-rate", "kind": "always_pass" },
-      { "name": "latency", "kind": "always_pass" }
-    ]
+      { "name": "prod-readiness", "kind": "always_pass" },
+      { "name": "prod-api-health", "kind": "always_pass" }
+    ],
+    "payload": {
+      "app": "quorum-prod",
+      "image_digest": "sha256:aa267ec52be093acd5b2e8a39c658d073f1927ceeeada5aef55c28fbe7f90f6e",
+      "strategy": "immediate"
+    }
   }
 }
