@@ -16,6 +16,8 @@ Last refreshed at v0.5.0-alpha.1.
 - `CHANGELOG.md` — versioned feature list (Keep a Changelog format)
 - `docs/GITHUB_APP_ACTUATOR_FLY.md` — operator runbook for enabling
   the GitHub App actuator on Fly
+- `docs/DEMO_VIDEO.md` — recording runbook + script for the polished
+  local dog-food deploy demo
 - `llms.txt` — shortest file list for LLM navigation
 - `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
 - `pyproject.toml`, `uv.lock` — Python packaging / locked deps
@@ -136,9 +138,13 @@ Last refreshed at v0.5.0-alpha.1.
 ## Console — `apps/console/`
 
 - `apps/console/AGENTS.md`
-- `apps/console/index.html` — static operator console with SSE
-  live-tail + bearer-token storage + create-intent / cast-vote /
-  grant-deny-approval forms
+- `apps/console/index.html` — static operator console shell with
+  overview cards, proposal table, inspector, timeline, and action forms
+- `apps/console/app.js` — browser-only rendering + SSE live-tail +
+  bearer-token storage + create-intent / cast-vote /
+  grant-deny-approval handlers
+- `apps/console/styles.css` — light SaaS dashboard styling for the
+  static console
 
 ## Examples
 
@@ -157,6 +163,8 @@ Last refreshed at v0.5.0-alpha.1.
 - `docs/REPO_MAP.md` — this file
 - `docs/ROADMAP.md` — phase ✅/⏳/⬜ tracker
 - `docs/PRODUCT.md` — product framing
+- `docs/DEMO_VIDEO.md` — local recording commands, live read-only
+  proof commands, and 3-minute narration
 - `docs/SESSION_HANDOFF.md` — live state, gotchas, next candidates
 - `docs/GITHUB_AUTOMATION.md` — repo / CI setup reference
 - `docs/design/postgres-projection.md` — projection architecture

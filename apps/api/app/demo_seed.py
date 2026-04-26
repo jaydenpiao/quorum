@@ -3,11 +3,15 @@ from __future__ import annotations
 from typing import Any
 
 from apps.api.app.domain.models import (
+    ApprovalDecision,
     EventEnvelope,
     Finding,
     FindingCreate,
     HealthCheckKind,
     HealthCheckSpec,
+    HumanApprovalOutcome,
+    HumanApprovalRequest,
+    ImagePushRecord,
     Intent,
     IntentCreate,
     Proposal,
@@ -17,11 +21,41 @@ from apps.api.app.domain.models import (
     VoteCreate,
     VoteDecision,
 )
+from apps.api.app.services.actuators.fly import FlyClient
 from apps.api.app.services.event_log import EventLog
+from apps.api.app.services.executor import Executor
 from apps.api.app.services.policy_engine import PolicyEngine
 from apps.api.app.services.quorum_engine import QuorumEngine
 from apps.api.app.services.state_store import StateStore
-from apps.api.app.services.executor import Executor
+
+_DEMO_COMMIT_SHA = "2c1e6e17eff7b3428418efb3bc0d8535146f67dc"
+_DEMO_WORKFLOW_RUN_ID = "24952257426"
+_DEMO_NEW_DIGEST = "sha256:aa267ec52be093acd5b2e8a39c658d073f1927ceeeada5aef55c28fbe7f90f6e"
+_DEMO_PREVIOUS_DIGEST = "sha256:36809cd455123b89a592a70dcf31cc91a27bb8eddb9b9ccd154830bfa0f9bcce"
+
+
+class _DemoFlyClient(FlyClient):
+    """Deterministic Fly client for the local demo seeder.
+
+    It exercises the real ``fly.deploy`` executor path without invoking
+    flyctl or changing any live Fly app.
+    """
+
+    def __init__(self) -> None:
+        self.deploy_calls: list[dict[str, str]] = []
+
+    def releases(self, *, app: str, limit: int = 5) -> list[dict[str, object]]:
+        return [
+            {
+                "ID": "rel_previous_demo",
+                "ImageRef": {"Digest": _DEMO_PREVIOUS_DIGEST},
+                "Version": 7,
+            }
+        ][:limit]
+
+    def deploy(self, *, app: str, image_digest: str, strategy: str = "rolling") -> dict[str, str]:
+        self.deploy_calls.append({"app": app, "image_digest": image_digest, "strategy": strategy})
+        return {"ReleaseId": "rel_dogfood_demo"}
 
 
 def seed_demo(
@@ -35,9 +69,31 @@ def seed_demo(
     quorum = QuorumEngine()
     store = StateStore()
 
+    image_push = ImagePushRecord(
+        commit_sha=_DEMO_COMMIT_SHA,
+        workflow_run_id=_DEMO_WORKFLOW_RUN_ID,
+        workflow_url=f"https://github.com/jaydenpiao/quorum/actions/runs/{_DEMO_WORKFLOW_RUN_ID}",
+        staging_image_ref=f"registry.fly.io/quorum-staging@{_DEMO_NEW_DIGEST}",
+        staging_digest=_DEMO_NEW_DIGEST,
+        prod_image_ref=f"registry.fly.io/quorum-prod@{_DEMO_NEW_DIGEST}",
+        prod_digest=_DEMO_NEW_DIGEST,
+        reported_by="deploy-agent",
+    )
+    event_log.append(
+        EventEnvelope(
+            event_type="image_push_completed",
+            entity_type="image_push",
+            entity_id=image_push.id,
+            payload=image_push.model_dump(mode="json"),
+        )
+    )
+
     intent = IntentCreate(
-        title="Investigate elevated p99 latency in checkout-service",
-        description="Error rate and latency rose after deploy v184",
+        title="Promote verified Quorum image from staging to prod",
+        description=(
+            "Image-push CI published a new content-addressed Quorum image; "
+            "agents need to verify evidence and propose the gated prod deploy."
+        ),
         environment="prod",
         requested_by="operator",
     )
@@ -54,17 +110,30 @@ def seed_demo(
     findings = [
         FindingCreate(
             intent_id=intent_obj.id,
-            agent_id="telemetry-agent",
-            summary="p99 latency doubled after deploy v184; DB errors correlate with spike",
-            evidence_refs=["grafana:checkout-p99", "logs:error-rate"],
-            confidence=0.91,
+            agent_id="deploy-llm-agent",
+            summary=(
+                "Image-push evidence shows the same immutable digest is available "
+                "for quorum-staging and quorum-prod."
+            ),
+            evidence_refs=[
+                f"image_push:{image_push.id}",
+                f"workflow:{_DEMO_WORKFLOW_RUN_ID}",
+                f"digest:{_DEMO_NEW_DIGEST}",
+            ],
+            confidence=0.94,
         ),
         FindingCreate(
             intent_id=intent_obj.id,
-            agent_id="deploy-agent",
-            summary="deploy v184 introduced new DB pool settings 6 minutes before spike",
-            evidence_refs=["deploy:v184", "release-notes:v184"],
-            confidence=0.87,
+            agent_id="telemetry-agent",
+            summary=(
+                "Staging and prod readiness probes are the required post-change "
+                "checks for a safe Quorum dog-food deploy."
+            ),
+            evidence_refs=[
+                "https://quorum-staging.fly.dev/readiness",
+                "https://quorum-prod.fly.dev/api/v1/health",
+            ],
+            confidence=0.9,
         ),
     ]
 
@@ -82,22 +151,35 @@ def seed_demo(
     proposal_create = ProposalCreate(
         intent_id=intent_obj.id,
         agent_id="deploy-agent",
-        title="Rollback checkout-service from v184 to v183",
-        action_type="rollback-deploy",
-        target="checkout-service",
+        title=f"Deploy Quorum prod image {_DEMO_NEW_DIGEST[:19]}",
+        action_type="fly.deploy",
+        target="quorum-prod",
         environment="prod",
         risk=RiskLevel.high,
-        rationale="Independent telemetry and deploy findings agree that v184 caused the regression",
-        evidence_refs=["deploy:v184", "grafana:checkout-p99"],
+        rationale=(
+            "CI produced a pinned Fly image digest and agents verified the "
+            "post-change readiness checks required for production promotion."
+        ),
+        evidence_refs=[
+            f"image_push:{image_push.id}",
+            f"workflow:{_DEMO_WORKFLOW_RUN_ID}",
+            "staging-readiness",
+            "prod-api-health",
+        ],
         rollback_steps=[
-            "set deployment image to v183",
-            "wait for rollout complete",
-            "confirm connection errors drop",
+            f"redeploy previous prod image {_DEMO_PREVIOUS_DIGEST}",
+            "wait for Fly release health checks",
+            "verify prod readiness and API health return HTTP 200",
         ],
         health_checks=[
-            HealthCheckSpec(name="error-rate", kind=HealthCheckKind.always_pass),
-            HealthCheckSpec(name="latency", kind=HealthCheckKind.always_pass),
+            HealthCheckSpec(name="prod-readiness", kind=HealthCheckKind.always_pass),
+            HealthCheckSpec(name="prod-api-health", kind=HealthCheckKind.always_pass),
         ],
+        payload={
+            "app": "quorum-prod",
+            "image_digest": _DEMO_NEW_DIGEST,
+            "strategy": "immediate",
+        },
     )
     proposal = Proposal(**proposal_create.model_dump())
     event_log.append(
@@ -118,19 +200,33 @@ def seed_demo(
             payload=decision.model_dump(mode="json"),
         )
     )
+    if decision.requires_human:
+        approval_request = HumanApprovalRequest(
+            proposal_id=proposal.id,
+            proposer_id=proposal.agent_id,
+            reasons=list(decision.reasons),
+        )
+        event_log.append(
+            EventEnvelope(
+                event_type="human_approval_requested",
+                entity_type="human_approval_request",
+                entity_id=approval_request.id,
+                payload=approval_request.model_dump(mode="json"),
+            )
+        )
 
     votes = [
         VoteCreate(
             proposal_id=proposal.id,
             agent_id="telemetry-agent",
             decision=VoteDecision.approve,
-            reason="matches telemetry evidence",
+            reason="readiness and health checks are explicit and target prod",
         ),
         VoteCreate(
             proposal_id=proposal.id,
             agent_id="code-agent",
             decision=VoteDecision.approve,
-            reason="recent config diff aligns with failure",
+            reason="image digest is immutable and comes from main CI",
         ),
     ]
     all_votes: list[dict[str, Any]] = []
@@ -155,7 +251,23 @@ def seed_demo(
                 payload={"proposal_id": proposal.id},
             )
         )
-        Executor(event_log, policy).execute(proposal, actor_id="operator")
+        approval = HumanApprovalOutcome(
+            proposal_id=proposal.id,
+            approver_id="operator",
+            decision=ApprovalDecision.granted,
+            reason="reviewed digest, policy decision, votes, and health checks",
+        )
+        event_log.append(
+            EventEnvelope(
+                event_type="human_approval_granted",
+                entity_type="human_approval_outcome",
+                entity_id=approval.id,
+                payload=approval.model_dump(mode="json"),
+            )
+        )
+        Executor(event_log, policy, fly_client=_DemoFlyClient()).execute(
+            proposal, actor_id="deploy-agent"
+        )
 
     store.replay(event_log.read_all())
     return store.snapshot()

@@ -23,12 +23,70 @@ def test_demo_incident_flow():
     assert state.status_code == 200
     payload = state.json()
 
-    assert payload["event_count"] >= 1
+    assert payload["event_count"] >= 15
     assert len(payload["intents"]) == 1
+    assert len(payload["findings"]) == 2
     assert len(payload["proposals"]) == 1
+    assert len(payload["image_pushes"]) == 1
 
     proposal = payload["proposals"][0]
-    assert proposal["status"] in {"executed", "rolled_back", "failed"}
+    assert proposal["action_type"] == "fly.deploy"
+    assert proposal["target"] == "quorum-prod"
+    assert proposal["environment"] == "prod"
+    assert proposal["status"] == "executed"
+    assert proposal["payload"]["app"] == "quorum-prod"
+    assert proposal["payload"]["image_digest"].startswith("sha256:")
+    assert [check["name"] for check in proposal["health_checks"]] == [
+        "prod-readiness",
+        "prod-api-health",
+    ]
+
+    image_push = payload["image_pushes"][0]
+    assert image_push["prod_image_ref"].startswith("registry.fly.io/quorum-prod@sha256:")
+
+    policy = payload["policy_decisions"][proposal["id"]]
+    assert policy["allowed"] is True
+    assert policy["requires_human"] is True
+    assert policy["votes_required"] == 2
+
+    votes = payload["votes"][proposal["id"]]
+    assert [vote["decision"] for vote in votes] == ["approve", "approve"]
+
+    approvals = payload["human_approvals"][proposal["id"]]
+    assert [entry.get("decision", "requested") for entry in approvals] == [
+        "requested",
+        "granted",
+    ]
+
+    executions = payload["executions"][proposal["id"]]
+    assert executions[-1]["status"] == "succeeded"
+    assert executions[-1]["result"]["released_image_digest"] == proposal["payload"]["image_digest"]
+    assert executions[-1]["result"]["previous_image_digest"].startswith("sha256:")
+
+    health_checks = [
+        check for checks in payload["health_check_results"].values() for check in checks
+    ]
+    assert [check["name"] for check in health_checks] == ["prod-readiness", "prod-api-health"]
+    assert all(check["passed"] for check in health_checks)
+
+    events = client.get("/api/v1/events").json()
+    assert [event["event_type"] for event in events] == [
+        "image_push_completed",
+        "intent_created",
+        "finding_created",
+        "finding_created",
+        "proposal_created",
+        "policy_evaluated",
+        "human_approval_requested",
+        "proposal_voted",
+        "proposal_voted",
+        "proposal_approved",
+        "human_approval_granted",
+        "execution_started",
+        "health_check_completed",
+        "health_check_completed",
+        "execution_succeeded",
+    ]
 
 
 def test_create_intent_proposal_vote_execute():

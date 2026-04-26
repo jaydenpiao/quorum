@@ -41,13 +41,13 @@ def test_image_push_evidence_route_emits_event_and_reduces_state() -> None:
 
     events = client.get("/api/v1/events").json()
     image_events = [e for e in events if e["event_type"] == "image_push_completed"]
-    assert len(image_events) == 1
-    assert image_events[0]["entity_type"] == "image_push"
-    assert image_events[0]["entity_id"] == record["id"]
-    assert image_events[0]["payload"] == record
+    assert len(image_events) == 2
+    assert image_events[-1]["entity_type"] == "image_push"
+    assert image_events[-1]["entity_id"] == record["id"]
+    assert image_events[-1]["payload"] == record
 
     state = client.get("/api/v1/state").json()
-    assert state["image_pushes"][0] == record
+    assert record in state["image_pushes"]
 
 
 def test_image_push_evidence_rejects_mutable_tags() -> None:

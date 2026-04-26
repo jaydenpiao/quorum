@@ -21,3 +21,22 @@ def test_app_js_served(client: TestClient) -> None:
     # Starlette may return application/javascript or text/javascript.
     assert "javascript" in content_type, f"Unexpected Content-Type: {content_type}"
     assert "loadState" in response.text
+
+
+def test_console_shell_references_external_stylesheet(client: TestClient) -> None:
+    response = client.get("/console")
+
+    assert response.status_code == 200
+    assert "/console-static/styles.css" in response.text
+    assert "Seed dog-food deploy demo" in response.text
+    assert "<style>" not in response.text
+    assert '<script defer src="/console-static/app.js"></script>' in response.text
+
+
+def test_console_stylesheet_served(client: TestClient) -> None:
+    response = client.get("/console-static/styles.css")
+
+    assert response.status_code == 200
+    assert "css" in response.headers.get("content-type", "")
+    assert ".proposal-table" in response.text
+    assert ".timeline" in response.text
