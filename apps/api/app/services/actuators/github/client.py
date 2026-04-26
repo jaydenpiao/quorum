@@ -432,6 +432,21 @@ class GitHubAppClient:
             expected=(201,),
         )
 
+    def get_issue_comment(
+        self,
+        installation_id: int,
+        owner: str,
+        repo: str,
+        comment_id: int,
+    ) -> dict[str, Any]:
+        """Fetch an issue/PR comment by id. Raises ``GitHubApiError`` on 404."""
+        return self._request(
+            installation_id,
+            "GET",
+            f"/repos/{owner}/{repo}/issues/comments/{comment_id}",
+            expected=(200,),
+        )
+
     def delete_issue_comment(
         self,
         installation_id: int,

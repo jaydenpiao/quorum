@@ -18,9 +18,10 @@ authoritative state of the project.
   production container. Live flyctl smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 385 passing + 12 integration-gated (excluded from CI
+- **Test suite:** 386 passing + 13 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
-  Postgres or Fly.io, with additional env gates for destructive tests).
+  Postgres, Fly.io, or GitHub, with additional env gates for destructive
+  tests).
 - **Coverage:** 81% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 48 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
@@ -29,7 +30,7 @@ authoritative state of the project.
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 79. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, and #79 LLM prompt hash audit metadata.
+- **Merged PR count:** 80. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, and #80 opt-in live GitHub actuator rollback coverage.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -59,7 +60,9 @@ authoritative state of the project.
   `github.comment_issue` against fixture issue #1 through Quorum's
   proposal/vote/execute path; keep the App installed only on the
   fixture repo until a separate PR moves the actuator to a production
-  target.
+  target. Opt-in live pytest coverage also proves the direct actuator
+  helper creates a fixture comment, rolls it back, and observes the
+  deleted comment as 404.
 - **Staging deployment state:** `quorum-staging` is running Fly
   release v14, which reports platform image ref
   `registry.fly.io/quorum-staging@sha256:4cecb6bebf72e0c0fa75fc347854c1196947b7b07de25ee63c475d3265ee8828`.
@@ -225,7 +228,11 @@ authoritative state of the project.
   and the post-change health check passed. There is also an earlier
   prod fixture comment from `proposal_1d5c2538f403` with
   `environment=staging`; keep `proposal_53414b49eb06` as the canonical
-  protected-prod proof.
+  protected-prod proof. `tests/test_github_live_integration.py` is now
+  the skipped-by-default regression for the fixture comment path; run
+  it with `QUORUM_GITHUB_LIVE_TESTS=1` and the Keychain-backed
+  `QUORUM_GITHUB_APP_PRIVATE_KEY_B64` env when you need fresh live
+  rollback evidence.
 - **Same-app deploy invariant:** `fly.deploy` now refuses to run when
   `FLY_APP_NAME` matches the proposal payload's target app. A
   single-machine Quorum app must deploy a peer app or run from an
@@ -519,21 +526,22 @@ executed safely:
 Do not execute a same-app staging proposal from inside the
 `quorum-staging` Fly process.
 
-### B — Add opt-in live GitHub actuator integration coverage
+### B — Add LLM adapter observability counters
 
-The fixture `github.comment_issue` path is proven manually on both Fly
-apps. Add skipped-by-default integration coverage gated by
-`QUORUM_GITHUB_LIVE_TESTS=1` that runs against
-`jaydenpiao/quorum-actuator-fixtures`, creates a comment, rolls it back
-with `rollback_comment_issue`, and verifies the comment disappears.
-Keep it out of default CI because it requires the GitHub App private
-key and mutates a live fixture repo.
+Prometheus counters from `docs/design/llm-adapter.md` are the next
+low-risk operator-visibility win:
+`quorum_llm_tokens_total{agent_id, model, kind}`,
+`quorum_llm_ticks_total{agent_id, outcome}`, and
+`quorum_llm_proposals_created_total{agent_id, action_type}`. This
+needs the adapter process to expose a metrics endpoint on a separate
+port without changing the Quorum API event schema.
 
-### C — Minor hardening worth batching into one PR
+### C — Minor operator hardening worth batching into one PR
 
-- Prometheus counters for the LLM adapter (design-doc §Observability): `quorum_llm_tokens_total{agent_id, model, kind}`, `quorum_llm_ticks_total{agent_id, outcome}`, `quorum_llm_proposals_created_total{agent_id, action_type}`. Needs the adapter process to run a Prometheus endpoint on a separate port.
-- `demo_seed` optionally spawns the LLM adapter process (feature-flagged).
-- Richer context in `_log.warning("projector_status_update_for_missing_proposal", ...)`.
+- `demo_seed` optionally spawns the LLM adapter process
+  (feature-flagged).
+- Richer context in
+  `_log.warning("projector_status_update_for_missing_proposal", ...)`.
 
 ### D — LLM adapter voter role
 

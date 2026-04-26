@@ -75,7 +75,7 @@ target-version = "py312"
 testpaths = ["tests"]
 addopts = "-ra --cov=apps --cov-report=term-missing --cov-report=xml -m 'not integration'"
 markers = [
-  "integration: tests that require live external services such as Postgres or Fly.io",
+  "integration: tests that require live external services such as Postgres, Fly.io, or GitHub",
 ]
 
 [tool.coverage.run]

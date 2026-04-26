@@ -11,6 +11,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **Opt-in live GitHub actuator rollback test** —
+  `tests/test_github_live_integration.py` is marked `integration` and
+  gated by `QUORUM_GITHUB_LIVE_TESTS=1`. It creates a fixture issue
+  comment through `github.comment_issue`, rolls it back with
+  `rollback_comment_issue`, and verifies the comment disappears.
 - **LLM prompt hash audit metadata** — `llm_call_completed` structured
   logs now include `system_prompt_sha256`, letting operators tie an
   adapter tick back to the exact reviewed prompt bytes without logging
