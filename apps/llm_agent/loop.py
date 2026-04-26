@@ -36,6 +36,7 @@ POSTs from ``tools.dispatch_tool_use``.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -135,6 +136,7 @@ def run_tick(
         output_tokens=output_tokens,
         cache_read_tokens=cache_read_tokens,
         cache_write_tokens=cache_write_tokens,
+        system_prompt_sha256=_sha256_hex(claude.system_prompt_text),
         latency_ms=latency_ms,
         stop_reason=response.stop_reason,
     )
@@ -267,3 +269,7 @@ def _rough_token_estimate(text: str) -> int:
     # Bias slightly high (divide by 3.5) so the pre-flight is
     # conservative — 30K true tokens ~= 34K estimated.
     return max(1, int(len(text) / 3.5))
+
+
+def _sha256_hex(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
