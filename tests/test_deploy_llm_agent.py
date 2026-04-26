@@ -23,6 +23,7 @@ from apps.llm_agent.tools import (
 
 
 _AGENTS_YAML = "config/agents.yaml"
+_DEPLOY_AGENT_PROMPT = Path("apps/llm_agent/prompts/deploy-agent.md")
 
 
 def test_fly_deploy_is_in_llm_action_type_union() -> None:
@@ -51,7 +52,7 @@ def test_deploy_llm_agent_profile_loads() -> None:
 
 def test_deploy_agent_prompt_file_exists() -> None:
     """system_prompt_ref resolves to a real file relative to apps/llm_agent/."""
-    path = Path("apps/llm_agent/prompts/deploy-agent.md")
+    path = _DEPLOY_AGENT_PROMPT
     assert path.exists(), f"expected prompt at {path}"
     # A non-empty role header confirms it's a real prompt, not a stub.
     text = path.read_text(encoding="utf-8")
@@ -60,13 +61,39 @@ def test_deploy_agent_prompt_file_exists() -> None:
 
 
 def test_deploy_agent_prompt_requires_image_push_evidence() -> None:
-    text = Path("apps/llm_agent/prompts/deploy-agent.md").read_text(encoding="utf-8")
+    text = _DEPLOY_AGENT_PROMPT.read_text(encoding="utf-8")
 
     assert "image_push_completed" in text
     assert "staging_image_ref" in text
     assert "prod_image_ref" in text
     assert "propose staging first" in text
     assert "prod waits for staging" in text
+
+
+def test_deploy_agent_prompt_requires_health_checks_on_proposals() -> None:
+    text = _DEPLOY_AGENT_PROMPT.read_text(encoding="utf-8")
+
+    assert "health_checks" in text
+    assert "never leave health_checks empty" in text
+    assert 'kind": "http"' in text
+    assert 'expected_status": 200' in text
+    assert 'timeout_seconds": 10.0' in text
+
+
+def test_deploy_agent_prompt_names_staging_and_prod_health_checks() -> None:
+    text = _DEPLOY_AGENT_PROMPT.read_text(encoding="utf-8")
+
+    for expected in (
+        "staging-readiness",
+        "staging-api-health",
+        "prod-readiness",
+        "prod-api-health",
+        "https://quorum-staging.fly.dev/readiness",
+        "https://quorum-staging.fly.dev/api/v1/health",
+        "https://quorum-prod.fly.dev/readiness",
+        "https://quorum-prod.fly.dev/api/v1/health",
+    ):
+        assert expected in text
 
 
 def test_telemetry_agent_profile_still_loads() -> None:

@@ -83,6 +83,57 @@ actuator handles rollback automatically by redeploying the previous
 digest; this text is operator-readable confirmation that a rollback
 exists.
 
+#### `health_checks`
+
+Every `fly.deploy` proposal must include post-change HTTP health checks;
+never leave health_checks empty. These checks are the executor's
+success gate after the actuator mutates Fly, and failed checks trigger
+the normal rollback path.
+
+For `target="quorum-staging"` / `payload.app="quorum-staging"`, include
+exactly these two checks:
+
+```json
+[
+  {
+    "name": "staging-readiness",
+    "kind": "http",
+    "url": "https://quorum-staging.fly.dev/readiness",
+    "expected_status": 200,
+    "timeout_seconds": 10.0
+  },
+  {
+    "name": "staging-api-health",
+    "kind": "http",
+    "url": "https://quorum-staging.fly.dev/api/v1/health",
+    "expected_status": 200,
+    "timeout_seconds": 10.0
+  }
+]
+```
+
+For `target="quorum-prod"` / `payload.app="quorum-prod"`, include
+exactly these two checks:
+
+```json
+[
+  {
+    "name": "prod-readiness",
+    "kind": "http",
+    "url": "https://quorum-prod.fly.dev/readiness",
+    "expected_status": 200,
+    "timeout_seconds": 10.0
+  },
+  {
+    "name": "prod-api-health",
+    "kind": "http",
+    "url": "https://quorum-prod.fly.dev/api/v1/health",
+    "expected_status": 200,
+    "timeout_seconds": 10.0
+  }
+]
+```
+
 ## When to propose, when to stay quiet
 
 Propose when:
