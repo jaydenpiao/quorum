@@ -76,6 +76,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- **Fly deploy proposals cannot skip verification** — `fly.deploy`
+  proposals are now rejected at the API boundary unless they include
+  post-change `health_checks`, and the executor refuses any historical
+  empty-check Fly deploy before calling Fly.
 - **Deploy-agent proposals carry health checks** — the
   `deploy-llm-agent` prompt now requires non-empty
   `health_checks` for every `fly.deploy` proposal, using the target

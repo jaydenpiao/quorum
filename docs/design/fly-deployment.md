@@ -284,6 +284,10 @@ manually instead of seeing a false rollback success.
 - `image_digest` must be a sha256 digest (64 hex after `sha256:`);
   tags like `latest` are rejected at the pydantic boundary. Content-
   addressing is the whole point.
+- `fly.deploy` proposals must carry post-change `health_checks`.
+  Proposal creation rejects empty-check deploys before they reach the
+  event log, and the executor refuses historical empty-check deploys
+  before invoking `fly`.
 - The actuator refuses same-app deploys when `FLY_APP_NAME` matches
   `FlyDeploySpec.app`; this is a runtime invariant, not a policy knob.
 - Dog-food deploys of `quorum-prod` require `requires_human=true` in
