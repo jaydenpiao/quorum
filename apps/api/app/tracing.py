@@ -33,12 +33,13 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+from apps.api.app.version import __version__
+
 # Comma-separated regex patterns passed to FastAPIInstrumentor as excluded_urls.
 # Paths that match are NOT traced, keeping liveness probes and scrape targets clean.
 EXCLUDED_URLS = "/metrics,/health"
 
-# Package version — kept as a literal to avoid import-time I/O.
-_SERVICE_VERSION = "0.1.0"
+_SERVICE_VERSION = __version__
 
 
 def configure_tracing(app: FastAPI) -> TracerProvider | None:

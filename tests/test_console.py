@@ -33,6 +33,10 @@ def test_console_shell_references_external_stylesheet(client: TestClient) -> Non
     assert "no-store" in response.headers.get("cache-control", "")
     assert "/console-static/styles.css" in response.text
     assert "Seed dog-food deploy demo" in response.text
+    assert "Intents" in response.text
+    assert "Findings" in response.text
+    assert "Execute proposal" in response.text
+    assert "Verify event chain" in response.text
     assert "Seed demo incident" not in response.text
     assert "POC console" not in response.text
     assert "<style>" not in response.text
@@ -47,3 +51,15 @@ def test_console_stylesheet_served(client: TestClient) -> None:
     assert "no-store" in response.headers.get("cache-control", "")
     assert ".proposal-table" in response.text
     assert ".timeline" in response.text
+
+
+def test_app_js_contains_execute_and_chain_verify_workflows(client: TestClient) -> None:
+    response = client.get("/console-static/app.js")
+
+    assert response.status_code == 200
+    assert "/api/v1/events/verify" in response.text
+    assert "/api/v1/proposals/" in response.text
+    assert "btn-execute" in response.text
+    assert "btn-verify-chain" in response.text
+    assert "renderFindings" in response.text
+    assert "renderIntents" in response.text

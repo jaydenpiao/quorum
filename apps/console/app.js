@@ -15,6 +15,8 @@ var _state = null;
 var _events = [];
 var _selectedProposalId = null;
 var _sseSource = null;
+var _rootMeta = null;
+var _chainVerification = null;
 
 // -- DOM helpers ------------------------------------------------------------
 
@@ -202,6 +204,11 @@ function proposalById(state, proposalId) {
   })[0] || null;
 }
 
+function rollbackByProposal(state, proposalId) {
+  var records = (state.rollbacks || {})[proposalId] || [];
+  return latest(records);
+}
+
 // -- rendering --------------------------------------------------------------
 
 function renderDashboard(state, events) {
@@ -213,6 +220,8 @@ function renderDashboard(state, events) {
   }
 
   renderMetrics(state, events);
+  renderIntents(state);
+  renderFindings(state);
   renderProposals(state);
   renderImagePushes(state);
   renderTimeline(events);
@@ -238,9 +247,65 @@ function renderMetrics(state, events) {
   setText('metric-pending-approvals', String(pendingApprovals));
   setText('metric-health', passed + '/' + health.length);
   setText('metric-events', (state.event_count || 0) + ' events');
+  setText(
+    'metric-chain-status',
+    _chainVerification ? (_chainVerification.ok ? 'verified' : 'invalid') : 'unchecked'
+  );
 
   var last = events && events.length ? events[events.length - 1] : null;
-  setText('last-hash', last && last.hash ? shortHash(last.hash) : 'no hash');
+  if (_chainVerification && _chainVerification.last_hash) {
+    setText('last-hash', shortHash(_chainVerification.last_hash));
+  } else {
+    setText('last-hash', last && last.hash ? shortHash(last.hash) : 'no hash');
+  }
+}
+
+function renderIntents(state) {
+  var intents = state.intents || [];
+  if (!intents.length) {
+    setHtml('intent-list', '<div class="empty-state">No intents yet.</div>');
+    return;
+  }
+
+  var html = intents.slice().reverse().slice(0, 5).map(function (intent) {
+    return [
+      '<div class="signal-item">',
+      '<strong>' + escapeHtml(intent.title) + '</strong>',
+      '<div class="signal-meta">',
+      '<span>' + escapeHtml(intent.environment || 'local') + '</span>',
+      '<span>requested by ' + escapeHtml(intent.requested_by || 'operator') + '</span>',
+      '<span>' + escapeHtml(formatTime(intent.created_at)) + '</span>',
+      '</div>',
+      '<div class="muted">' + escapeHtml(intent.description || '') + '</div>',
+      '</div>',
+    ].join('');
+  }).join('');
+
+  setHtml('intent-list', html);
+}
+
+function renderFindings(state) {
+  var findings = state.findings || [];
+  if (!findings.length) {
+    setHtml('finding-list', '<div class="empty-state">No findings yet.</div>');
+    return;
+  }
+
+  var html = findings.slice().reverse().slice(0, 6).map(function (finding) {
+    var confidence = Math.round(Number(finding.confidence || 0) * 100);
+    return [
+      '<div class="signal-item">',
+      '<strong>' + escapeHtml(finding.summary) + '</strong>',
+      '<div class="signal-meta">',
+      '<span>agent ' + escapeHtml(finding.agent_id || '') + '</span>',
+      '<span>' + escapeHtml(shortId(finding.intent_id || '')) + '</span>',
+      '<span>' + escapeHtml(confidence + '% confidence') + '</span>',
+      '</div>',
+      '</div>',
+    ].join('');
+  }).join('');
+
+  setHtml('finding-list', html);
 }
 
 function renderProposals(state) {
@@ -325,6 +390,7 @@ function renderInspector(state) {
   var votes = getVotes(state, proposal.id);
   var approvals = getApprovals(state, proposal.id);
   var execution = latest(getExecutions(state, proposal.id));
+  var rollback = rollbackByProposal(state, proposal.id);
   var checks = execution && execution.health_checks ? execution.health_checks : [];
   var result = execution && execution.result ? execution.result : {};
   var evidenceRefs = proposal.evidence_refs || [];
@@ -345,12 +411,17 @@ function renderInspector(state) {
     kv('Policy', policy ? (policy.allowed ? 'allowed' : 'denied') : 'not evaluated'),
     kv('Human approval', approvalLabel(approvals)),
     kv('Execution', execution ? execution.status : 'not started'),
+    kv('Rollback', rollback ? (rollback.status || 'impossible') : 'none'),
     kv('Released digest', shortDigest(result.released_image_digest)),
     kv('Previous digest', shortDigest(result.previous_image_digest)),
     '</div>',
     '<div class="inspector-section">',
     '<h3>Health checks</h3>',
     renderChecks(checks),
+    '</div>',
+    '<div class="inspector-section">',
+    '<h3>Rollback details</h3>',
+    renderRollback(rollback),
     '</div>',
     '<div class="inspector-section">',
     '<h3>Evidence refs</h3>',
@@ -377,6 +448,27 @@ function renderChecks(checks) {
   }).join('') + '</ul>';
 }
 
+function renderRollback(rollback) {
+  if (!rollback) {
+    return '<div class="muted">No rollback activity recorded.</div>';
+  }
+
+  if (rollback.reason) {
+    return '<ul class="evidence-refs">' +
+      '<li>' + pill('impossible', 'danger') + ' ' + escapeHtml(rollback.reason) + '</li>' +
+      '</ul>';
+  }
+
+  var steps = rollback.steps || [];
+  if (!steps.length) {
+    return '<div class="muted">Rollback recorded without explicit steps.</div>';
+  }
+
+  return '<ul class="evidence-refs">' + steps.map(function (step) {
+    return '<li>' + escapeHtml(step) + '</li>';
+  }).join('') + '</ul>';
+}
+
 function renderEvidenceRefs(refs) {
   if (!refs || !refs.length) {
     return '<div class="muted">No evidence refs.</div>';
@@ -398,10 +490,23 @@ function fillSelectedProposalForms(proposalId) {
 // -- data lifecycle ---------------------------------------------------------
 
 async function loadState() {
-  var state = await fetchJson('/api/v1/state');
-  var events = await fetchJson('/api/v1/events');
+  var results = await Promise.all([
+    fetchJson('/api/v1/state'),
+    fetchJson('/api/v1/events'),
+    fetchJson('/'),
+  ]);
+  var state = results[0];
+  var events = results[1];
+  var root = results[2];
   if (!state.ok || !events.ok) {
     return;
+  }
+  if (root.ok && root.body) {
+    _rootMeta = root.body;
+    setText(
+      'release-badge',
+      (_rootMeta.display_version || ('version ' + (_rootMeta.version || 'unknown')))
+    );
   }
   _events = (events.body || []).slice(-TIMELINE_LIMIT);
   renderDashboard(state.body, _events);
@@ -423,6 +528,21 @@ function setStreamStatus(kind) {
   } else {
     el.textContent = 'stream disconnected';
     el.className = 'connection disconnected';
+  }
+}
+
+async function verifyEventChain() {
+  var result = await fetchJson('/api/v1/events/verify');
+  if (result.ok) {
+    _chainVerification = result.body;
+    setStatus('verify-status', true, 'event chain verified');
+  } else {
+    _chainVerification = { ok: false };
+    var detail = (result.body && result.body.detail) || ('HTTP ' + result.status);
+    setStatus('verify-status', false, 'verification failed: ' + detail);
+  }
+  if (_state) {
+    renderMetrics(_state, _events);
   }
 }
 
@@ -534,6 +654,27 @@ async function seedDemo() {
     alert('demo seed failed: ' + ((result.body && result.body.detail) || result.status));
   }
   await loadState();
+  await verifyEventChain();
+}
+
+async function executeSelectedProposal() {
+  if (!_state || !_selectedProposalId) {
+    setStatus('execute-status', false, 'select a proposal first');
+    return;
+  }
+
+  var result = await postJson(
+    '/api/v1/proposals/' + encodeURIComponent(_selectedProposalId) + '/execute',
+    { actor_id: 'operator' }
+  );
+  if (result.ok) {
+    setStatus('execute-status', true, 'execution ' + (result.body.status || 'completed'));
+  } else {
+    var detail = (result.body && result.body.detail) || ('HTTP ' + result.status);
+    setStatus('execute-status', false, 'rejected: ' + detail);
+  }
+  await loadState();
+  await verifyEventChain();
 }
 
 function selectProposal(id) {
@@ -555,6 +696,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
   byId('btn-seed').addEventListener('click', seedDemo);
   byId('btn-refresh').addEventListener('click', loadState);
+  byId('btn-verify-chain').addEventListener('click', verifyEventChain);
+  byId('btn-execute').addEventListener('click', executeSelectedProposal);
   byId('form-intent').addEventListener('submit', submitIntentForm);
   byId('form-vote').addEventListener('submit', submitVoteForm);
   byId('form-approval').addEventListener('submit', submitApprovalForm);
@@ -566,5 +709,6 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   loadState();
+  verifyEventChain();
   connectEventStream();
 });

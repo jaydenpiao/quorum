@@ -37,6 +37,7 @@ from apps.api.app.services.projector import NoOpProjector, Projector
 from apps.api.app.services.quorum_engine import QuorumEngine
 from apps.api.app.services.state_store import StateStore
 from apps.api.app.tracing import configure_tracing
+from apps.api.app.version import __version__, display_version
 
 configure_logging()
 _log = structlog.get_logger(__name__)
@@ -82,7 +83,7 @@ cors_origins = http_config.get(
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[default_rate])
 
-app = FastAPI(title="Quorum Control Plane", version="0.1.0")
+app = FastAPI(title="Quorum Control Plane", version=__version__)
 app.state.limiter = limiter
 
 # OpenTelemetry tracing — no-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset.
@@ -176,6 +177,8 @@ app.mount("/console-static", StaticFiles(directory="apps/console"), name="consol
 def root() -> dict[str, str]:
     return {
         "service": "quorum-control-plane",
+        "version": __version__,
+        "display_version": display_version,
         "docs": "/docs",
         "console": "/console",
         "api_base": "/api/v1",

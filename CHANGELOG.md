@@ -11,6 +11,26 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- **Managed local runtime preflight** — `scripts/check_python_runtime.py`
+  probes `import readline` under the active interpreter before repo
+  commands run, so a broken ambient Python fails fast with actionable
+  guidance instead of crashing `pytest` during startup.
+- **Canonical runtime version module** — `apps/api/app/version.py`
+  now defines the single Quorum version source used by package
+  metadata, FastAPI/OpenAPI metadata, tracing, and the console release
+  badge.
+- **Active end-to-end GitHub fixture demo** —
+  `scripts/demo_github_fixture_flow.sh` walks through a real Quorum
+  workflow step-by-step: operator intent, agent finding, typed
+  `github.comment_issue` proposal, quorum votes, executor call,
+  health check, event-chain verification, and the resulting fixture
+  issue comment.
+- **LLM-authored prod deploy proof helper** —
+  `scripts/prove_llm_prod_deploy.sh` captures a scratch staging cursor,
+  waits for fresh `image_push_completed` plus matching staging success
+  evidence, runs `deploy-llm-agent --once`, verifies the resulting
+  `quorum-prod` proposal contract, and only votes/approves/executes
+  when `QUORUM_PROOF_EXECUTE=1` is explicitly set.
 - **Professional operator console + dog-food demo runbook** —
   `/console` now has a light SaaS dashboard shell, external stylesheet,
   proposal inspector, image-push evidence view, live event timeline, and
@@ -60,12 +80,33 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- **Local bootstrap now matches CI's Python path** — `make install`,
+  `make test`, `make validate`, and `scripts/validate_merge.sh` now
+  run through the locked `uv`-managed Python 3.12 environment instead
+  of an ambient `.venv`.
+- **Root metadata exposes the shipped release version** — `GET /`
+  now returns both `version` and `display_version`, giving the console
+  and operators a runtime source of truth instead of hardcoded release
+  strings.
+- **Operator console now covers the full review-to-execute loop** —
+  `/console` adds first-class intent/finding views, rollback state in
+  the proposal inspector, a selected-proposal execute action, and an
+  event-chain verification action backed by
+  `GET /api/v1/events/verify`.
 - **Demo seeder now shows Quorum dog-food deploy flow** —
   `POST /api/v1/demo/incident` seeds an image-push evidence event,
   LLM-style findings, a `fly.deploy` proposal for `quorum-prod`, policy
   evaluation, quorum votes, human approval, stubbed execution, health
   checks, and hash-chain continuity without mutating live Fly.
-
+- **Demo video runbook now leads with real execution** —
+  `docs/DEMO_VIDEO.md` makes the active GitHub fixture workflow the
+  primary recording path, with the deterministic dog-food Fly seed kept
+  as a fallback for no-live-mutation recordings.
+- **Demo video runbook now separates local recording from live proof** —
+  `docs/DEMO_VIDEO.md` keeps the GitHub fixture workflow as the local
+  recording path and adds a live LLM-authored prod deploy proof
+  checklist with dry proposal verification, explicit human approval,
+  prod health checks, rollback state, and event-chain verification.
 - **Image-push skips docs-only merges** — the `image-push` workflow now
   ignores pushes where every changed file is Markdown/docs content, so
   handoff refreshes do not build containers or emit deploy-agent image
@@ -110,6 +151,21 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- **Local pytest crashes on Anaconda-derived interpreters** — repo
+  entrypoints now rebuild `.venv` on managed CPython 3.12 and fail
+  before validation if `readline` import is broken, closing the local
+  exit-139 failure mode seen in ambient environments.
+- **Version drift between release docs and runtime metadata** —
+  Quorum no longer reports `0.1.0` at runtime while the repo and
+  console describe `v0.5.0-alpha.1`.
+- **Demo/onboarding auth drift** — the README, demo runbook, and env
+  template now match the real `POST /api/v1/demo/incident` contract,
+  including bearer auth, `QUORUM_ALLOW_DEMO`, and the shipped
+  Postgres/managed-`uv` defaults.
+- **CI release trust checks after canonical versioning** — Docker now
+  seeds the canonical version module before isolated dependency sync,
+  and `pip-audit --strict` runs against a dependency-only sync so the
+  unpublished first-party package is not treated as a PyPI dependency.
 - **Console demo recording foot-guns** — `/console` and
   `/console-static/*` now send no-cache headers so stale browser tabs do
   not keep showing the old POC console, and the dog-food demo seed
