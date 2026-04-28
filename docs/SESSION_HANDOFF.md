@@ -168,6 +168,13 @@ authoritative state of the project.
   `event_count=129`, last hash
   `f49d6ee5ac965cd4910460e9912293fb1d4664bf1e1041dd01a955a798d9d419`,
   and prod readiness/health `ok=true`.
+- **Unreleased v0.6.1 image-push evidence reliability:** the optional
+  Quorum evidence notifier in `.github/workflows/image-push.yml` now
+  retries failed `POST /api/v1/image-pushes` calls with bounded
+  exponential backoff, still exits successfully on final failure, and
+  writes posted/failed status plus returned Quorum evidence IDs into
+  `$GITHUB_STEP_SUMMARY`. Docs-only pushes remain ignored and manual
+  `workflow_dispatch` remains supported.
 - **Docs/onboarding drift:** `README.md`, `docs/DEMO_VIDEO.md`,
   `docs/REPO_MAP.md`, and `.env.example` now match the shipped auth,
   demo-gate, managed-`uv`, and console contracts.
@@ -240,14 +247,19 @@ authoritative state of the project.
   `DATABASE_URL`, `quorum-staging` reconciled 13 existing events from
   JSONL into Neon with zero errors, then accepted a live smoke intent
   `intent_ca2cf96dfc15`. Current staging event verification reports
-  `event_count=129` and
-  `last_hash=f49d6ee5ac965cd4910460e9912293fb1d4664bf1e1041dd01a955a798d9d419`.
+  `event_count=130` and
+  `last_hash=68fb35ff5a483f3e9e22274157096e6c45b7bf5424eff18206fd50cb61ea13c3`.
   Reduced state counts are `intents=16`, `findings=5`,
   `proposals=10`, `votes=14`, `policy_decisions=10`,
   `executions=14`, `health_checks=13`, `human_approvals=15`, and
-  `image_pushes=25`.
+  `image_pushes=26`.
 - **Latest image-push evidence after v0.6 release:** the automatic
-  post-PR #107 image-push run
+  post-PR #108 image-push run
+  [`25080540658`](https://github.com/jaydenpiao/quorum/actions/runs/25080540658)
+  posted `evt_18ecd6c89cb4` / `imgpush_1b9e7213c74e` for commit
+  `82dc7c7abed423ec11c9380d5ff6681089ea9741` with staging/prod digest
+  `sha256:2fe29eef67cf2d6bcb89550e1dcfa2c8744428e78da9159dddc409c87431661e`.
+  The previous post-PR #107 image-push run
   [`25080148345`](https://github.com/jaydenpiao/quorum/actions/runs/25080148345)
   posted `evt_6522032d9b26` / `imgpush_5026efc2bb6c` for commit
   `d84cec6c86f6681f503b6fb65e5f41803a233cb1` with staging/prod digest
@@ -746,15 +758,15 @@ harness under `.claude/`. Codex and other agents can ignore them.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Finish v0.6.1 image-push evidence reliability
+### A — Package v0.6.1 after hardening PRs are merged
 
-- Harden `.github/workflows/image-push.yml` with bounded retry/backoff
-  around the optional Quorum evidence notifier.
-- Keep notifier failure non-blocking, but write explicit
-  success/failure status and returned Quorum evidence IDs into the
-  GitHub Actions step summary.
-- Preserve docs-only push ignore behavior and manual
-  `workflow_dispatch` support.
+- Confirm the post-PR image-push workflow posted evidence into staging
+  with the hardened summary output.
+- Run `scripts/capture_operator_proof.sh` against staging/prod and
+  record the proof directory, proposal/execution IDs, event-chain hash,
+  and prod health result.
+- Prepare the small `v0.6.1` release patch only after the hardening
+  series has green `main` checks.
 
 ### B — LLM adapter voter role
 

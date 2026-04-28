@@ -113,7 +113,53 @@ jobs:
           python - <<'PY'
           import json
           import os
+          import sys
+          import time
+          import urllib.error
           import urllib.request
+
+          MAX_ATTEMPTS = 5
+
+
+          def append_summary(lines):
+              summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+              if not summary_path:
+                  return
+              with open(summary_path, "a", encoding="utf-8") as summary:
+                  for line in lines:
+                      summary.write(f"{line}\n")
+
+
+          def build_request():
+              return urllib.request.Request(
+                  f"{base_url}/api/v1/image-pushes",
+                  data=json.dumps(payload).encode("utf-8"),
+                  headers={
+                      "Accept": "application/json",
+                      "Authorization": f"Bearer {os.environ['QUORUM_IMAGE_PUSH_API_KEY']}",
+                      "Content-Type": "application/json",
+                  },
+                  method="POST",
+              )
+
+
+          def find_event_id(record_id):
+              if record_id == "unknown":
+                  return "unknown"
+              try:
+                  with urllib.request.urlopen(f"{base_url}/api/v1/events", timeout=30) as response:
+                      events = json.loads(response.read().decode("utf-8"))
+              except (json.JSONDecodeError, urllib.error.URLError, TimeoutError, OSError):
+                  return "lookup failed"
+
+              for event in reversed(events):
+                  if (
+                      event.get("event_type") == "image_push_completed"
+                      and event.get("payload", {}).get("id") == record_id
+                  ):
+                      return event.get("id", "unknown")
+              return "not found"
+
 
           base_url = os.environ["QUORUM_IMAGE_PUSH_API_URL"].rstrip("/")
           payload = {
@@ -125,21 +171,50 @@ jobs:
               "prod_image_ref": f"registry.fly.io/quorum-prod@{os.environ['PROD_DIGEST']}",
               "prod_digest": os.environ["PROD_DIGEST"],
           }
-          request = urllib.request.Request(
-              f"{base_url}/api/v1/image-pushes",
-              data=json.dumps(payload).encode("utf-8"),
-              headers={
-                  "Accept": "application/json",
-                  "Authorization": f"Bearer {os.environ['QUORUM_IMAGE_PUSH_API_KEY']}",
-                  "Content-Type": "application/json",
-              },
-              method="POST",
-          )
-          try:
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  response.read()
-          except Exception as exc:
-              print(f"::warning::image_push_completed evidence post failed: {type(exc).__name__}")
-          else:
+
+          for attempt in range(1, MAX_ATTEMPTS + 1):
+              try:
+                  with urllib.request.urlopen(build_request(), timeout=30) as response:
+                      response_body = response.read().decode("utf-8")
+              except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                  if attempt < MAX_ATTEMPTS:
+                      backoff_seconds = min(2 ** (attempt - 1), 20)
+                      print(
+                          "::warning::image_push_completed evidence post failed "
+                          f"(attempt {attempt}/{MAX_ATTEMPTS}); retrying in "
+                          f"{backoff_seconds}s: {type(exc).__name__}"
+                      )
+                      time.sleep(backoff_seconds)
+                      continue
+
+                  print(
+                      "::warning::image_push_completed evidence post failed after "
+                      f"{MAX_ATTEMPTS} attempts (non-blocking): {type(exc).__name__}"
+                  )
+                  append_summary(
+                      [
+                          "### Quorum image-push evidence",
+                          "",
+                          "- quorum evidence status: `failed-non-blocking`",
+                          f"- quorum evidence error: `{type(exc).__name__}`",
+                      ]
+                  )
+                  sys.exit(0)
+
+              record = json.loads(response_body) if response_body else {}
+              record_id = record.get("id", "unknown")
+              event_id = record.get("event_id") or find_event_id(record_id)
+              created_at = record.get("created_at", "unknown")
+              append_summary(
+                  [
+                      "### Quorum image-push evidence",
+                      "",
+                      "- quorum evidence status: `posted`",
+                      f"- quorum image-push id: `{record_id}`",
+                      f"- quorum evidence event id: `{event_id}`",
+                      f"- quorum evidence created_at: `{created_at}`",
+                  ]
+              )
               print("image_push_completed evidence posted to Quorum")
+              sys.exit(0)
           PY

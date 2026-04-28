@@ -23,6 +23,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 - The operator console execute affordance now stays disabled unless the
   selected proposal is actually executable, and the overview separates
   actionable proposals from stale historical pending proposals.
+- The image-push workflow's optional Quorum evidence notifier now
+  retries with bounded backoff, remains non-blocking on failure, and
+  writes notifier status plus returned evidence IDs into the GitHub
+  Actions step summary.
 
 ## [v0.6.0-alpha.1] — 2026-04-28
 
