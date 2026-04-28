@@ -22,10 +22,15 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from apps.api.app.db.engine import make_session_factory
 from apps.api.app.db.models import (
+    EventProjectedRow,
     ExecutionRow,
     FindingRow,
+    HealthCheckResultRow,
+    HumanApprovalRow,
     IntentRow,
+    PolicyDecisionRow,
     ProposalRow,
+    RollbackRow,
     VoteRow,
 )
 
@@ -55,6 +60,17 @@ def _require_db(request: Request) -> sessionmaker[Session]:
 
 def _row_to_dict(row: Any, columns: Sequence[str]) -> dict[str, Any]:
     return {c: getattr(row, c) for c in columns}
+
+
+def _image_push_to_dict(row: EventProjectedRow) -> dict[str, Any]:
+    payload = dict(row.envelope.get("payload", {}))
+    return {
+        **payload,
+        "event_id": row.event_id,
+        "event_hash": row.event_hash,
+        "prev_hash": row.prev_hash,
+        "projected_at": row.projected_at,
+    }
 
 
 @router.get("/intents", response_model=list[dict[str, Any]])
@@ -155,6 +171,37 @@ def list_proposals(
     return [_row_to_dict(r, cols) for r in rows]
 
 
+@router.get("/policy-decisions", response_model=list[dict[str, Any]])
+def list_policy_decisions(
+    request: Request,
+    proposal_id: str | None = Query(default=None, max_length=128),
+    allowed: bool | None = Query(default=None),
+    requires_human: bool | None = Query(default=None),
+    limit: _LIMIT = 50,
+    offset: _OFFSET = 0,
+) -> list[dict[str, Any]]:
+    factory = _require_db(request)
+    cols = (
+        "proposal_id",
+        "allowed",
+        "requires_human",
+        "votes_required",
+        "reasons",
+        "created_at",
+    )
+    with factory() as session:
+        stmt = select(PolicyDecisionRow)
+        if proposal_id:
+            stmt = stmt.where(PolicyDecisionRow.proposal_id == proposal_id)
+        if allowed is not None:
+            stmt = stmt.where(PolicyDecisionRow.allowed == allowed)
+        if requires_human is not None:
+            stmt = stmt.where(PolicyDecisionRow.requires_human == requires_human)
+        stmt = stmt.order_by(PolicyDecisionRow.created_at.desc()).limit(limit).offset(offset)
+        rows = session.execute(stmt).scalars().all()
+    return [_row_to_dict(r, cols) for r in rows]
+
+
 @router.get("/votes", response_model=list[dict[str, Any]])
 def list_votes(
     request: Request,
@@ -175,6 +222,42 @@ def list_votes(
         if decision:
             stmt = stmt.where(VoteRow.decision == decision)
         stmt = stmt.order_by(VoteRow.created_at.desc()).limit(limit).offset(offset)
+        rows = session.execute(stmt).scalars().all()
+    return [_row_to_dict(r, cols) for r in rows]
+
+
+@router.get("/human-approvals", response_model=list[dict[str, Any]])
+def list_human_approvals(
+    request: Request,
+    proposal_id: str | None = Query(default=None, max_length=128),
+    status: str | None = Query(default=None, max_length=32),
+    proposer_id: str | None = Query(default=None, max_length=128),
+    approver_id: str | None = Query(default=None, max_length=128),
+    limit: _LIMIT = 50,
+    offset: _OFFSET = 0,
+) -> list[dict[str, Any]]:
+    factory = _require_db(request)
+    cols = (
+        "id",
+        "proposal_id",
+        "status",
+        "proposer_id",
+        "approver_id",
+        "reason",
+        "reasons",
+        "created_at",
+    )
+    with factory() as session:
+        stmt = select(HumanApprovalRow)
+        if proposal_id:
+            stmt = stmt.where(HumanApprovalRow.proposal_id == proposal_id)
+        if status:
+            stmt = stmt.where(HumanApprovalRow.status == status)
+        if proposer_id:
+            stmt = stmt.where(HumanApprovalRow.proposer_id == proposer_id)
+        if approver_id:
+            stmt = stmt.where(HumanApprovalRow.approver_id == approver_id)
+        stmt = stmt.order_by(HumanApprovalRow.created_at.desc()).limit(limit).offset(offset)
         rows = session.execute(stmt).scalars().all()
     return [_row_to_dict(r, cols) for r in rows]
 
@@ -209,3 +292,82 @@ def list_executions(
         stmt = stmt.order_by(ExecutionRow.created_at.desc()).limit(limit).offset(offset)
         rows = session.execute(stmt).scalars().all()
     return [_row_to_dict(r, cols) for r in rows]
+
+
+@router.get("/health-check-results", response_model=list[dict[str, Any]])
+def list_health_check_results(
+    request: Request,
+    proposal_id: str | None = Query(default=None, max_length=128),
+    execution_id: str | None = Query(default=None, max_length=128),
+    kind: str | None = Query(default=None, max_length=32),
+    passed: bool | None = Query(default=None),
+    limit: _LIMIT = 50,
+    offset: _OFFSET = 0,
+) -> list[dict[str, Any]]:
+    factory = _require_db(request)
+    cols = (
+        "id",
+        "execution_id",
+        "proposal_id",
+        "name",
+        "kind",
+        "passed",
+        "detail",
+        "created_at",
+    )
+    with factory() as session:
+        stmt = select(HealthCheckResultRow)
+        if proposal_id:
+            stmt = stmt.where(HealthCheckResultRow.proposal_id == proposal_id)
+        if execution_id:
+            stmt = stmt.where(HealthCheckResultRow.execution_id == execution_id)
+        if kind:
+            stmt = stmt.where(HealthCheckResultRow.kind == kind)
+        if passed is not None:
+            stmt = stmt.where(HealthCheckResultRow.passed == passed)
+        stmt = stmt.order_by(HealthCheckResultRow.created_at.desc()).limit(limit).offset(offset)
+        rows = session.execute(stmt).scalars().all()
+    return [_row_to_dict(r, cols) for r in rows]
+
+
+@router.get("/rollbacks", response_model=list[dict[str, Any]])
+def list_rollbacks(
+    request: Request,
+    proposal_id: str | None = Query(default=None, max_length=128),
+    actor_id: str | None = Query(default=None, max_length=128),
+    status: str | None = Query(default=None, max_length=32),
+    limit: _LIMIT = 50,
+    offset: _OFFSET = 0,
+) -> list[dict[str, Any]]:
+    factory = _require_db(request)
+    cols = ("id", "proposal_id", "actor_id", "steps", "status", "created_at")
+    with factory() as session:
+        stmt = select(RollbackRow)
+        if proposal_id:
+            stmt = stmt.where(RollbackRow.proposal_id == proposal_id)
+        if actor_id:
+            stmt = stmt.where(RollbackRow.actor_id == actor_id)
+        if status:
+            stmt = stmt.where(RollbackRow.status == status)
+        stmt = stmt.order_by(RollbackRow.created_at.desc()).limit(limit).offset(offset)
+        rows = session.execute(stmt).scalars().all()
+    return [_row_to_dict(r, cols) for r in rows]
+
+
+@router.get("/image-pushes", response_model=list[dict[str, Any]])
+def list_image_pushes(
+    request: Request,
+    limit: _LIMIT = 50,
+    offset: _OFFSET = 0,
+) -> list[dict[str, Any]]:
+    factory = _require_db(request)
+    with factory() as session:
+        stmt = (
+            select(EventProjectedRow)
+            .where(EventProjectedRow.event_type == "image_push_completed")
+            .order_by(EventProjectedRow.projected_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        rows = session.execute(stmt).scalars().all()
+    return [_image_push_to_dict(r) for r in rows]

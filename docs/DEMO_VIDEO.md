@@ -280,6 +280,37 @@ Stop if any of these are false:
 - prod `/readiness` or `/api/v1/health` does not return HTTP 200
 - staging `/api/v1/events/verify` does not return `"ok": true`
 
+Post-execution audit capture:
+
+```bash
+QUORUM_RELEASE_TAG=v0.6.0-alpha.1 scripts/capture_operator_proof.sh
+```
+
+Use this after a live execution proof succeeds. The helper is
+non-mutating: it reads staging root metadata, prod root metadata,
+staging `/api/v1/events/verify`, prod `/readiness`, prod
+`/api/v1/health`, and the latest executed `deploy-llm-agent`
+`fly.deploy` proposal targeting `quorum-prod`. It writes
+`proof.json` and `proof.md` under `/tmp/quorum-proof.<timestamp>/`
+unless `QUORUM_PROOF_OUTPUT_DIR` is set.
+
+Optional selectors:
+
+- `QUORUM_PROOF_PROPOSAL_ID=<proposal_id>` captures a specific
+  proposal instead of selecting the latest executed prod deploy.
+- `QUORUM_PROOF_API=<url>` overrides staging; default is
+  `https://quorum-staging.fly.dev`.
+- `QUORUM_PROOF_PROD_URL=<url>` overrides prod; default is
+  `https://quorum-prod.fly.dev`.
+
+The capture helper fails closed if staging and prod `display_version`
+drift, `QUORUM_RELEASE_TAG` does not match, event-chain verification is
+not `ok=true`, prod readiness or health is not `ok=true`, the selected
+proposal was not authored by `deploy-llm-agent`, the proposal is not an
+executed `fly.deploy` targeting `quorum-prod`, or the terminal
+execution is missing passing `prod-readiness` and `prod-api-health`
+checks.
+
 Browser acceptance checklist:
 
 1. Open `http://127.0.0.1:8080/console` or

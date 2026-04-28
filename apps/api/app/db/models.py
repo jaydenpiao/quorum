@@ -5,11 +5,10 @@ One row type per domain entity. Primary keys reuse the existing
 not introduce auto-increment surrogate keys. The projector is idempotent
 against these PKs via ``INSERT ... ON CONFLICT DO UPDATE``.
 
-PR B introduced IntentRow + EventProjectedRow. PR C adds the remaining
-entity rows. A separate ``health_check_results`` table is deferred —
-today's health-check outcomes are embedded inside ExecutionRecord, and
-splitting them out needs the ``health_check_completed`` event type to
-be emitted first (currently it isn't).
+PR B introduced IntentRow + EventProjectedRow. PR C added the remaining
+core entity rows, and later migrations added explicit health-check and
+human-approval rows. Image-push evidence remains readable through
+``events_projected`` because it does not need a dedicated query table yet.
 """
 
 from __future__ import annotations

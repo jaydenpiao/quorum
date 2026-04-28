@@ -43,7 +43,7 @@ authoritative state of the project.
   first-party `quorum` package is not audited as an unpublished PyPI
   dependency.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 105. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, and #105 v0.6.0-alpha.1 release prep.
+- **Merged PR count:** 106. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, #105 v0.6.0-alpha.1 release prep, and #107 console execution-actionability hardening.
 - **Current operator alpha-polish state:** local bootstrap and
   validation now run on the same locked `uv`-managed Python path CI
   uses. `make install` recreates `.venv` on managed CPython 3.12 and
@@ -67,7 +67,13 @@ authoritative state of the project.
 - **Current console/demo state:** `/console` now renders first-class
   intent and finding panels, rollback state beside execution and health
   state, an operator **Execute proposal** action, and a **Verify event
-  chain** control backed by `GET /api/v1/events/verify`. Cold browser
+  chain** control backed by `GET /api/v1/events/verify`. The execute
+  action is disabled unless the selected proposal is currently
+  executable: status `approved`, policy allowed, quorum met, required
+  human approval granted, and not a same-control-plane `fly.deploy`.
+  The overview separates actionable proposals from stale historical
+  pending proposals so old audit rows do not look like broken work.
+  Cold browser
   verification after clearing `localStorage` during v0.6 release-prep
   showed `releaseBadge=v0.6.0-alpha.1`,
   `chainStatus=verified`, `eventCount=24 events`, `health=3/3`, and
@@ -145,6 +151,23 @@ authoritative state of the project.
   `/api/v1/health` returned `{"ok": true}`; staging
   `/api/v1/events/verify` returned `event_count=128` and
   `last_hash=300f36e6c60b012e90fa51fa45683e42271a9796e76d04d53b4dad3e02411e81`.
+- **Unreleased v0.6.1 audit-proof hardening:** history read models now
+  expose existing projected policy decisions, human approvals,
+  health-check results, rollbacks, and image-push evidence under
+  `/api/v1/history/*` without adding mutation routes or new projection
+  tables. `scripts/capture_operator_proof.sh` is the repeatable
+  read-only proof-capture helper: it records staging/prod root
+  metadata, event-chain verification, prod readiness/health, and the
+  terminal `deploy-llm-agent` `fly.deploy` proposal targeting
+  `quorum-prod` into `proof.json` and `proof.md`, failing closed on
+  version drift, failed event-chain verification, failed prod health,
+  or non-matching proposal/execution state. A read-only smoke on
+  2026-04-28 with `QUORUM_RELEASE_TAG=v0.6.0-alpha.1` wrote
+  `/tmp/quorum-proof.20260428T221242Z/proof.json` and selected
+  `proposal_ee73bc8461df` / `exec_abdb202f045e` with staging
+  `event_count=129`, last hash
+  `f49d6ee5ac965cd4910460e9912293fb1d4664bf1e1041dd01a955a798d9d419`,
+  and prod readiness/health `ok=true`.
 - **Docs/onboarding drift:** `README.md`, `docs/DEMO_VIDEO.md`,
   `docs/REPO_MAP.md`, and `.env.example` now match the shipped auth,
   demo-gate, managed-`uv`, and console contracts.
@@ -217,21 +240,24 @@ authoritative state of the project.
   `DATABASE_URL`, `quorum-staging` reconciled 13 existing events from
   JSONL into Neon with zero errors, then accepted a live smoke intent
   `intent_ca2cf96dfc15`. Current staging event verification reports
-  `event_count=128` and
-  `last_hash=300f36e6c60b012e90fa51fa45683e42271a9796e76d04d53b4dad3e02411e81`.
+  `event_count=129` and
+  `last_hash=f49d6ee5ac965cd4910460e9912293fb1d4664bf1e1041dd01a955a798d9d419`.
   Reduced state counts are `intents=16`, `findings=5`,
   `proposals=10`, `votes=14`, `policy_decisions=10`,
   `executions=14`, `health_checks=13`, `human_approvals=15`, and
-  `image_pushes=24`.
+  `image_pushes=25`.
 - **Latest image-push evidence after v0.6 release:** the automatic
-  post-merge image-push run `25078777374` ultimately went green after
-  a rerun, but its notifier timed out after the first Fly Registry 502
-  retry path and is not the canonical proof input. The proof used the
-  manual `workflow_dispatch` run
+  post-PR #107 image-push run
+  [`25080148345`](https://github.com/jaydenpiao/quorum/actions/runs/25080148345)
+  posted `evt_6522032d9b26` / `imgpush_5026efc2bb6c` for commit
+  `d84cec6c86f6681f503b6fb65e5f41803a233cb1` with staging/prod digest
+  `sha256:37041195db24140d631ea5dbb3a31238287753c42917603fed815f47dd61232b`.
+  The earlier post-v0.6 release automatic run `25078777374` went green
+  only after rerun and was not the canonical proof input; the v0.6 live
+  prod proof used manual `workflow_dispatch` run
   [`25079047944`](https://github.com/jaydenpiao/quorum/actions/runs/25079047944),
-  which posted `evt_a13b62ae2d43` / `imgpush_d656e57344f0` for commit
-  `2835ce91935a9fed7f11943ff8c70613e391261c` with staging/prod digest
-  `sha256:459c63cdbc432c2a9e4446e95ff9dcf932127ce2a06f7fec474b3b6a69ebebcf`.
+  which posted `evt_a13b62ae2d43` / `imgpush_d656e57344f0` for merge
+  commit `2835ce91935a9fed7f11943ff8c70613e391261c`.
 - **Image-push evidence proof:** workflow run
   `24925601409` posted `image_push_completed` into staging as
   `evt_fd0e051dca4b` / `imgpush_2e6a1c26fdd3`, reported by
@@ -720,12 +746,15 @@ harness under `.claude/`. Codex and other agents can ignore them.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Minor operator hardening worth batching into one PR
+### A — Finish v0.6.1 image-push evidence reliability
 
-- `demo_seed` optionally spawns the LLM adapter process
-  (feature-flagged).
-- Richer context in
-  `_log.warning("projector_status_update_for_missing_proposal", ...)`.
+- Harden `.github/workflows/image-push.yml` with bounded retry/backoff
+  around the optional Quorum evidence notifier.
+- Keep notifier failure non-blocking, but write explicit
+  success/failure status and returned Quorum evidence IDs into the
+  GitHub Actions step summary.
+- Preserve docs-only push ignore behavior and manual
+  `workflow_dispatch` support.
 
 ### B — LLM adapter voter role
 
