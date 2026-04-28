@@ -9,6 +9,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+_No unreleased changes._
+
+## [v0.6.0-alpha.1] — 2026-04-28
+
 ### Added
 
 - **Managed local runtime preflight** — `scripts/check_python_runtime.py`
@@ -179,7 +183,7 @@ artifact against that tag (see `.github/workflows/release.yml`).
   exit-139 failure mode seen in ambient environments.
 - **Version drift between release docs and runtime metadata** —
   Quorum no longer reports `0.1.0` at runtime while the repo and
-  console describe `v0.5.0-alpha.1`.
+  console describe the current alpha release.
 - **Demo/onboarding auth drift** — the README, demo runbook, and env
   template now match the real `POST /api/v1/demo/incident` contract,
   including bearer auth, `QUORUM_ALLOW_DEMO`, and the shipped
@@ -188,6 +192,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
   seeds the canonical version module before isolated dependency sync,
   and `pip-audit --strict` runs against a dependency-only sync so the
   unpublished first-party package is not treated as a PyPI dependency.
+- **Cached editable package metadata on release bumps** — local
+  validation, CI, and the release workflow now reinstall the first-party
+  `quorum` package during frozen syncs so dynamic version changes cannot
+  reuse stale package metadata from a previous alpha.
 - **Console demo recording foot-guns** — `/console` and
   `/console-static/*` now send no-cache headers so stale browser tabs do
   not keep showing the old POC console, and the dog-food demo seed

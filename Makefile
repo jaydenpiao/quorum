@@ -5,7 +5,7 @@ UV_VERSION := 0.11.8
 UVX ?= uvx
 UV := $(UVX) --from uv==$(UV_VERSION) uv
 PYTHON_VERSION := 3.12
-UV_SYNC := $(UV) sync --frozen --extra dev --python $(PYTHON_VERSION) --python-preference only-managed
+UV_SYNC := $(UV) sync --frozen --extra dev --python $(PYTHON_VERSION) --python-preference only-managed --reinstall-package quorum
 UV_RUN := $(UV) run --frozen --extra dev --python $(PYTHON_VERSION) --python-preference only-managed
 
 venv:

@@ -2,9 +2,9 @@
 
 ## Right now: single-threaded main-branch development
 
-Through v0.5.0-alpha.1 the project has stayed single-threaded on the
-main working branch. The POC vertical slice is stable; Phases 2–5 are
-complete.
+Through the v0.6.0-alpha.1 release-prep line the project has stayed
+single-threaded on the main working branch. The POC vertical slice is
+stable; Phases 2–5 are complete.
 
 Stay single-thread until Phase 6's explicit gate is met (≥2 weeks of
 event-schema stability per `docs/ROADMAP.md`).
