@@ -10,6 +10,9 @@ EXPECT_GUARD="${QUORUM_PROOF_EXPECT_GUARD:-0}"
 STAGING_EVIDENCE="${QUORUM_PROOF_STAGING_EVIDENCE:-quorum-execution}"
 DEPLOY_STAGING="${QUORUM_PROOF_DEPLOY_STAGING:-0}"
 FLY_BINARY="${QUORUM_PROOF_FLY_BINARY:-${QUORUM_FLY_BINARY:-fly}}"
+UV_VERSION="${QUORUM_PROOF_UV_VERSION:-${QUORUM_UV_VERSION:-0.11.8}}"
+UVX="${QUORUM_PROOF_UVX:-${QUORUM_UVX:-uvx}}"
+UV=("$UVX" --from "uv==${UV_VERSION}" uv)
 
 OPERATOR_KEY="${QUORUM_PROOF_OPERATOR_KEY:-}"
 CODE_AGENT_KEY="${QUORUM_PROOF_CODE_AGENT_KEY:-}"
@@ -717,7 +720,7 @@ wait_for_proof_window() {
 
 run_deploy_agent_once() {
   QUORUM_LLM_CONTROL_PLANE_FLY_APP=quorum-staging \
-    uv run --frozen --extra dev --python 3.12 --python-preference only-managed \
+    "${UV[@]}" run --frozen --extra dev --python 3.12 --python-preference only-managed \
       python -m apps.llm_agent.run \
       --agent-id deploy-llm-agent \
       --quorum-url "$API" \
@@ -759,7 +762,7 @@ run_guard_proof() {
 main() {
   require_command curl
   require_command python3
-  require_command uv
+  require_command "$UVX"
   require_env ANTHROPIC_API_KEY
   require_env QUORUM_API_KEYS
   case "$STAGING_EVIDENCE" in

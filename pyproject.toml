@@ -71,6 +71,9 @@ include = ["apps*"]
 [tool.setuptools.dynamic]
 version = { attr = "apps.api.app.version.__version__" }
 
+[tool.uv]
+required-version = "==0.11.8"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

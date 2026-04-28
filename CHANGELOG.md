@@ -92,6 +92,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- **uv toolchain is pinned across local, CI, release, and Docker** —
+  `pyproject.toml`, `Makefile`, GitHub Actions, the production
+  Dockerfile, and operator scripts now converge on `uv 0.11.8`, with
+  local `make` commands invoking it through `uvx --from uv==0.11.8 uv`
+  instead of relying on whichever ambient `uv` happens to be installed.
 - **Local bootstrap now matches CI's Python path** — `make install`,
   `make test`, `make validate`, and `scripts/validate_merge.sh` now
   run through the locked `uv`-managed Python 3.12 environment instead
