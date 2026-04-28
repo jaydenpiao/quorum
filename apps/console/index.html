@@ -32,13 +32,17 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">Operator console</p>
-          <h1>Agentic change control</h1>
+          <div class="title-row">
+            <h1>Agentic change control</h1>
+            <span id="release-badge" class="count-badge">version unknown</span>
+          </div>
         </div>
         <div class="topbar-actions">
           <label class="token-field">
             <span>Bearer token</span>
             <input id="bearer-token" type="text" placeholder="operator-key-dev" autocomplete="off" spellcheck="false" />
           </label>
+          <button id="btn-verify-chain" class="button secondary" type="button">Verify event chain</button>
           <button id="btn-refresh" class="button secondary" type="button">Refresh</button>
           <button id="btn-seed" class="button primary" type="button">Seed dog-food deploy demo</button>
         </div>
@@ -65,6 +69,32 @@
           <span class="tile-label">Event chain</span>
           <strong id="metric-events">0 events</strong>
         </div>
+        <div class="status-tile">
+          <span class="tile-label">Chain status</span>
+          <strong id="metric-chain-status">unchecked</strong>
+        </div>
+      </section>
+
+      <section class="signal-grid" aria-label="Control-plane signals">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Operator inputs</p>
+              <h2>Intents</h2>
+            </div>
+          </div>
+          <div id="intent-list" class="signal-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Agent evidence</p>
+              <h2>Findings</h2>
+            </div>
+          </div>
+          <div id="finding-list" class="signal-list"></div>
+        </section>
       </section>
 
       <section class="main-grid">
@@ -171,6 +201,14 @@
               <button type="submit" class="button secondary">Submit approval</button>
               <div id="form-approval-status" class="status"></div>
             </form>
+
+            <div class="stacked-form">
+              <h3>Execute proposal</h3>
+              <p class="muted">Run the currently selected approved proposal through the control plane.</p>
+              <button id="btn-execute" class="button primary" type="button">Execute proposal</button>
+              <div id="execute-status" class="status"></div>
+              <div id="verify-status" class="status"></div>
+            </div>
           </section>
         </aside>
       </section>

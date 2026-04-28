@@ -41,7 +41,7 @@ Quorum is the minimal control plane that makes those guarantees real.
 - YAML-based policy configuration with risk levels, environment overrides, denied action types, and per-action-type rule overrides.
 - Quorum voting with configurable thresholds; human-approval entity for high-risk actions (`requires_human=true` → explicit grant event before execute).
 - Pluggable typed health checks (`always_pass`, `always_fail`, `http`, `github_check_run`) with automatic rollback on failure and a terminal `rollback_impossible` event when an actuator cannot undo a mutation.
-- Operator console (`/console`) with SSE live-tail + forms for intents, votes, and approvals.
+- Operator console (`/console`) with SSE live-tail, release badge, first-class intent/finding/proposal views, execute + approval controls, rollback visibility, and event-chain verification.
 - **Two built-in actuators**:
   - **GitHub App** (Phase 4): `open_pr` / `comment_issue` / `close_pr` / `add_labels` with actuator-aware rollback.
   - **Fly.io** (Phase 5): `fly.deploy` — content-addressed deploys via `flyctl` subprocess; rollback redeploys the previous image digest. Requires 2 votes + explicit human approval by policy.
@@ -50,7 +50,7 @@ Quorum is the minimal control plane that makes those guarantees real.
   - `deploy-llm-agent` — watches for new image digests, proposes `fly.deploy` actions.
   - Both run as their own OS processes, authenticated with argon2id-hashed API keys, server-capped by per-agent `allowed_action_types`.
 - **Ready to deploy on Fly.io**: `fly.toml` + `/readiness` endpoint + image-push CI workflow (`.github/workflows/image-push.yml`) that auto-pushes tagged images to both `registry.fly.io/quorum-staging` and `registry.fly.io/quorum-prod` on every `main` merge.
-- Demo incident seeder (`POST /api/v1/demo/incident`) runs the full flow end-to-end.
+- Bearer-authenticated demo incident seeder (`POST /api/v1/demo/incident`) is gated by `QUORUM_ALLOW_DEMO=true` and runs the full flow end-to-end.
 
 ## What's next (phased)
 
@@ -63,29 +63,42 @@ See [docs/ROADMAP.md](docs/ROADMAP.md). Brief version:
 
 ## Quick start
 
-Requires Python 3.12+.
+Requires `uv`.
 
-### With `uv` (recommended)
+The supported local path is the same locked interpreter flow CI uses:
+`make install` recreates `.venv` on a `uv`-managed CPython 3.12,
+syncs the locked dev dependencies, and runs a startup preflight that
+fails fast if the interpreter cannot safely import `readline`.
+
+### Recommended path
 
 ```bash
-uv sync --extra dev
-uv run uvicorn apps.api.app.main:app --reload --port 8080
+make install
+
+QUORUM_API_KEYS='operator:operator-key-dev,telemetry-agent:telemetry-key-dev,deploy-agent:deploy-key-dev,code-agent:code-key-dev' \
+QUORUM_ALLOW_DEMO=true \
+make dev
 ```
 
-### With `venv` + `pip`
+Common follow-up commands:
 
 ```bash
-python3.12 -m venv .venv
-.venv/bin/pip install -e ".[dev]"
-.venv/bin/uvicorn apps.api.app.main:app --reload --port 8080
+make test       # pytest --cov-fail-under=60 -q on the managed interpreter
+make validate   # ruff check + ruff format --check + pytest
+make typecheck  # mypy --strict apps
 ```
 
-### Or just `make`
+### Manual `uv` path
 
 ```bash
-make install    # creates .venv and installs dev deps
-make dev        # runs uvicorn
-make validate   # ruff check + ruff format --check + pytest (enforces coverage floor)
+uv python install 3.12
+uv venv --python 3.12 --python-preference only-managed .venv
+uv sync --frozen --extra dev --python 3.12 --python-preference only-managed
+
+QUORUM_API_KEYS='operator:operator-key-dev,telemetry-agent:telemetry-key-dev,deploy-agent:deploy-key-dev,code-agent:code-key-dev' \
+QUORUM_ALLOW_DEMO=true \
+uv run --frozen --extra dev --python 3.12 --python-preference only-managed \
+  python -m uvicorn apps.api.app.main:app --reload --port 8080
 ```
 
 ### With Docker
@@ -114,7 +127,9 @@ Open:
 ### Seed the demo
 
 ```bash
-curl -sX POST http://127.0.0.1:8080/api/v1/demo/incident | python3 -m json.tool
+curl -fsS -X POST http://127.0.0.1:8080/api/v1/demo/incident \
+  -H 'Authorization: Bearer operator-key-dev' \
+  | python3 -m json.tool
 ```
 
 Then inspect:
@@ -122,7 +137,12 @@ Then inspect:
 ```bash
 curl -s http://127.0.0.1:8080/api/v1/state  | python3 -m json.tool
 curl -s http://127.0.0.1:8080/api/v1/events | python3 -m json.tool
+curl -s http://127.0.0.1:8080/api/v1/events/verify | python3 -m json.tool
 ```
+
+The demo route is disabled unless the server was started with
+`QUORUM_ALLOW_DEMO=true`. The console uses the same bearer token for
+the seed button and all operator mutations.
 
 ### Run the LLM adapter (optional)
 
@@ -144,11 +164,11 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export QUORUM_API_KEYS="telemetry-llm-agent:<plaintext>"
 
 # 2. Generate the matching argon2id hash and store it in config/agents.yaml
-python -m apps.api.app.tools.bootstrap_keys generate --agent-id telemetry-llm-agent
+.venv/bin/python -m apps.api.app.tools.bootstrap_keys generate --agent-id telemetry-llm-agent
 
 # 3. Start Quorum in one terminal, the adapter in another
 make dev                                                       # Quorum on :8080
-python -m apps.llm_agent.run --agent-id telemetry-llm-agent    # adapter polls :8080
+.venv/bin/python -m apps.llm_agent.run --agent-id telemetry-llm-agent
 ```
 
 Adapter tick budgets, model, and system-prompt reference are read

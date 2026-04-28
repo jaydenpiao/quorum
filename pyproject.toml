@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "quorum"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Control plane for safe, auditable, policy-gated, quorum-based execution by AI agents operating on code and infrastructure."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -67,6 +67,9 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["apps*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "apps.api.app.version.__version__" }
 
 [tool.ruff]
 line-length = 100

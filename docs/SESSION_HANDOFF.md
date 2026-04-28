@@ -18,12 +18,12 @@ authoritative state of the project.
   production container. Live flyctl smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 401 passing + 13 integration-gated (excluded from CI
+- **Test suite:** 413 passing + 13 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres, Fly.io, or GitHub, with additional env gates for destructive
   tests).
-- **Coverage:** 82% (gate floor: 60%).
-- **Type check:** `mypy --strict` clean across 49 source files.
+- **Coverage:** 82.29% (gate floor: 60%).
+- **Type check:** `mypy --strict` clean across 50 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
 - **pip-audit note:** CI temporarily ignores `CVE-2026-3219` because
   it affects the latest published PyPI `pip` (`26.0.1`) and pip-audit
@@ -31,18 +31,43 @@ authoritative state of the project.
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
 - **Merged PR count:** 85. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, and #85 final handoff refresh.
-- **Current console/demo candidate:** `feat/professional-console-demo`
-  refreshes `/console` into a light operator dashboard, moves styles to
-  `apps/console/styles.css`, and changes `POST /api/v1/demo/incident`
-  from the generic checkout rollback seed to a deterministic Quorum
-  dog-food `fly.deploy` story. The local demo uses a stubbed Fly client
-  so recordings exercise Quorum's executor/event path without mutating
-  live Fly. Local browser verification showed the seeded dashboard
-  rendering the prod deploy proposal, policy/vote/approval gate,
-  execution result, health checks, and event-chain preview. Follow-up
-  polish on `fix/console-demo-cache-token` adds no-cache headers for
-  console assets and auto-fills the local demo token when the seed
-  button is clicked with an empty token field.
+- **Current operator alpha-polish state:** local bootstrap and
+  validation now run on the same locked `uv`-managed Python path CI
+  uses. `make install` recreates `.venv` on managed CPython 3.12 and
+  runs `scripts/check_python_runtime.py`, which fails fast on broken
+  `readline` imports instead of letting `pytest` segfault during
+  startup.
+- **Canonical version contract:** `apps/api/app/version.py` is now the
+  single version source. Package metadata, FastAPI/OpenAPI metadata,
+  tracing `service.version`, the unauthenticated root metadata
+  response, and the console release badge all resolve from that module.
+- **Current console/demo state:** `/console` now renders first-class
+  intent and finding panels, rollback state beside execution and health
+  state, an operator **Execute proposal** action, and a **Verify event
+  chain** control backed by `GET /api/v1/events/verify`. Cold browser
+  verification after clearing `localStorage` showed
+  `releaseBadge=v0.5.0-alpha.1`, `chainStatus=verified`,
+  `eventCount=24`, `intentCount=2`, `findingCount=2`, and both new
+  operator controls visible.
+- **Active GitHub fixture demo proof:** the paused helper
+  `scripts/demo_github_fixture_flow.sh` was live-validated against
+  `jaydenpiao/quorum-actuator-fixtures#1` and created fixture comment
+  `https://github.com/jaydenpiao/quorum-actuator-fixtures/issues/1#issuecomment-4331852408`
+  during the primary validation pass. A later browser-side smoke also
+  created
+  `https://github.com/jaydenpiao/quorum-actuator-fixtures/issues/1#issuecomment-4331892943`
+  before the local event log was restored to the pre-check snapshot.
+- **LLM-authored prod deploy proof workflow:** the operator proof path
+  is now scripted as `scripts/prove_llm_prod_deploy.sh` and documented
+  in `docs/DEMO_VIDEO.md`. It captures a scratch staging cursor, waits
+  for fresh `image_push_completed` plus matching staging-success
+  evidence, runs `deploy-llm-agent --once`, verifies that the proposal
+  targets `quorum-prod` with the exact `prod_digest` and prod health
+  checks, then stops before mutation unless `QUORUM_PROOF_EXECUTE=1`
+  is set.
+- **Docs/onboarding drift:** `README.md`, `docs/DEMO_VIDEO.md`,
+  `docs/REPO_MAP.md`, and `.env.example` now match the shipped auth,
+  demo-gate, managed-`uv`, and console contracts.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -575,6 +600,14 @@ harness under `.claude/`. Codex and other agents can ignore them.
     current server output. Hard-refresh or reopen `/console`. The
     console now sends no-cache headers and the recording guide calls
     this out explicitly.
+35. **[Repo-wide]** Do not restore `data/events.jsonl` over a running
+    uvicorn process and then keep using that same process for new
+    writes. `EventLog` keeps the previous tail hash in memory, so the
+    next append can create a valid-looking line whose `prev_hash`
+    points at the old tail, and `/api/v1/events/verify` will fail with
+    a mismatch. Stop uvicorn before copying a backup into place, or
+    restart immediately after the restore. The local demo runbook's
+    cleanup order already assumes this.
 
 ## Next-session candidates (pick one, by priority)
 

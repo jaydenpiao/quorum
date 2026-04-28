@@ -5,7 +5,7 @@ the repo without scanning every file. It is updated as a blocker for
 any PR that moves / renames / adds top-level files or folders
 (see `AGENTS.md` §9).
 
-Last refreshed at v0.5.0-alpha.1.
+Last refreshed after the post-v0.5.0-alpha.1 alpha-polish pass.
 
 ## Top level
 
@@ -20,9 +20,12 @@ Last refreshed at v0.5.0-alpha.1.
   local dog-food deploy demo
 - `llms.txt` — shortest file list for LLM navigation
 - `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
-- `pyproject.toml`, `uv.lock` — Python packaging / locked deps
-- `Makefile` — dev commands (`dev`, `test`, `validate`, `demo`,
-  `reset`, `sbom`, `clean-worktrees`)
+- `pyproject.toml`, `uv.lock` — Python packaging / locked deps;
+  package version is sourced dynamically from
+  `apps/api/app/version.py`
+- `Makefile` — dev commands (`install`, `preflight`, `dev`, `test`,
+  `validate`, `typecheck`, `demo`, `reset`, `sbom`,
+  `clean-worktrees`) pinned to the managed `uv` Python path
 - `Dockerfile`, `docker-compose.yml` — container build + local stack
 - `fly.toml` — Fly.io app config (Phase 5)
 - `.env.example` — environment variable template
@@ -42,6 +45,8 @@ Last refreshed at v0.5.0-alpha.1.
 - `apps/api/AGENTS.md` — backend-area rules
 - `apps/api/app/main.py` — FastAPI bootstrap, middleware, DI wiring,
   `/`, `/health`, `/readiness`, `/metrics`, `/console`
+- `apps/api/app/version.py` — canonical runtime/package/release
+  version strings used by FastAPI metadata, tracing, and the console
 - `apps/api/app/middleware.py` — `SecurityHeadersMiddleware`
 - `apps/api/app/request_context.py` — per-request UUID binding
 - `apps/api/app/logging_config.py` — structlog JSON setup
@@ -139,10 +144,11 @@ Last refreshed at v0.5.0-alpha.1.
 
 - `apps/console/AGENTS.md`
 - `apps/console/index.html` — static operator console shell with
-  overview cards, proposal table, inspector, timeline, and action forms
+  overview cards, release badge, intent/finding lists, proposal table,
+  inspector, timeline, and action forms
 - `apps/console/app.js` — browser-only rendering + SSE live-tail +
   bearer-token storage + create-intent / cast-vote /
-  grant-deny-approval handlers
+  grant-deny-approval / execute-proposal / event-chain-verify handlers
 - `apps/console/styles.css` — light SaaS dashboard styling for the
   static console
 
@@ -163,8 +169,8 @@ Last refreshed at v0.5.0-alpha.1.
 - `docs/REPO_MAP.md` — this file
 - `docs/ROADMAP.md` — phase ✅/⏳/⬜ tracker
 - `docs/PRODUCT.md` — product framing
-- `docs/DEMO_VIDEO.md` — local recording commands, live read-only
-  proof commands, and 3-minute narration
+- `docs/DEMO_VIDEO.md` — active end-to-end recording commands, fallback
+  dog-food seed commands, and 3-minute narration
 - `docs/SESSION_HANDOFF.md` — live state, gotchas, next candidates
 - `docs/GITHUB_AUTOMATION.md` — repo / CI setup reference
 - `docs/design/postgres-projection.md` — projection architecture
@@ -174,8 +180,7 @@ Last refreshed at v0.5.0-alpha.1.
 
 ## Tests — `tests/`
 
-Pytest tests, colocated by feature. 392 default tests + 13 integration-
-gated tests, ~81% coverage. Key
+Pytest tests, colocated by feature. Key
 files:
 
 - `tests/conftest.py`, `tests/_helpers.py` — shared fixtures
@@ -208,6 +213,12 @@ files:
   projection (integration-gated)
 - `tests/test_llm_adapter_*.py` — LLM adapter components, including
   token/tick/proposal metrics and CLI metrics-port wiring
+- `tests/test_bootstrap_contract.py` — static checks for the managed
+  `uv` bootstrap path, runtime preflight, and validation commands
+- `tests/test_version_contract.py` — runtime/package/tracing version
+  consistency checks
+- `tests/test_demo_recording_assets.py` — static coverage for the
+  recording runbook and active GitHub fixture demo helper
 
 Integration tests are marked `@pytest.mark.integration` and excluded
 from default CI; opt in with `pytest -m integration`.
@@ -217,8 +228,17 @@ from default CI; opt in with `pytest -m integration`.
 - `scripts/bootstrap_local_repo.sh` — init local git + first commit
 - `scripts/create_public_github_repo.sh` — create public repo via `gh`
 - `scripts/new_worktree.sh` — create a worktree per task (Phase 6+)
+- `scripts/check_python_runtime.py` — managed-Python preflight that
+  fails fast on broken `readline` imports before local validation runs
 - `scripts/validate_merge.sh` — run merge-gate checks locally
 - `scripts/demo_run.sh` — fast local demo
+- `scripts/demo_github_fixture_flow.sh` — paused active recording flow
+  that drives a real fixture `github.comment_issue` proposal through
+  intent, evidence, quorum, execution, health check, and audit proof
+- `scripts/prove_llm_prod_deploy.sh` — live operator proof helper for
+  `deploy-llm-agent --once`: fresh image-push evidence, staging
+  success evidence, verified `quorum-prod` proposal, optional
+  vote/approval/execute path gated by `QUORUM_PROOF_EXECUTE=1`
 
 ## CI / GitHub — `.github/`
 
