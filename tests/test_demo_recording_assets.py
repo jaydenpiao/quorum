@@ -54,13 +54,21 @@ def test_llm_prod_deploy_proof_script_gates_live_execution() -> None:
     assert "deploy-llm-agent" in text
     assert "--once" in text
     assert "QUORUM_PROOF_EXECUTE=1" in text
+    assert "QUORUM_PROOF_STAGING_EVIDENCE" in text
+    assert "QUORUM_PROOF_DEPLOY_STAGING" in text
     assert "QUORUM_PROOF_EXPECT_GUARD" in text
+    assert "external-staging-finding" in text
+    assert "external_staging_verification" in text
     assert "quorum-prod" in text
+    assert "quorum-staging" in text
     assert "prod-readiness" in text
     assert "prod-api-health" in text
     assert "https://quorum-prod.fly.dev/readiness" in text
     assert "https://quorum-prod.fly.dev/api/v1/health" in text
+    assert "https://quorum-staging.fly.dev/readiness" in text
+    assert "https://quorum-staging.fly.dev/api/v1/health" in text
     assert "/api/v1/events/verify" in text
+    assert "/api/v1/findings" in text
     assert "/api/v1/approvals/" in text
     assert "/api/v1/proposals/$proposal_id/execute" in text
     assert "verified_guard_finding" in text
@@ -92,6 +100,9 @@ def test_demo_video_documents_live_llm_prod_deploy_proof() -> None:
     assert "Guard-only proof" in text
     assert "QUORUM_PROOF_EXPECT_GUARD=1" in text
     assert "staging success evidence is missing" in text
+    assert "External staging verification" in text
+    assert "QUORUM_PROOF_STAGING_EVIDENCE=external-staging-finding" in text
+    assert "QUORUM_PROOF_DEPLOY_STAGING=1" in text
 
 
 def test_readme_demo_seed_matches_auth_and_demo_gate_contract() -> None:

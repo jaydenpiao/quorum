@@ -18,7 +18,7 @@ authoritative state of the project.
   production container. Live flyctl smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 413 passing + 13 integration-gated (excluded from CI
+- **Test suite:** 420 passing + 13 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres, Fly.io, or GitHub, with additional env gates for destructive
   tests).
@@ -34,7 +34,7 @@ authoritative state of the project.
   first-party `quorum` package is not audited as an unpublished PyPI
   dependency.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 85. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, and #85 final handoff refresh.
+- **Merged PR count:** 87. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, and #94 live deploy guard proof hardening.
 - **Current operator alpha-polish state:** local bootstrap and
   validation now run on the same locked `uv`-managed Python path CI
   uses. `make install` recreates `.venv` on managed CPython 3.12 and
@@ -69,7 +69,12 @@ authoritative state of the project.
   targets `quorum-prod` with the exact `prod_digest` and prod health
   checks, then stops before mutation unless `QUORUM_PROOF_EXECUTE=1`
   is set. It also has `QUORUM_PROOF_EXPECT_GUARD=1` for the safe
-  negative proof when staging success evidence is missing.
+  negative proof when staging success evidence is missing, and
+  `QUORUM_PROOF_STAGING_EVIDENCE=external-staging-finding` for the
+  interim live path where the operator verifies the current
+  `quorum-staging` release digest + health endpoints and records an
+  `external_staging_verification` finding instead of fabricating an
+  execution event.
 - **Post-merge live guard proof:** after PR #93 merged as `73f9f93`,
   image-push run `25035587753` posted `evt_3ffcf5655d77` /
   `imgpush_23bc8714edfa` with prod digest
@@ -642,7 +647,10 @@ Quorum. The next operator-value step is proving the LLM-authored prod
 path through the supported peer-controller shape:
 
 - Seed or wait for fresh `image_push_completed` evidence.
-- Make sure staging health evidence exists for the same image digest.
+- Make sure staging health evidence exists for the same image digest:
+  either real `quorum-staging` `execution_succeeded` evidence, or an
+  explicit `external_staging_verification` finding created by
+  `QUORUM_PROOF_STAGING_EVIDENCE=external-staging-finding`.
 - Run `deploy-llm-agent` against `https://quorum-staging.fly.dev` and
   verify it proposes `target="quorum-prod"` only after citing the
   staging evidence.

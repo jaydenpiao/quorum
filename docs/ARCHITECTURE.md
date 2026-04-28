@@ -264,14 +264,17 @@ state:
 ```mermaid
 sequenceDiagram
     participant CI as GitHub Actions image-push
+    participant O as Operator proof script
     participant API as Quorum API
     participant L as EventLog
     participant D as deploy-llm-agent
 
     CI->>API: POST /api/v1/image-pushes
     API->>L: image_push_completed
+    O->>API: POST /api/v1/findings (external staging verification, optional)
+    API->>L: finding_created
     D->>API: read /api/v1/events
-    D->>API: create fly.deploy proposal for staging first
+    D->>API: create fly.deploy proposal when staging evidence is sufficient
 ```
 
 Rollback has two terminal variants:
@@ -333,6 +336,12 @@ The standalone deploy LLM adapter mirrors that invariant before it
 posts proposals: when it can identify the Quorum API's control-plane
 Fly app, it refuses LLM-authored `fly.deploy` proposals targeting that
 same app and records the failed tool dispatch outside the event log.
+For live prod proofs before a true external executor exists, an
+operator script may verify the current `quorum-staging` Fly release
+digest and health endpoints, then record that observation as a normal
+`finding_created` event. That finding is evidence for a later prod
+proposal; it is not an `execution_succeeded` substitute and does not
+claim Quorum executed the staging deploy.
 
 See `docs/design/fly-deployment.md` for the full design.
 

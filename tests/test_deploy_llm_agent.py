@@ -70,6 +70,15 @@ def test_deploy_agent_prompt_requires_image_push_evidence() -> None:
     assert "prod waits for staging" in text
 
 
+def test_deploy_agent_prompt_accepts_external_staging_verification_findings() -> None:
+    text = _DEPLOY_AGENT_PROMPT.read_text(encoding="utf-8")
+
+    assert "external_staging_verification" in text
+    assert "operator-recorded staging verification finding" in text
+    assert "do not describe that finding as an execution_succeeded event" in text
+    assert "staging_digest" in text
+
+
 def test_deploy_agent_prompt_forbids_same_control_plane_staging_deploys() -> None:
     text = _DEPLOY_AGENT_PROMPT.read_text(encoding="utf-8")
 

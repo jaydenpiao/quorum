@@ -250,6 +250,23 @@ new main image digest, wrote terminal `execution_succeeded` plus two
 `health_check_completed` events to staging's event log, and verified
 prod `/readiness` + `/api/v1/health` returned HTTP 200.
 
+LLM-authored prod-proof evidence has two accepted staging gates:
+
+1. preferred: a real `quorum-staging` `execution_succeeded` event for
+   the same `staging_digest`, with passing `staging-readiness` and
+   `staging-api-health` checks; or
+2. interim: an operator-recorded `finding_created` event whose summary
+   contains `external_staging_verification`, whose evidence refs cite
+   the same image-push event and `staging_digest`, and whose evidence
+   includes staging `/readiness` and `/api/v1/health`.
+
+The interim finding mode exists because same-app staging execution is
+correctly refused until a true external executor exists. It does not
+pretend the staging deploy was Quorum-executed. It only makes the
+external verification observable in the event log before
+`deploy-llm-agent` proposes a prod deploy through the normal
+peer-controller path.
+
 Live GitHub actuator evidence: both Fly apps now carry the base64
 GitHub App private-key secret and run the config-bearing image. Staging
 executed `github.comment_issue` against fixture issue #1 through the

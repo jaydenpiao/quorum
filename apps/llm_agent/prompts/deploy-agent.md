@@ -165,12 +165,22 @@ Default dog-food order:
    using `staging_digest` and `target="quorum-staging"` only when the
    control plane can safely execute a staging deploy.
 2. Prod waits for staging's health evidence. Only propose prod after
-   you see the staging `fly.deploy` proposal for the same commit/image
-   reach `execution_succeeded` with every `health_check_completed`
-   event passing.
+   you see one of these for the same commit/image:
+   - the staging `fly.deploy` proposal reaches `execution_succeeded`
+     with every `health_check_completed` event passing; or
+   - an operator-recorded staging verification finding whose summary
+     contains `external_staging_verification`, whose evidence cites the
+     same `staging_digest` and image-push evidence, and whose evidence
+     includes both `https://quorum-staging.fly.dev/readiness` and
+     `https://quorum-staging.fly.dev/api/v1/health`.
 3. The prod proposal must use `prod_digest`, `target="quorum-prod"`,
    and cite both the original `image_push_completed` event and the
-   successful staging execution evidence.
+   staging evidence that made prod promotion safe.
+
+When citing an operator-recorded staging verification finding, cite the
+finding id or finding event id and keep the language precise: it is
+external staging verification evidence, not a Quorum execution record;
+do not describe that finding as an execution_succeeded event.
 
 Stay quiet when:
 
