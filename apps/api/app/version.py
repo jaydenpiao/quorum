@@ -2,5 +2,18 @@
 
 from __future__ import annotations
 
-__version__ = "0.5.0a1"
-display_version = "v0.5.0-alpha.1"
+import re
+
+__version__ = "0.6.0a1"
+
+_ALPHA_VERSION_RE = re.compile(r"^(\d+\.\d+\.\d+)a(\d+)$")
+
+
+def _format_display_version(version: str) -> str:
+    alpha_match = _ALPHA_VERSION_RE.fullmatch(version)
+    if alpha_match is not None:
+        return f"v{alpha_match.group(1)}-alpha.{alpha_match.group(2)}"
+    return f"v{version}"
+
+
+display_version = _format_display_version(__version__)

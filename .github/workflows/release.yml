@@ -39,7 +39,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies (frozen)
-        run: uv sync --frozen --no-dev
+        run: uv sync --frozen --no-dev --reinstall-package quorum
 
       # anchore/sbom-action writes the file to disk at `output-file`.
       # We disable its `upload-release-assets` because the release

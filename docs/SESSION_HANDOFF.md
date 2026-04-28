@@ -22,11 +22,18 @@ authoritative state of the project.
   smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
-- **Test suite:** 421 passing + 13 integration-gated (excluded from CI
+- **Release candidate in progress:** `v0.6.0-alpha.1` packages the
+  post-Phase-5 alpha-polish and proof work: managed local/CI/release
+  `uv` bootstrap, canonical runtime/package versioning, full operator
+  console review-to-execute controls, the active GitHub fixture demo,
+  the LLM-authored prod deploy proof helper, and the pinned gitleaks
+  CLI security check. The release tag is not cut until the release-prep
+  PR merges with all required checks green.
+- **Test suite:** 424 passing + 13 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres, Fly.io, or GitHub, with additional env gates for destructive
   tests).
-- **Coverage:** 82.29% (gate floor: 60%).
+- **Coverage:** 82.28% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 50 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series. The `gitleaks` check installs checksum-verified `gitleaks 8.30.1` directly instead of using the deprecated Node 20-backed `gitleaks/gitleaks-action`.
 - **pip-audit note:** CI temporarily ignores `CVE-2026-3219` because
@@ -38,7 +45,7 @@ authoritative state of the project.
   first-party `quorum` package is not audited as an unpublished PyPI
   dependency.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 96. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, and #102 pinned `uv` toolchain.
+- **Merged PR count:** 104. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, and #104 pinned gitleaks CLI.
 - **Current operator alpha-polish state:** local bootstrap and
   validation now run on the same locked `uv`-managed Python path CI
   uses. `make install` recreates `.venv` on managed CPython 3.12 and
@@ -68,10 +75,10 @@ authoritative state of the project.
   intent and finding panels, rollback state beside execution and health
   state, an operator **Execute proposal** action, and a **Verify event
   chain** control backed by `GET /api/v1/events/verify`. Cold browser
-  verification after clearing `localStorage` showed
-  `releaseBadge=v0.5.0-alpha.1`, `chainStatus=verified`,
-  `eventCount=24`, `intentCount=2`, `findingCount=2`, and both new
-  operator controls visible.
+  verification after clearing `localStorage` on the v0.6 release-prep
+  branch showed `releaseBadge=v0.6.0-alpha.1`,
+  `chainStatus=verified`, `eventCount=24 events`, `health=3/3`, and
+  both new operator controls visible.
 - **Active GitHub fixture demo proof:** the paused helper
   `scripts/demo_github_fixture_flow.sh` was live-validated against
   `jaydenpiao/quorum-actuator-fixtures#1` and created fixture comment
@@ -516,9 +523,9 @@ Canonical order — load these before touching code:
 1. `AGENTS.md` — repo-wide operating rules and Definition of Done (binding).
 2. **This file** (`docs/SESSION_HANDOFF.md`).
 3. `docs/ROADMAP.md` — phase status with ✅/⏳/⬜/✂️ markers.
-4. `CHANGELOG.md` — every feature since bootstrap under `[Unreleased]`
-   (post-v0.5 entries currently include release workflow, worktree
-   cleanup, and runtime deployability hardening).
+4. `CHANGELOG.md` — every feature since bootstrap; the current
+   release-prep branch moves post-v0.5 alpha-polish entries under
+   `v0.6.0-alpha.1`.
 5. `docs/design/phase-4-github-actuator.md` — reference (done, but the patterns are reusable).
 6. `docs/design/llm-adapter.md` — reference.
 7. `docs/ARCHITECTURE.md` — current system picture including the Actuators section.

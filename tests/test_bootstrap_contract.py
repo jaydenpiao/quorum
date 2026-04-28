@@ -39,6 +39,7 @@ def test_makefile_uses_uv_managed_bootstrap_and_preflight() -> None:
     text = _text(MAKEFILE)
 
     assert "UV_SYNC := $(UV) sync --frozen --extra dev --python $(PYTHON_VERSION)" in text
+    assert "--reinstall-package quorum" in text
     assert "UV_RUN := $(UV) run --frozen --extra dev --python $(PYTHON_VERSION)" in text
     assert "$(UV) python install $(PYTHON_VERSION)" in text
     assert "$(UV_RUN) python scripts/check_python_runtime.py" in text
@@ -74,6 +75,11 @@ def test_validate_merge_script_runs_uv_preflight_and_checks() -> None:
     assert 'UV_VERSION="${QUORUM_UV_VERSION:-0.11.8}"' in text
     assert 'UV=("$UVX" --from "uv==${UV_VERSION}" uv)' in text
     assert (
+        '"${UV[@]}" sync --frozen --extra dev --python 3.12 --python-preference only-managed'
+        in text
+    )
+    assert "--reinstall-package quorum" in text
+    assert (
         '"${UV[@]}" run --frozen --extra dev --python 3.12 --python-preference only-managed' in text
     )
     assert "python scripts/check_python_runtime.py" in text
@@ -96,6 +102,14 @@ def test_pip_audit_installs_only_third_party_dependencies() -> None:
     assert 'sysconfig.get_paths()["purelib"]' in text
     assert 'uv run --no-sync pip-audit --strict --path "$SITE_PACKAGES"' in text
     assert "continue-on-error: true" in text
+
+
+def test_ci_and_release_reinstall_first_party_package_metadata() -> None:
+    ci_text = _text(CI_WORKFLOW)
+    release_text = _text(RELEASE_WORKFLOW)
+
+    assert "uv sync --frozen --extra dev --reinstall-package quorum" in ci_text
+    assert "uv sync --frozen --no-dev --reinstall-package quorum" in release_text
 
 
 def test_gitleaks_allowlist_is_limited_to_known_demo_placeholder() -> None:
