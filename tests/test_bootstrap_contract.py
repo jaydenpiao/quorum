@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MAKEFILE = ROOT / "Makefile"
 PYPROJECT = ROOT / "pyproject.toml"
+GITLEAKS = ROOT / ".gitleaks.toml"
 VALIDATE_SCRIPT = ROOT / "scripts" / "validate_merge.sh"
 PREFLIGHT_SCRIPT = ROOT / "scripts" / "check_python_runtime.py"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
@@ -60,3 +61,11 @@ def test_pip_audit_installs_only_third_party_dependencies() -> None:
     assert 'sysconfig.get_paths()["purelib"]' in text
     assert 'uv run --no-sync pip-audit --strict --path "$SITE_PACKAGES"' in text
     assert "continue-on-error: true" in text
+
+
+def test_gitleaks_allowlist_is_limited_to_known_demo_placeholder() -> None:
+    text = _text(GITLEAKS)
+
+    assert "Known-safe test fixtures and local demo placeholders" in text
+    assert "Bearer operator-key-dev" in text
+    assert "Never add real secrets here" in text
