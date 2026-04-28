@@ -59,6 +59,8 @@ def test_llm_prod_deploy_proof_script_gates_live_execution() -> None:
     assert "QUORUM_PROOF_EXPECT_GUARD" in text
     assert "external-staging-finding" in text
     assert "external_staging_verification" in text
+    assert "fly_platform_digest" in text
+    assert "latest release is $current_digest after deploy; expected $staging_digest" not in text
     assert "quorum-prod" in text
     assert "quorum-staging" in text
     assert "prod-readiness" in text
@@ -103,6 +105,7 @@ def test_demo_video_documents_live_llm_prod_deploy_proof() -> None:
     assert "External staging verification" in text
     assert "QUORUM_PROOF_STAGING_EVIDENCE=external-staging-finding" in text
     assert "QUORUM_PROOF_DEPLOY_STAGING=1" in text
+    assert "Fly-reported platform digest" in text
 
 
 def test_readme_demo_seed_matches_auth_and_demo_gate_contract() -> None:

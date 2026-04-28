@@ -77,6 +77,7 @@ def test_deploy_agent_prompt_accepts_external_staging_verification_findings() ->
     assert "operator-recorded staging verification finding" in text
     assert "do not describe that finding as an execution_succeeded event" in text
     assert "staging_digest" in text
+    assert "fly_platform_digest" in text
 
 
 def test_deploy_agent_prompt_forbids_same_control_plane_staging_deploys() -> None:

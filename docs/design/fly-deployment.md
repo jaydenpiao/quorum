@@ -258,14 +258,17 @@ LLM-authored prod-proof evidence has two accepted staging gates:
 2. interim: an operator-recorded `finding_created` event whose summary
    contains `external_staging_verification`, whose evidence refs cite
    the same image-push event and `staging_digest`, and whose evidence
-   includes staging `/readiness` and `/api/v1/health`.
+   includes staging `/readiness`, `/api/v1/health`, and Fly's
+   reported platform digest for the running machine.
 
 The interim finding mode exists because same-app staging execution is
 correctly refused until a true external executor exists. It does not
 pretend the staging deploy was Quorum-executed. It only makes the
 external verification observable in the event log before
 `deploy-llm-agent` proposes a prod deploy through the normal
-peer-controller path.
+peer-controller path. The image-push manifest-list digest and the Fly
+release/platform digest are recorded separately; equality between those
+two digest forms is not required.
 
 Live GitHub actuator evidence: both Fly apps now carry the base64
 GitHub App private-key secret and run the config-bearing image. Staging

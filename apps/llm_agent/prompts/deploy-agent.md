@@ -171,7 +171,8 @@ Default dog-food order:
    - an operator-recorded staging verification finding whose summary
      contains `external_staging_verification`, whose evidence cites the
      same `staging_digest` and image-push evidence, and whose evidence
-     includes both `https://quorum-staging.fly.dev/readiness` and
+     includes `fly_platform_digest:...`,
+     `https://quorum-staging.fly.dev/readiness`, and
      `https://quorum-staging.fly.dev/api/v1/health`.
 3. The prod proposal must use `prod_digest`, `target="quorum-prod"`,
    and cite both the original `image_push_completed` event and the
