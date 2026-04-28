@@ -34,7 +34,7 @@ authoritative state of the project.
   first-party `quorum` package is not audited as an unpublished PyPI
   dependency.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 87. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, and #94 live deploy guard proof hardening.
+- **Merged PR count:** 89. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, and #96 Fly platform digest proof correction.
 - **Current operator alpha-polish state:** local bootstrap and
   validation now run on the same locked `uv`-managed Python path CI
   uses. `make install` recreates `.venv` on managed CPython 3.12 and
@@ -92,6 +92,32 @@ authoritative state of the project.
   `intent_1345488b143b`. Staging `/api/v1/events/verify` returned
   `event_count=92` and
   `last_hash=af732287553e19975cbe226f3e92ed8c79ba0bfb082ec7d3afa30aeea4321b4a`.
+- **Live LLM-authored prod deploy proof:** after PR #96 merged as
+  `2e03913`, image-push run `25037883057` posted
+  `evt_99be570436a5` / `imgpush_8b8a25627e72` with staging/prod
+  digest
+  `sha256:03d973240513a0216ab948168fe49a74165175ba1a340f86017c96ce8d35a5b5`.
+  The proof script captured scratch cursor `evt_184db3d88232`, created
+  intent `intent_4787143bc4d0`, deployed `quorum-staging` to that
+  manifest digest via external `flyctl`, recorded Fly platform digest
+  `sha256:c2d7d363f1a0330c4db332aa503d53fcdb643925589d1e933d75845ca48ccf65`,
+  and appended external verification finding `finding_0f6696185657`
+  (`evt_e22d0b175a84`). A real Anthropic-backed `deploy-llm-agent`
+  tick then authored prod `fly.deploy` proposal `proposal_8406f7776c33`
+  (`evt_d26a85e19fa6`), citing the image-push and external staging
+  evidence. The script cast code-agent and deploy-agent approve votes,
+  granted human approval (`evt_ee91d98b9cc0`), executed through the
+  staging Quorum API, passed `prod-readiness`
+  (`hcr_8b053f282a9c`) and `prod-api-health`
+  (`hcr_915596d10920`), and recorded terminal
+  `execution_succeeded` `evt_7e07739b9b5d` /
+  `exec_c60636cfc833`. Final prod `/readiness` and
+  `/api/v1/health` returned `{"ok": true}`; staging
+  `/api/v1/events/verify` returned `event_count=110` and
+  `last_hash=35f8df81e71a8a690e8f77fb4378581aec53a1ebb9a67d79f5d72871a03fce14`.
+  Browser smoke on `https://quorum-staging.fly.dev/console` showed the
+  live finding, `110 events`, `11/11` health pass rate, and verified
+  event chain.
 - **Docs/onboarding drift:** `README.md`, `docs/DEMO_VIDEO.md`,
   `docs/REPO_MAP.md`, and `.env.example` now match the shipped auth,
   demo-gate, managed-`uv`, and console contracts.
@@ -641,40 +667,14 @@ harness under `.claude/`. Codex and other agents can ignore them.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Prove LLM-authored prod deploy proposals through the peer controller
-
-`deploy-llm-agent` now creates health-checked `fly.deploy` proposals
-and refuses same-control-plane deploy proposals before posting them to
-Quorum. The next operator-value step is proving the LLM-authored prod
-path through the supported peer-controller shape:
-
-- Seed or wait for fresh `image_push_completed` evidence.
-- Make sure staging health evidence exists for the same image digest:
-  either real `quorum-staging` `execution_succeeded` evidence, or an
-  explicit `external_staging_verification` finding created by
-  `QUORUM_PROOF_STAGING_EVIDENCE=external-staging-finding`.
-- Run `deploy-llm-agent` against `https://quorum-staging.fly.dev` and
-  verify it proposes `target="quorum-prod"` only after citing the
-  staging evidence.
-- Vote, approve, execute through the staging Quorum API, then verify
-  prod `/readiness`, `/api/v1/health`, and staging event-chain
-  terminal events.
-
-Do not execute `proposal_7e096a4d63fe` from inside
-`quorum-staging`; it remains the historical same-app proposal proof.
-If a true external executor is desired, design that as its own PR
-before attempting same-app staging execution.
-Until that staging evidence exists, the expected live behavior is the
-guard finding path, now covered by `QUORUM_PROOF_EXPECT_GUARD=1`.
-
-### B — Minor operator hardening worth batching into one PR
+### A — Minor operator hardening worth batching into one PR
 
 - `demo_seed` optionally spawns the LLM adapter process
   (feature-flagged).
 - Richer context in
   `_log.warning("projector_status_update_for_missing_proposal", ...)`.
 
-### C — LLM adapter voter role
+### B — LLM adapter voter role
 
 Open question from `docs/design/llm-adapter.md`. Requires its own design pass first:
 - Per-action trust caps (e.g. vote on `github.add_labels` but not `github.open_pr`).
