@@ -215,6 +215,14 @@ select:focus {
   background: var(--accent-strong);
 }
 
+.button:disabled,
+.button:disabled:hover {
+  cursor: not-allowed;
+  color: var(--faint);
+  background: var(--surface-muted);
+  border-color: var(--line);
+}
+
 .button.secondary {
   color: var(--text);
   background: #fff;
@@ -228,7 +236,7 @@ select:focus {
 
 .status-strip {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -365,6 +373,10 @@ select:focus {
 .proposal-table tbody tr:hover,
 .proposal-table tbody tr.selected {
   background: #f8faff;
+}
+
+.proposal-table tbody tr.not-actionable {
+  color: var(--muted);
 }
 
 .proposal-title {
@@ -533,6 +545,11 @@ select:focus {
   min-height: 18px;
   font-size: 12px;
   font-weight: 700;
+}
+
+.actionability-note {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .status.ok {

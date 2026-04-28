@@ -63,3 +63,24 @@ def test_app_js_contains_execute_and_chain_verify_workflows(client: TestClient) 
     assert "btn-verify-chain" in response.text
     assert "renderFindings" in response.text
     assert "renderIntents" in response.text
+
+
+def test_app_js_contains_execute_actionability_gates(client: TestClient) -> None:
+    response = client.get("/console-static/app.js")
+
+    assert response.status_code == 200
+    assert "proposalActionability" in response.text
+    assert "controlPlaneFlyApp" in response.text
+    assert "same control-plane app" in response.text
+    assert "proposal is terminal" in response.text
+    assert "waiting for human approval" in response.text
+    assert "waiting for quorum" in response.text
+    assert "actionable proposals" in response.text
+
+
+def test_console_shell_exposes_actionable_metric(client: TestClient) -> None:
+    response = client.get("/console")
+
+    assert response.status_code == 200
+    assert "Actionable proposals" in response.text
+    assert 'id="metric-actionable-proposals"' in response.text
