@@ -157,16 +157,14 @@ authoritative state of the project.
   helper creates a fixture comment, rolls it back, and observes the
   deleted comment as 404.
 - **Staging deployment state:** `quorum-staging` is running Fly
-  release v14, which reports platform image ref
-  `registry.fly.io/quorum-staging@sha256:4cecb6bebf72e0c0fa75fc347854c1196947b7b07de25ee63c475d3265ee8828`.
-  That release was manually deployed from the PR #73 `main`
+  release v17, which reports platform image ref
+  `registry.fly.io/quorum-staging@sha256:c2d7d363f1a0330c4db332aa503d53fcdb643925589d1e933d75845ca48ccf65`.
+  That release was deployed during the live LLM prod proof from
   image-push manifest-list digest
-  `sha256:8656839129464b349f971b76c6de5caad3a5b1687925d586192b49283fc8989b`
-  to bootstrap the new evidence route. A follow-up image-push rerun
-  for the same commit emitted manifest-list digest
-  `sha256:1d4f28ffaf52e71d7c82a6e154c68267edcb2ea4bd01c82c9a046df72725ae4a`
-  and the same platform image ref. Machine `e2862467be9d78` is the
-  single staging machine in `iad`; `/readiness`, `/api/v1/health`,
+  `sha256:03d973240513a0216ab948168fe49a74165175ba1a340f86017c96ce8d35a5b5`.
+  Machine `e2862467be9d78` is the single staging machine in `iad`;
+  `autostop=true`, `autostart=true`, and `min_machines_running=0`
+  are expected for staging. `/readiness`, `/api/v1/health`,
   `/metrics`, and `/console` returned HTTP 200 after wake.
   `QUORUM_API_KEYS` (operator, code-agent, deploy-agent,
   deploy-llm-agent), `FLY_API_TOKEN`, `DATABASE_URL`, and
@@ -185,11 +183,11 @@ authoritative state of the project.
   `DATABASE_URL`, `quorum-staging` reconciled 13 existing events from
   JSONL into Neon with zero errors, then accepted a live smoke intent
   `intent_ca2cf96dfc15`. Current staging event verification reports
-  `event_count=85` and
-  `last_hash=000348c873914c4990136d7bb20f4813a66e451d808ceeb6a374473a730fabf7`.
-  Reduced state counts are `intents=11`, `findings=1`,
-  `proposals=8`, `votes=10`, `executions=5`, and
-  `image_pushes=12`.
+  `event_count=110` and
+  `last_hash=35f8df81e71a8a690e8f77fb4378581aec53a1ebb9a67d79f5d72871a03fce14`.
+  Reduced state counts are `intents=15`, `findings=4`,
+  `proposals=9`, `votes=6`, `policy_decisions=9`, `executions=6`,
+  `health_checks=6`, `human_approvals=8`, and `image_pushes=19`.
 - **Image-push evidence proof:** workflow run
   `24925601409` posted `image_push_completed` into staging as
   `evt_fd0e051dca4b` / `imgpush_2e6a1c26fdd3`, reported by
@@ -281,17 +279,18 @@ authoritative state of the project.
   This is expected to be the last docs-adjacent image-push noise,
   because PR #84's `paths-ignore` is active for future docs-only
   merges.
-- **Prod deployment state:** `quorum-prod` is running Fly release v7,
+- **Prod deployment state:** `quorum-prod` is running Fly release v8,
   which reports platform image ref
-  `registry.fly.io/quorum-prod@sha256:4cecb6bebf72e0c0fa75fc347854c1196947b7b07de25ee63c475d3265ee8828`.
+  `registry.fly.io/quorum-prod@sha256:c2d7d363f1a0330c4db332aa503d53fcdb643925589d1e933d75845ca48ccf65`.
   That release was requested from image-push manifest-list digest
-  `sha256:1d4f28ffaf52e71d7c82a6e154c68267edcb2ea4bd01c82c9a046df72725ae4a`
-  through staging proposal `proposal_f7122b5cbc2a`, not a direct local
-  `fly deploy`.
+  `sha256:03d973240513a0216ab948168fe49a74165175ba1a340f86017c96ce8d35a5b5`
+  through staging proposal `proposal_8406f7776c33`, not a direct local
+  prod `fly deploy`.
   Machine `e829625b579d78` is started in `iad` with 2/2 checks
   passing, mounted volume `vol_v8emwyn2gj70k11v`, and `autostop:
-  false` restored after the deploy reset it to `true`. `/readiness`
-  and `/api/v1/health` returned HTTP 200. `QUORUM_API_KEYS`,
+  false` restored again after the live prod proof deploy reset it to
+  `true`. `/readiness` and `/api/v1/health` returned HTTP 200.
+  `QUORUM_API_KEYS`,
   `FLY_API_TOKEN`, and `DATABASE_URL` are deployed;
   `QUORUM_GITHUB_APP_PRIVATE_KEY_B64` is deployed in prod;
   `QUORUM_ALLOW_DEMO` is unset in prod.
