@@ -34,7 +34,7 @@ authoritative state of the project.
   first-party `quorum` package is not audited as an unpublished PyPI
   dependency.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 89. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, and #96 Fly platform digest proof correction.
+- **Merged PR count:** 94. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, and #100 dependency lower-bound + lock sync.
 - **Current operator alpha-polish state:** local bootstrap and
   validation now run on the same locked `uv`-managed Python path CI
   uses. `make install` recreates `.venv` on managed CPython 3.12 and
@@ -121,6 +121,13 @@ authoritative state of the project.
 - **Docs/onboarding drift:** `README.md`, `docs/DEMO_VIDEO.md`,
   `docs/REPO_MAP.md`, and `.env.example` now match the shipped auth,
   demo-gate, managed-`uv`, and console contracts.
+- **Post-proof maintenance state:** PR #99 refreshed GitHub Actions
+  pins after CI warned that Node.js 20-based actions would be forced to
+  Node.js 24 on June 2, 2026. PR #100 consolidated the five open
+  Dependabot lower-bound PRs into one `pyproject.toml` + `uv.lock`
+  dependency-graph sync; Dependabot auto-closed the superseded PRs
+  #88-#92. Main `ci`, `security`, and `image-push` are green after both
+  merges.
 - **Fly operational state:** `FLY_API_TOKEN` is configured as a GitHub
   Actions repo secret; `quorum-staging` and `quorum-prod` exist with
   app-scoped 1 GiB `iad` volumes named `quorum_data` (staging:
@@ -183,11 +190,20 @@ authoritative state of the project.
   `DATABASE_URL`, `quorum-staging` reconciled 13 existing events from
   JSONL into Neon with zero errors, then accepted a live smoke intent
   `intent_ca2cf96dfc15`. Current staging event verification reports
-  `event_count=110` and
-  `last_hash=35f8df81e71a8a690e8f77fb4378581aec53a1ebb9a67d79f5d72871a03fce14`.
+  `event_count=112` and
+  `last_hash=f9aaeeb77222dee7027245a0eea065c38832ce814c031dfc9163f2fce0a54809`.
   Reduced state counts are `intents=15`, `findings=4`,
   `proposals=9`, `votes=6`, `policy_decisions=9`, `executions=6`,
-  `health_checks=6`, `human_approvals=8`, and `image_pushes=19`.
+  `health_checks=6`, `human_approvals=8`, and `image_pushes=21`.
+- **Latest image-push evidence after maintenance:** PR #99 image-push
+  run `25039667192` posted commit
+  `a51975c165a1761d285d0fea859ae8a205f0a074` with staging/prod digest
+  `sha256:8b6156513cc018c0b3e304849171e70a3847a5d3de2beaca0a772ae79362cf40`.
+  PR #100 image-push run `25040037324` posted commit
+  `03f6c630ef20e76083e3343640d63ee07942e800` with staging/prod digest
+  `sha256:60f438eaaae1adc6224bf21d309cd0e6c06d76267d889ebd4bc4a4b713bf78ba`.
+  These are image-supply evidence events only; neither digest has been
+  deployed to the running staging/prod Fly apps.
 - **Image-push evidence proof:** workflow run
   `24925601409` posted `image_push_completed` into staging as
   `evt_fd0e051dca4b` / `imgpush_2e6a1c26fdd3`, reported by
@@ -518,119 +534,128 @@ harness under `.claude/`. Codex and other agents can ignore them.
 6. **[Repo-wide]** Anthropic SDK in tests: construct with
    `api_key="test-key-ignored"` + `max_retries=0`; `respx` intercepts
    `https://api.anthropic.com/v1/messages`.
-7. **[Repo-wide]** `TestClient.stream()` hangs on infinite SSE
+7. **[Repo-wide]** `uv.lock` must stay compatible with both current
+   CI `uv` and the older local Homebrew `uv 0.5.6` that still exists on
+   this operator machine. Current `uv lock` may try to drop the
+   editable `quorum` package `version` field because `pyproject.toml`
+   uses dynamic version metadata; committing that shape makes local
+   `make validate` fail with `missing field version`. Before shipping
+   lockfile changes, run both `make validate` and a current-uv frozen
+   sync such as `uvx --from uv uv sync --frozen --extra dev --python
+   3.12 --python-preference only-managed`.
+8. **[Repo-wide]** `TestClient.stream()` hangs on infinite SSE
    generators. The stream never naturally terminates and context-exit
    blocks on drain. Don't try to end-to-end test the SSE endpoint
    through TestClient; assert route registration + use
    `EventLog.subscribe` tests for the delivery contract. Real
    integration tests (if needed later) belong under
    `pytest -m integration` with a uvicorn subprocess + curl.
-8. **[Repo-wide]** When modifying any route handler, re-check that the
+9. **[Repo-wide]** When modifying any route handler, re-check that the
    test for it doesn't import `AUTH['agent_id']` / `AUTH['plaintext']`
    — `tests/_helpers.py` exports `AUTH` as
    `{"Authorization": f"Bearer {TEST_OPERATOR_KEY}"}`, *not* a dict
    of agent/key components.
-9. **[Repo-wide]** GitHub auto-closes stacked PRs when their base
+10. **[Repo-wide]** GitHub auto-closes stacked PRs when their base
    branch is deleted on squash-merge. You cannot reopen once the base
    is gone. Either merge *without* `--delete-branch` and clean up
    afterward, or merge main into the stacked branch (regular
    fast-forward push, no force needed) + `gh pr edit <N> --base main`
    before the parent merges.
-10. **[Repo-wide]** The repo's pre-tool-use hook blocks
+11. **[Repo-wide]** The repo's pre-tool-use hook blocks
     `git push --force*` (including `--force-with-lease`). For stacked
     PRs, prefer merging `main` into the feature branch as a regular
     push over rebase + force-push.
-11. **[Repo-wide]** The repo's pre-tool-use hook blocks force-removing
+12. **[Repo-wide]** The repo's pre-tool-use hook blocks force-removing
     git worktrees outside the project tree. Run `make clean-worktrees`
     (added in PR #59) only when no subagents are active.
-12. **[Claude-only]** Ruff `PostToolUse` hook strips unused imports
+13. **[Claude-only]** Ruff `PostToolUse` hook strips unused imports
     between Edits. Workarounds: (a) add import + first usage in a
     single atomic Edit, or (b) for multi-import diffs, use `Write` to
     rewrite the file wholesale — the formatter sees only the final
     state.
-13. **[Claude-only]** `backend-engineer` subagent stalls on multi-file
+14. **[Claude-only]** `backend-engineer` subagent stalls on multi-file
     Python work. Stay main-thread for complex Python changes.
-14. **[Claude-only]** Output classifier trips on aggregated
+15. **[Claude-only]** Output classifier trips on aggregated
     security-heavy language. Keep PR bodies lean.
-15. **[Claude-only]** `docs-writer` subagent has no `Bash` tool.
+16. **[Claude-only]** `docs-writer` subagent has no `Bash` tool.
     Dispatch, then finish git ops yourself.
-16. **[Claude-only]** Subagent worktrees stay locked after completion.
+17. **[Claude-only]** Subagent worktrees stay locked after completion.
     Use `make clean-worktrees` (PR #59) when no agents are active.
-17. **[Claude-only]** `.env.example` was blocked by an over-broad deny
+18. **[Claude-only]** `.env.example` was blocked by an over-broad deny
     rule in an older `.claude/settings.json`; fixed in PR #29.
-18. **[Repo-wide]** Pinned `flyctl` v0.4.39 supports
+19. **[Repo-wide]** Pinned `flyctl` v0.4.39 supports
     `fly releases --app <app> --json`, but not `--limit`. Keep release
     limiting in Quorum code/tests, not in the subprocess argv. Live
     smoke against `quorum-staging` returns `[]` before the first deploy.
-19. **[Repo-wide]** `fly.toml` mounts `source = "quorum_data"`.
+20. **[Repo-wide]** `fly.toml` mounts `source = "quorum_data"`.
     Volume names are app-scoped on Fly, so both staging and prod should
     create a volume named exactly `quorum_data`. App-specific names like
     `quorum_staging_data` do not satisfy the shared config.
-20. **[Repo-wide]** Same-app `fly.deploy` is blocked when
+21. **[Repo-wide]** Same-app `fly.deploy` is blocked when
     `FLY_APP_NAME` equals the proposal payload's `app`. The safe
     near-term dog-food shape is a peer controller app or external
     runner deploying the target app. Do not remove this guard unless a
     separate executor lifecycle has been designed and live-proven.
-21. **[Repo-wide]** Prod always-on requires disabling Fly machine
+22. **[Repo-wide]** Prod always-on requires disabling Fly machine
     autostop, not just keeping one machine in the app. The verified
     command shape is `fly machine update <machine-id> --app quorum-prod
     --autostop=off --autostart --yes`. Use `--autostop=off`; pinned
     `flyctl` parses `--autostop off` as an extra positional argument.
     Re-check and reapply this after `fly deploy` or `fly secrets set`;
     the prod `DATABASE_URL` secret update reset autostop to `true`.
-22. **[Repo-wide]** Do not confuse image-push manifest-list digests
+23. **[Repo-wide]** Do not confuse image-push manifest-list digests
     with the platform image ref reported by `fly releases`. A docs-only
     merge can push a fresh registry digest without changing or
     deploying the running Fly release. Treat `fly releases --json` and
     `fly machine status --display-config` as the source of truth for
     what is actually deployed.
-23. **[Repo-wide]** `pip-audit` currently ignores only
+24. **[Repo-wide]** `pip-audit` currently ignores only
     `CVE-2026-3219` in CI because the advisory affects the latest
     published PyPI `pip` and has no fixed version. Do not add broad
     ignores; remove this one as soon as a fixed pip release exists.
     Keep the audit install on `--no-install-project`, the audit run on
     `--no-sync`, and the `--path "$SITE_PACKAGES"` restriction so
     strict mode does not fail on the local unpublished `quorum` package.
-24. **[Repo-wide]** Neon emits default `postgresql://` connection URIs.
+25. **[Repo-wide]** Neon emits default `postgresql://` connection URIs.
     Quorum must normalize those to `postgresql+psycopg://` because the
     repo ships `psycopg`, not `psycopg2`. Keep runtime engine creation
     and Alembic migrations on the same normalization helper.
-25. **[Repo-wide]** Shell one-command env assignments do not affect
+26. **[Repo-wide]** Shell one-command env assignments do not affect
     expansions in the same command. `VAR=... fly secrets set
     DATABASE_URL="$VAR"` sends an empty value; assign first with
     `VAR=...; fly secrets set DATABASE_URL="$VAR"` or export the var.
-26. **[Repo-wide]** `fly ssh console -C` does not inherit app secrets
+27. **[Repo-wide]** `fly ssh console -C` does not inherit app secrets
     into ad-hoc commands, and it execs the given command directly
     rather than through a shell. To run one-off DB tooling inside the
     machine, inject the secret from Keychain explicitly and wrap with
     `sh -lc`, e.g. `fly ssh console -C "sh -lc 'DATABASE_URL=... python
     -m apps.api.app.tools.reconcile --output json'"`.
-27. **[Repo-wide]** GitHub App manifest callback codes expire after
+28. **[Repo-wide]** GitHub App manifest callback codes expire after
     one hour. If `bootstrap_github_app` captures the App but times out
     before repository installation, keep the Keychain PEM, install the
     App from the printed install URL, then use the App JWT path to
     recover `installation_id`; do not rerun and create duplicate Apps
     unless the PEM was lost.
-28. **[Repo-wide]** When proving a prod runtime path, set the proposal
+29. **[Repo-wide]** When proving a prod runtime path, set the proposal
     `environment` to `prod` even if the target resource is a fixture.
     Otherwise the action can succeed but will not exercise the
     protected-environment human-approval gate. The canonical prod
     GitHub actuator proof is `proposal_53414b49eb06`, not the earlier
     non-protected smoke `proposal_1d5c2538f403`.
-29. **[Repo-wide]** The image-push evidence notifier is intentionally
+30. **[Repo-wide]** The image-push evidence notifier is intentionally
     best-effort. If the notifier secrets are missing the step is
     skipped; if staging is unavailable the step can warn instead of
     failing the image supply path. Do not treat a successful image-push
     workflow as Quorum-ingested evidence unless staging's event stream
     contains `image_push_completed`.
-30. **[Repo-wide]** Older checkouts before PR #75 log a successful
+31. **[Repo-wide]** Older checkouts before PR #75 log a successful
     `deploy-llm-agent` proposal tool call as `ok=False` if
     `POST /api/v1/proposals` returns the current
     `{proposal, policy_decision}` envelope. Inspect the event log for
     `proposal_created` before assuming the proposal failed. The
     staging key and local Anthropic key now exist in Keychain; do not
     print them in logs or docs.
-31. **[Repo-wide]** Older deploy-agent prompts before PR #76 can
+32. **[Repo-wide]** Older deploy-agent prompts before PR #76 can
     create valid `fly.deploy` proposals with strong evidence refs but
     empty `health_checks`. Before approving any LLM-authored deploy
     proposal, verify it includes the target app's `/readiness` and
@@ -638,24 +663,24 @@ harness under `.claude/`. Codex and other agents can ignore them.
     remain pending unless run from a proven external or peer executor;
     new deploy-agent ticks pointed at `https://quorum-staging.fly.dev`
     are guarded from posting those same-app proposals.
-32. **[Repo-wide]** New `fly.deploy` proposals without
+33. **[Repo-wide]** New `fly.deploy` proposals without
     `health_checks` are rejected before the event log is mutated, and
     the executor refuses historical empty-check Fly deploys before
     invoking Fly. If you inspect older logs, a pending empty-check
     proposal may still exist as evidence, but it should not be
     considered executable.
-33. **[Repo-wide]** The polished local demo is evidence of Quorum's
+34. **[Repo-wide]** The polished local demo is evidence of Quorum's
     control-plane path, not a live Fly mutation. The demo seeder uses a
     `_DemoFlyClient` to produce deterministic `fly.deploy` execution
     records. Use `docs/DEMO_VIDEO.md`'s read-only Fly checks when
     recording; run opt-in live integration tests separately when you
     need fresh actuator proof.
-34. **[Console]** If a browser tab still shows the old dark POC console
+35. **[Console]** If a browser tab still shows the old dark POC console
     with **Seed demo incident**, it is stale client state, not the
     current server output. Hard-refresh or reopen `/console`. The
     console now sends no-cache headers and the recording guide calls
     this out explicitly.
-35. **[Repo-wide]** Do not restore `data/events.jsonl` over a running
+36. **[Repo-wide]** Do not restore `data/events.jsonl` over a running
     uvicorn process and then keep using that same process for new
     writes. `EventLog` keeps the previous tail hash in memory, so the
     next append can create a valid-looking line whose `prev_hash`
