@@ -9,7 +9,20 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Added
+
+- Read-only audit history endpoints for policy decisions, human
+  approvals, health-check results, rollbacks, and image-push evidence.
+- `scripts/capture_operator_proof.sh`, a non-mutating helper that
+  captures staging/prod runtime metadata, event-chain verification,
+  prod health, and the terminal `deploy-llm-agent` prod deploy proposal
+  into `proof.json` and `proof.md`.
+
+### Changed
+
+- The operator console execute affordance now stays disabled unless the
+  selected proposal is actually executable, and the overview separates
+  actionable proposals from stale historical pending proposals.
 
 ## [v0.6.0-alpha.1] — 2026-04-28
 

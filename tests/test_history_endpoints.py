@@ -47,6 +47,11 @@ def no_db_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         "/api/v1/history/proposals",
         "/api/v1/history/votes",
         "/api/v1/history/executions",
+        "/api/v1/history/policy-decisions",
+        "/api/v1/history/human-approvals",
+        "/api/v1/history/health-check-results",
+        "/api/v1/history/rollbacks",
+        "/api/v1/history/image-pushes",
     ],
 )
 def test_history_returns_503_without_database(no_db_client: TestClient, path: str) -> None:

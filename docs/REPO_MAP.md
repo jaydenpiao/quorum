@@ -58,7 +58,9 @@ Last refreshed for the v0.6.0-alpha.1 release-prep pass.
   (intents, findings, proposals, votes, approvals, demo seed,
   execute)
 - `apps/api/app/api/history.py` — read-only `/api/v1/history/*`
-  endpoints backed by the Postgres projection
+  endpoints backed by the Postgres projection, including proposal,
+  policy, approval, execution, health-check, rollback, and image-push
+  history
 
 ### Domain
 
@@ -241,6 +243,10 @@ from default CI; opt in with `pytest -m integration`.
   `external_staging_verification` finding), verified `quorum-prod`
   proposal, optional vote/approval/execute path gated by
   `QUORUM_PROOF_EXECUTE=1`
+- `scripts/capture_operator_proof.sh` — read-only audit capture helper
+  that writes `proof.json` and `proof.md` from staging/prod root
+  metadata, event-chain verification, prod health, and the terminal
+  `deploy-llm-agent` prod deploy proposal
 
 ## CI / GitHub — `.github/`
 

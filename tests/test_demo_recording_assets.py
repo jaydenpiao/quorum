@@ -35,6 +35,19 @@ def test_llm_prod_deploy_proof_script_is_shell_valid() -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_operator_proof_capture_script_is_shell_valid() -> None:
+    script = ROOT / "scripts" / "capture_operator_proof.sh"
+
+    result = subprocess.run(
+        ["bash", "-n", str(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_github_fixture_demo_script_drives_real_quorum_flow() -> None:
     text = (ROOT / "scripts" / "demo_github_fixture_flow.sh").read_text(encoding="utf-8")
 
@@ -74,6 +87,30 @@ def test_llm_prod_deploy_proof_script_gates_live_execution() -> None:
     assert "/api/v1/approvals/" in text
     assert "/api/v1/proposals/$proposal_id/execute" in text
     assert "verified_guard_finding" in text
+
+
+def test_operator_proof_capture_script_fails_closed_on_required_gates() -> None:
+    text = (ROOT / "scripts" / "capture_operator_proof.sh").read_text(encoding="utf-8")
+
+    assert "QUORUM_PROOF_API" in text
+    assert "QUORUM_PROOF_PROD_URL" in text
+    assert "QUORUM_PROOF_PROPOSAL_ID" in text
+    assert "QUORUM_RELEASE_TAG" in text
+    assert "QUORUM_PROOF_OUTPUT_DIR" in text
+    assert "/api/v1/events/verify" in text
+    assert "/readiness" in text
+    assert "/api/v1/health" in text
+    assert "/api/v1/state" in text
+    assert "display_version" in text
+    assert "ok=true" in text
+    assert "quorum-prod" in text
+    assert "deploy-llm-agent" in text
+    assert "fly.deploy" in text
+    assert "executed" in text
+    assert "execution_succeeded" in text
+    assert "health_checks" in text
+    assert "proof.json" in text
+    assert "proof.md" in text
 
 
 def test_demo_video_prefers_active_end_to_end_workflow() -> None:
