@@ -40,8 +40,9 @@ artifact against that tag (see `.github/workflows/release.yml`).
   `QUORUM_PROOF_STAGING_EVIDENCE=external-staging-finding` makes the
   live prod proof repeatable while same-app staging execution remains
   blocked: the script verifies the current `quorum-staging` digest and
-  health endpoints, records an `external_staging_verification` finding,
-  and requires the LLM-authored prod proposal to cite it.
+  health endpoints, records an `external_staging_verification` finding
+  with both image-push and Fly platform digests, and requires the
+  LLM-authored prod proposal to cite it.
 - **Professional operator console + dog-food demo runbook** —
   `/console` now has a light SaaS dashboard shell, external stylesheet,
   proposal inspector, image-push evidence view, live event timeline, and

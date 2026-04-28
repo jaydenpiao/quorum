@@ -230,9 +230,11 @@ QUORUM_PROOF_STAGING_EVIDENCE=external-staging-finding \
 Use this when image-push evidence exists but there is no
 `quorum-staging` execution event because same-app execution is blocked.
 The script requires `FLY_API_TOKEN` and `flyctl` so it can confirm the
-latest `quorum-staging` Fly release digest matches the fresh
-`staging_digest` before recording the finding. If staging is not already
-on that digest, stop or opt into the direct staging deploy:
+current `quorum-staging` release before recording the finding. Fly may
+report a platform image digest instead of the image-push manifest-list
+digest, so the finding records both `staging_digest` and the
+Fly-reported platform digest. If staging is not already on the literal
+manifest digest, stop or opt into the direct staging deploy:
 
 ```bash
 QUORUM_PROOF_STAGING_EVIDENCE=external-staging-finding \
@@ -273,8 +275,8 @@ Stop if any of these are false:
 - `prod-readiness` or `prod-api-health` is missing
 - the proposal does not cite both image-push and staging success
   evidence
-- external staging verification records a finding without first matching
-  the current Fly release digest to `staging_digest`
+- external staging verification records a finding without the
+  Fly-reported platform digest or without staging health passing
 - prod `/readiness` or `/api/v1/health` does not return HTTP 200
 - staging `/api/v1/events/verify` does not return `"ok": true`
 

@@ -74,7 +74,9 @@ authoritative state of the project.
   interim live path where the operator verifies the current
   `quorum-staging` release digest + health endpoints and records an
   `external_staging_verification` finding instead of fabricating an
-  execution event.
+  execution event. The finding records both the image-push
+  manifest-list `staging_digest` and Fly's platform digest because
+  those can differ for the same deployed image.
 - **Post-merge live guard proof:** after PR #93 merged as `73f9f93`,
   image-push run `25035587753` posted `evt_3ffcf5655d77` /
   `imgpush_23bc8714edfa` with prod digest

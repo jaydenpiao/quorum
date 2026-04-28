@@ -341,7 +341,10 @@ operator script may verify the current `quorum-staging` Fly release
 digest and health endpoints, then record that observation as a normal
 `finding_created` event. That finding is evidence for a later prod
 proposal; it is not an `execution_succeeded` substitute and does not
-claim Quorum executed the staging deploy.
+claim Quorum executed the staging deploy. The finding records the
+image-push manifest-list digest separately from Fly's reported platform
+image digest because those values can differ for the same deployed
+image.
 
 See `docs/design/fly-deployment.md` for the full design.
 
