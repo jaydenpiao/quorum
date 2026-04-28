@@ -28,7 +28,7 @@ authoritative state of the project.
   tests).
 - **Coverage:** 82.29% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 50 source files.
-- **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series.
+- **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series. The `gitleaks` check installs checksum-verified `gitleaks 8.30.1` directly instead of using the deprecated Node 20-backed `gitleaks/gitleaks-action`.
 - **pip-audit note:** CI temporarily ignores `CVE-2026-3219` because
   it affects the latest published PyPI `pip` (`26.0.1`) and pip-audit
   reports no fixed version. Keep `pip-audit --strict`; remove the

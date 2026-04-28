@@ -97,6 +97,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
   Dockerfile, and operator scripts now converge on `uv 0.11.8`, with
   local `make` commands invoking it through `uvx --from uv==0.11.8 uv`
   instead of relying on whichever ambient `uv` happens to be installed.
+- **gitleaks now runs as a pinned CLI instead of a Node action** —
+  `.github/workflows/security.yml` installs checksum-verified
+  `gitleaks 8.30.1` and runs `gitleaks detect` directly, removing the
+  Node 20 action-runtime deprecation warning from the required security
+  check.
 - **Local bootstrap now matches CI's Python path** — `make install`,
   `make test`, `make validate`, and `scripts/validate_merge.sh` now
   run through the locked `uv`-managed Python 3.12 environment instead

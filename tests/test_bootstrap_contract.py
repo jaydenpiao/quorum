@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MAKEFILE = ROOT / "Makefile"
 PYPROJECT = ROOT / "pyproject.toml"
 GITLEAKS = ROOT / ".gitleaks.toml"
+SECURITY_WORKFLOW = ROOT / ".github" / "workflows" / "security.yml"
 VALIDATE_SCRIPT = ROOT / "scripts" / "validate_merge.sh"
 PROOF_SCRIPT = ROOT / "scripts" / "prove_llm_prod_deploy.sh"
 PREFLIGHT_SCRIPT = ROOT / "scripts" / "check_python_runtime.py"
@@ -18,6 +19,8 @@ RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 DOCKERFILE = ROOT / "Dockerfile"
 README = ROOT / "README.md"
 PINNED_UV_VERSION = "0.11.8"
+GITLEAKS_VERSION = "8.30.1"
+GITLEAKS_LINUX_X64_SHA256 = "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
 
 
 def _text(path: Path) -> str:
@@ -101,3 +104,14 @@ def test_gitleaks_allowlist_is_limited_to_known_demo_placeholder() -> None:
     assert "Known-safe test fixtures and local demo placeholders" in text
     assert "operator-key-dev" in text
     assert "Never add real secrets here" in text
+
+
+def test_security_workflow_uses_pinned_node_free_gitleaks_cli() -> None:
+    text = _text(SECURITY_WORKFLOW)
+
+    assert "gitleaks/gitleaks-action" not in text
+    assert f"GITLEAKS_VERSION: {GITLEAKS_VERSION}" in text
+    assert f"GITLEAKS_SHA256: {GITLEAKS_LINUX_X64_SHA256}" in text
+    assert "gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" in text
+    assert "sha256sum -c -" in text
+    assert "gitleaks detect --source . --config .gitleaks.toml --verbose --redact" in text
