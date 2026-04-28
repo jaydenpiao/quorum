@@ -158,15 +158,24 @@ the default recording path, while this proves the real
 from production-grade event evidence.
 
 The proof script creates a scratch cursor before it creates the
-prod-promotion intent, waits for fresh image-push evidence plus matching
-successful `quorum-staging` execution evidence, runs
-`deploy-llm-agent --once`, and verifies that the resulting proposal:
+prod-promotion intent, waits for fresh image-push evidence plus staging
+success evidence, runs `deploy-llm-agent --once`, and verifies that the
+resulting proposal:
 
 - was authored by `deploy-llm-agent`
 - targets `quorum-prod`
 - uses the exact `prod_digest`
 - includes `prod-readiness` and `prod-api-health`
 - cites both the image-push evidence and staging success evidence
+
+Preferred evidence mode is `quorum-execution`: staging has a real
+`execution_succeeded` event for the same digest. When same-app staging
+execution is still blocked, use the explicit external evidence mode
+instead. That mode does not fabricate execution; it verifies that
+`quorum-staging` is already running the fresh `staging_digest`, verifies
+staging `/readiness` and `/api/v1/health`, records a
+`finding_created` event with `external_staging_verification`, and then
+requires the prod proposal to cite that finding.
 
 Pre-flight:
 
@@ -211,6 +220,32 @@ gh run list --workflow image-push.yml --limit 3
 The default script mode stops after it verifies the LLM-authored
 proposal. It does not vote, grant human approval, or execute prod.
 
+External staging verification:
+
+```bash
+QUORUM_PROOF_STAGING_EVIDENCE=external-staging-finding \
+  scripts/prove_llm_prod_deploy.sh
+```
+
+Use this when image-push evidence exists but there is no
+`quorum-staging` execution event because same-app execution is blocked.
+The script requires `FLY_API_TOKEN` and `flyctl` so it can confirm the
+latest `quorum-staging` Fly release digest matches the fresh
+`staging_digest` before recording the finding. If staging is not already
+on that digest, stop or opt into the direct staging deploy:
+
+```bash
+QUORUM_PROOF_STAGING_EVIDENCE=external-staging-finding \
+  QUORUM_PROOF_DEPLOY_STAGING=1 \
+  scripts/prove_llm_prod_deploy.sh
+```
+
+`QUORUM_PROOF_DEPLOY_STAGING=1` mutates `quorum-staging` with
+`fly deploy --app quorum-staging --image registry.fly.io/quorum-staging@<staging_digest>`.
+It does not mutate prod. Prod remains gated by the
+`deploy-llm-agent` proposal, quorum votes, human approval, executor
+health checks, rollback handling, and event-chain verification.
+
 Guard-only proof:
 
 ```bash
@@ -238,6 +273,8 @@ Stop if any of these are false:
 - `prod-readiness` or `prod-api-health` is missing
 - the proposal does not cite both image-push and staging success
   evidence
+- external staging verification records a finding without first matching
+  the current Fly release digest to `staging_digest`
 - prod `/readiness` or `/api/v1/health` does not return HTTP 200
 - staging `/api/v1/events/verify` does not return `"ok": true`
 
@@ -252,8 +289,8 @@ Browser acceptance checklist:
    approval granted, execution succeeded, passed health checks, rollback
    state, evidence refs, and verified event chain.
 4. Record the proof IDs from the script output: image-push event,
-   staging execution, prod proposal, prod execution, and final event
-   hash.
+   staging execution or external staging verification finding, prod
+   proposal, prod execution, and final event hash.
 
 ## Cleanup
 

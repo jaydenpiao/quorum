@@ -237,8 +237,10 @@ from default CI; opt in with `pytest -m integration`.
   intent, evidence, quorum, execution, health check, and audit proof
 - `scripts/prove_llm_prod_deploy.sh` — live operator proof helper for
   `deploy-llm-agent --once`: fresh image-push evidence, staging
-  success evidence, verified `quorum-prod` proposal, optional
-  vote/approval/execute path gated by `QUORUM_PROOF_EXECUTE=1`
+  success evidence (`execution_succeeded` or explicit
+  `external_staging_verification` finding), verified `quorum-prod`
+  proposal, optional vote/approval/execute path gated by
+  `QUORUM_PROOF_EXECUTE=1`
 
 ## CI / GitHub — `.github/`
 
