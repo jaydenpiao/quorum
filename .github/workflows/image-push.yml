@@ -53,12 +53,12 @@ jobs:
             echo "has_token=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: steps.gate.outputs.has_token == 'true'
 
       - name: Install flyctl
         if: steps.gate.outputs.has_token == 'true'
-        uses: superfly/flyctl-actions/setup-flyctl@master
+        uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Authenticate docker to registry.fly.io
         if: steps.gate.outputs.has_token == 'true'
@@ -66,7 +66,7 @@ jobs:
 
       - name: Set up Docker Buildx
         if: steps.gate.outputs.has_token == 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Content-addressed tags: the commit SHA under each Fly app's
       # registry namespace. The `fly.deploy` actuator deploys
@@ -74,7 +74,7 @@ jobs:
       # app-scoped tags even when they point at the same image manifest.
       - name: Build and push image
         if: steps.gate.outputs.has_token == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
