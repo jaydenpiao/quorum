@@ -192,8 +192,72 @@ function terminalProposal(proposal) {
     .indexOf(proposal.status) >= 0;
 }
 
+function controlPlaneFlyApp() {
+  var hostname = window.location && window.location.hostname ? window.location.hostname : '';
+  var suffix = '.fly.dev';
+  if (hostname.slice(-suffix.length) !== suffix) return '';
+  return hostname.slice(0, -suffix.length);
+}
+
+function approvalCount(votes) {
+  return votes.filter(function (vote) { return vote.decision === 'approve'; }).length;
+}
+
+function sameControlPlaneFlyDeploy(proposal) {
+  var app = controlPlaneFlyApp();
+  if (!app || proposal.action_type !== 'fly.deploy') return false;
+  var target = proposal.target || (proposal.payload && proposal.payload.app) || '';
+  return target === app;
+}
+
+function proposalActionability(state, proposal) {
+  if (!proposal) {
+    return { actionable: false, reason: 'select a proposal first' };
+  }
+
+  if (terminalProposal(proposal)) {
+    return { actionable: false, reason: 'proposal is terminal: ' + proposal.status };
+  }
+
+  if (sameControlPlaneFlyDeploy(proposal)) {
+    return {
+      actionable: false,
+      reason: 'fly.deploy targets same control-plane app: ' + controlPlaneFlyApp(),
+    };
+  }
+
+  var policy = getPolicy(state, proposal.id);
+  if (!policy) {
+    return { actionable: false, reason: 'waiting for policy evaluation' };
+  }
+
+  if (!policy.allowed) {
+    return { actionable: false, reason: 'policy denied proposal' };
+  }
+
+  var votes = getVotes(state, proposal.id);
+  var requiredVotes = Number(policy.votes_required || 0);
+  var approvedVotes = approvalCount(votes);
+  if (approvedVotes < requiredVotes) {
+    return {
+      actionable: false,
+      reason: 'waiting for quorum: ' + approvedVotes + '/' + requiredVotes + ' approvals',
+    };
+  }
+
+  if (policy.requires_human && approvalLabel(getApprovals(state, proposal.id)) !== 'granted') {
+    return { actionable: false, reason: 'waiting for human approval' };
+  }
+
+  if (proposal.status !== 'approved') {
+    return { actionable: false, reason: 'proposal status is ' + proposal.status };
+  }
+
+  return { actionable: true, reason: 'actionable proposals can be executed' };
+}
+
 function voteSummary(votes) {
-  var approve = votes.filter(function (vote) { return vote.decision === 'approve'; }).length;
+  var approve = approvalCount(votes);
   var reject = votes.filter(function (vote) { return vote.decision === 'reject'; }).length;
   return approve + ' approve / ' + reject + ' reject';
 }
@@ -241,9 +305,13 @@ function renderMetrics(state, events) {
   var openProposals = proposals.filter(function (proposal) {
     return !terminalProposal(proposal);
   }).length;
+  var actionableProposals = proposals.filter(function (proposal) {
+    return proposalActionability(state, proposal).actionable;
+  }).length;
 
   setText('metric-environment', newestIntent ? newestIntent.environment : 'local');
   setText('metric-open-proposals', String(openProposals));
+  setText('metric-actionable-proposals', String(actionableProposals));
   setText('metric-pending-approvals', String(pendingApprovals));
   setText('metric-health', passed + '/' + health.length);
   setText('metric-events', (state.event_count || 0) + ' events');
@@ -319,8 +387,10 @@ function renderProposals(state) {
   var rows = proposals.slice().reverse().map(function (proposal) {
     var votes = getVotes(state, proposal.id);
     var selected = proposal.id === _selectedProposalId ? ' selected' : '';
+    var actionability = proposalActionability(state, proposal);
+    var actionClass = actionability.actionable ? ' actionable' : ' not-actionable';
     return [
-      '<tr class="' + selected + '" data-proposal-id="' + escapeHtml(proposal.id) + '">',
+      '<tr class="' + selected + actionClass + '" title="' + escapeHtml(actionability.reason) + '" data-proposal-id="' + escapeHtml(proposal.id) + '">',
       '<td><div class="proposal-title"><strong>' + escapeHtml(proposal.title) + '</strong>',
       '<span class="muted mono">' + escapeHtml(shortId(proposal.id)) + '</span></div></td>',
       '<td>' + pill(proposal.action_type, 'info') + '</td>',
@@ -383,6 +453,7 @@ function renderInspector(state) {
   if (!proposal) {
     setHtml('proposal-inspector', '<div class="inspector-empty">No proposal selected.</div>');
     fillSelectedProposalForms('');
+    updateExecuteActionability({ actionable: false, reason: 'select a proposal first' });
     return;
   }
 
@@ -394,8 +465,10 @@ function renderInspector(state) {
   var checks = execution && execution.health_checks ? execution.health_checks : [];
   var result = execution && execution.result ? execution.result : {};
   var evidenceRefs = proposal.evidence_refs || [];
+  var actionability = proposalActionability(state, proposal);
 
   fillSelectedProposalForms(proposal.id);
+  updateExecuteActionability(actionability);
 
   var html = [
     '<div class="inspector-body">',
@@ -411,6 +484,7 @@ function renderInspector(state) {
     kv('Policy', policy ? (policy.allowed ? 'allowed' : 'denied') : 'not evaluated'),
     kv('Human approval', approvalLabel(approvals)),
     kv('Execution', execution ? execution.status : 'not started'),
+    kv('Actionability', actionability.actionable ? 'ready' : actionability.reason),
     kv('Rollback', rollback ? (rollback.status || 'impossible') : 'none'),
     kv('Released digest', shortDigest(result.released_image_digest)),
     kv('Previous digest', shortDigest(result.previous_image_digest)),
@@ -485,6 +559,19 @@ function fillSelectedProposalForms(proposalId) {
       form.elements.proposal_id.value = proposalId;
     }
   });
+}
+
+function updateExecuteActionability(actionability) {
+  var button = byId('btn-execute');
+  var note = byId('execute-actionability');
+  if (button) {
+    button.disabled = !actionability.actionable;
+  }
+  if (note) {
+    note.textContent = actionability.actionable
+      ? 'selected proposal is approved and ready to execute'
+      : actionability.reason;
+  }
 }
 
 // -- data lifecycle ---------------------------------------------------------
@@ -660,6 +747,14 @@ async function seedDemo() {
 async function executeSelectedProposal() {
   if (!_state || !_selectedProposalId) {
     setStatus('execute-status', false, 'select a proposal first');
+    return;
+  }
+
+  var proposal = proposalById(_state, _selectedProposalId);
+  var actionability = proposalActionability(_state, proposal);
+  updateExecuteActionability(actionability);
+  if (!actionability.actionable) {
+    setStatus('execute-status', false, actionability.reason);
     return;
   }
 

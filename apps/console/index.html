@@ -58,6 +58,10 @@
           <strong id="metric-open-proposals">0</strong>
         </div>
         <div class="status-tile">
+          <span class="tile-label">Actionable proposals</span>
+          <strong id="metric-actionable-proposals">0</strong>
+        </div>
+        <div class="status-tile">
           <span class="tile-label">Pending approvals</span>
           <strong id="metric-pending-approvals">0</strong>
         </div>
@@ -206,6 +210,7 @@
               <h3>Execute proposal</h3>
               <p class="muted">Run the currently selected approved proposal through the control plane.</p>
               <button id="btn-execute" class="button primary" type="button">Execute proposal</button>
+              <div id="execute-actionability" class="actionability-note">Select an approved proposal.</div>
               <div id="execute-status" class="status"></div>
               <div id="verify-status" class="status"></div>
             </div>
