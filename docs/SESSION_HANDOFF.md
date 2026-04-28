@@ -10,25 +10,23 @@ authoritative state of the project.
 
 ## Current state (as of the handoff)
 
-- **Last tagged release:** [`v0.5.0-alpha.1`](https://github.com/jaydenpiao/quorum/releases/tag/v0.5.0-alpha.1) — Phase 5 complete.
-  SBOM attached as `quorum-v0.5.0-alpha.1.spdx.json`. Post-tag tidy:
-  PR #58 (release workflow now auto-creates the GitHub release), PR #59
-  (`make clean-worktrees`), and runtime hardening that pins the Docker
-  base image / `uv` / `flyctl` so `fly.deploy` can run inside the
-  production container. The local/CI/release/Docker `uv` toolchain is
-  pinned at `0.11.8` and local `make` invokes that exact resolver via
-  `uvx --from uv==0.11.8 uv`, so older ambient `uv` binaries on an
-  operator machine no longer decide lockfile semantics. Live flyctl
-  smoke uncovered that pinned
-  `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
-  now calls `fly releases --app <app> --json` and slices locally.
-- **Release candidate in progress:** `v0.6.0-alpha.1` packages the
-  post-Phase-5 alpha-polish and proof work: managed local/CI/release
-  `uv` bootstrap, canonical runtime/package versioning, full operator
+- **Last tagged release:** [`v0.6.0-alpha.1`](https://github.com/jaydenpiao/quorum/releases/tag/v0.6.0-alpha.1) — alpha-polish and
+  operator proof release. Package/runtime version is `0.6.0a1`; public
+  display/tag version is `v0.6.0-alpha.1`. The release workflow run
+  [`25078975588`](https://github.com/jaydenpiao/quorum/actions/runs/25078975588)
+  succeeded on the signed tag and published SBOM asset
+  [`quorum-v0.6.0-alpha.1.spdx.json`](https://github.com/jaydenpiao/quorum/releases/download/v0.6.0-alpha.1/quorum-v0.6.0-alpha.1.spdx.json)
+  with digest
+  `sha256:53690477c5f695bfc2159f04b0b91040c25e5d96ca6827f0bb4f4f71521c1b0b`.
+  The signed tag object is
+  `300ad481c173e803779077d99d3a898364d8e99e` and points at merge
+  commit `2835ce91935a9fed7f11943ff8c70613e391261c`.
+- **v0.6 release content:** PR #105 packaged the post-Phase-5
+  alpha-polish and proof work: managed local/CI/release `uv`
+  bootstrap, canonical runtime/package versioning, full operator
   console review-to-execute controls, the active GitHub fixture demo,
   the LLM-authored prod deploy proof helper, and the pinned gitleaks
-  CLI security check. The release tag is not cut until the release-prep
-  PR merges with all required checks green.
+  CLI security check.
 - **Test suite:** 424 passing + 13 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres, Fly.io, or GitHub, with additional env gates for destructive
@@ -45,7 +43,7 @@ authoritative state of the project.
   first-party `quorum` package is not audited as an unpublished PyPI
   dependency.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 104. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, and #104 pinned gitleaks CLI.
+- **Merged PR count:** 105. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, and #105 v0.6.0-alpha.1 release prep.
 - **Current operator alpha-polish state:** local bootstrap and
   validation now run on the same locked `uv`-managed Python path CI
   uses. `make install` recreates `.venv` on managed CPython 3.12 and
@@ -54,19 +52,14 @@ authoritative state of the project.
   startup. The `uv` resolver itself is pinned at `0.11.8` across
   `pyproject.toml`, `Makefile`, GitHub Actions, the release workflow,
   Docker, and operator scripts.
-- **Post-#102 verification state:** PR #102 and the post-merge `main`
-  push both passed CI (`lint + format + test`, `pip-audit`, `mypy`,
-  `docker build`) plus `gitleaks`. The post-merge `image-push` run
-  `25073022341` pushed commit
-  `6e5a11ac2073d6e5cf37fecb41afa96e3125bd94` to both Fly registries
-  with staging/prod digest
-  `sha256:d80a9255b24033114d79609d99b22d800ac581e7876280dbfa419aedf6ba05c4`
-  and posted `image_push_completed` evidence to staging. Live
-  verification immediately after merge returned prod `/readiness`
-  `ok=true`, prod `/api/v1/health` `ok=true`, staging
-  `/api/v1/health` `ok=true`, and staging `/api/v1/events/verify`
-  `ok=true` with `event_count=113` and
-  `last_hash=cf767331288bffdb22e3132b6d104a3c7226539a33c7c9a681a2564b43c3f0d6`.
+- **Post-#105 verification state:** the release-prep branch passed
+  local `make validate`, `make typecheck`, targeted
+  `tests/test_version_contract.py` + `tests/test_bootstrap_contract.py`,
+  `git diff --check`, and `uv lock --check`. PR #105 then passed all
+  required checks (`lint + format + test`, `gitleaks`, `pip-audit`,
+  `docker build`, `mypy`) before squash-merge to `main`. Post-merge
+  `main` CI/security passed, and the signed v0.6 tag release workflow
+  succeeded with the SBOM asset attached.
 - **Canonical version contract:** `apps/api/app/version.py` is now the
   single version source. Package metadata, FastAPI/OpenAPI metadata,
   tracing `service.version`, the unauthenticated root metadata
@@ -75,10 +68,16 @@ authoritative state of the project.
   intent and finding panels, rollback state beside execution and health
   state, an operator **Execute proposal** action, and a **Verify event
   chain** control backed by `GET /api/v1/events/verify`. Cold browser
-  verification after clearing `localStorage` on the v0.6 release-prep
-  branch showed `releaseBadge=v0.6.0-alpha.1`,
+  verification after clearing `localStorage` during v0.6 release-prep
+  showed `releaseBadge=v0.6.0-alpha.1`,
   `chainStatus=verified`, `eventCount=24 events`, `health=3/3`, and
-  both new operator controls visible.
+  both new operator controls visible. Post-release browser acceptance
+  on `https://quorum-staging.fly.dev/console` showed
+  `releaseBadge=v0.6.0-alpha.1`, `chainStatus=verified`,
+  `eventCount=128 events`, `health=13/13`, selected proposal
+  `proposal_ee73bc8461df` with votes, policy, human approval,
+  terminal execution, prod health checks, rollback state `none`, and
+  no browser console errors.
 - **Active GitHub fixture demo proof:** the paused helper
   `scripts/demo_github_fixture_flow.sh` was live-validated against
   `jaydenpiao/quorum-actuator-fixtures#1` and created fixture comment
@@ -118,32 +117,34 @@ authoritative state of the project.
   `intent_1345488b143b`. Staging `/api/v1/events/verify` returned
   `event_count=92` and
   `last_hash=af732287553e19975cbe226f3e92ed8c79ba0bfb082ec7d3afa30aeea4321b4a`.
-- **Live LLM-authored prod deploy proof:** after PR #96 merged as
-  `2e03913`, image-push run `25037883057` posted
-  `evt_99be570436a5` / `imgpush_8b8a25627e72` with staging/prod
-  digest
-  `sha256:03d973240513a0216ab948168fe49a74165175ba1a340f86017c96ce8d35a5b5`.
-  The proof script captured scratch cursor `evt_184db3d88232`, created
-  intent `intent_4787143bc4d0`, deployed `quorum-staging` to that
+- **Latest live LLM-authored prod deploy proof:** after PR #105 merged
+  as `2835ce9`, manual image-push run
+  [`25079047944`](https://github.com/jaydenpiao/quorum/actions/runs/25079047944)
+  posted fresh evidence `evt_a13b62ae2d43` /
+  `imgpush_d656e57344f0` for commit
+  `2835ce91935a9fed7f11943ff8c70613e391261c` with staging/prod
+  manifest digest
+  `sha256:459c63cdbc432c2a9e4446e95ff9dcf932127ce2a06f7fec474b3b6a69ebebcf`.
+  The proof script captured scratch cursor `evt_893df33ebcdb`, created
+  intent `intent_fbd1e29f89fd`, deployed `quorum-staging` from that
   manifest digest via external `flyctl`, recorded Fly platform digest
-  `sha256:c2d7d363f1a0330c4db332aa503d53fcdb643925589d1e933d75845ca48ccf65`,
-  and appended external verification finding `finding_0f6696185657`
-  (`evt_e22d0b175a84`). A real Anthropic-backed `deploy-llm-agent`
-  tick then authored prod `fly.deploy` proposal `proposal_8406f7776c33`
-  (`evt_d26a85e19fa6`), citing the image-push and external staging
-  evidence. The script cast code-agent and deploy-agent approve votes,
-  granted human approval (`evt_ee91d98b9cc0`), executed through the
-  staging Quorum API, passed `prod-readiness`
-  (`hcr_8b053f282a9c`) and `prod-api-health`
-  (`hcr_915596d10920`), and recorded terminal
-  `execution_succeeded` `evt_7e07739b9b5d` /
-  `exec_c60636cfc833`. Final prod `/readiness` and
+  `sha256:3368f8888d951073f3278fe0e02e906d74443d11bb3cc27c6e22bb9b5b2dbade`,
+  and appended external verification finding `finding_79a85e72a127`
+  (`evt_f2e9964e1068`). A real Anthropic-backed
+  `deploy-llm-agent` tick then authored prod `fly.deploy` proposal
+  `proposal_ee73bc8461df` as agent `deploy-llm-agent`, citing the
+  image-push and external staging evidence. The script cast
+  code-agent vote `vote_535f29867908`, deploy-agent vote
+  `vote_c7d64f5c7a36`, requested/granted human approval
+  `approval_req_ff49e76b6edf` / `approval_out_90174fcc41f9`, and
+  executed through the staging Quorum API. Execution
+  `exec_abdb202f045e` succeeded after `prod-readiness`
+  (`hcr_e769ca25660d`) and `prod-api-health`
+  (`hcr_03d79037b2fe`) passed. Final staging/prod `/` report
+  `display_version=v0.6.0-alpha.1`; prod `/readiness` and
   `/api/v1/health` returned `{"ok": true}`; staging
-  `/api/v1/events/verify` returned `event_count=110` and
-  `last_hash=35f8df81e71a8a690e8f77fb4378581aec53a1ebb9a67d79f5d72871a03fce14`.
-  Browser smoke on `https://quorum-staging.fly.dev/console` showed the
-  live finding, `110 events`, `11/11` health pass rate, and verified
-  event chain.
+  `/api/v1/events/verify` returned `event_count=128` and
+  `last_hash=300f36e6c60b012e90fa51fa45683e42271a9796e76d04d53b4dad3e02411e81`.
 - **Docs/onboarding drift:** `README.md`, `docs/DEMO_VIDEO.md`,
   `docs/REPO_MAP.md`, and `.env.example` now match the shipped auth,
   demo-gate, managed-`uv`, and console contracts.
@@ -190,11 +191,11 @@ authoritative state of the project.
   helper creates a fixture comment, rolls it back, and observes the
   deleted comment as 404.
 - **Staging deployment state:** `quorum-staging` is running Fly
-  release v17, which reports platform image ref
-  `registry.fly.io/quorum-staging@sha256:c2d7d363f1a0330c4db332aa503d53fcdb643925589d1e933d75845ca48ccf65`.
-  That release was deployed during the live LLM prod proof from
+  release v18, which reports platform image ref
+  `registry.fly.io/quorum-staging@sha256:3368f8888d951073f3278fe0e02e906d74443d11bb3cc27c6e22bb9b5b2dbade`.
+  That release was deployed during the v0.6 live LLM prod proof from
   image-push manifest-list digest
-  `sha256:03d973240513a0216ab948168fe49a74165175ba1a340f86017c96ce8d35a5b5`.
+  `sha256:459c63cdbc432c2a9e4446e95ff9dcf932127ce2a06f7fec474b3b6a69ebebcf`.
   Machine `e2862467be9d78` is the single staging machine in `iad`;
   `autostop=true`, `autostart=true`, and `min_machines_running=0`
   are expected for staging. `/readiness`, `/api/v1/health`,
@@ -216,20 +217,21 @@ authoritative state of the project.
   `DATABASE_URL`, `quorum-staging` reconciled 13 existing events from
   JSONL into Neon with zero errors, then accepted a live smoke intent
   `intent_ca2cf96dfc15`. Current staging event verification reports
-  `event_count=112` and
-  `last_hash=f9aaeeb77222dee7027245a0eea065c38832ce814c031dfc9163f2fce0a54809`.
-  Reduced state counts are `intents=15`, `findings=4`,
-  `proposals=9`, `votes=6`, `policy_decisions=9`, `executions=6`,
-  `health_checks=6`, `human_approvals=8`, and `image_pushes=21`.
-- **Latest image-push evidence after maintenance:** PR #99 image-push
-  run `25039667192` posted commit
-  `a51975c165a1761d285d0fea859ae8a205f0a074` with staging/prod digest
-  `sha256:8b6156513cc018c0b3e304849171e70a3847a5d3de2beaca0a772ae79362cf40`.
-  PR #100 image-push run `25040037324` posted commit
-  `03f6c630ef20e76083e3343640d63ee07942e800` with staging/prod digest
-  `sha256:60f438eaaae1adc6224bf21d309cd0e6c06d76267d889ebd4bc4a4b713bf78ba`.
-  These are image-supply evidence events only; neither digest has been
-  deployed to the running staging/prod Fly apps.
+  `event_count=128` and
+  `last_hash=300f36e6c60b012e90fa51fa45683e42271a9796e76d04d53b4dad3e02411e81`.
+  Reduced state counts are `intents=16`, `findings=5`,
+  `proposals=10`, `votes=14`, `policy_decisions=10`,
+  `executions=14`, `health_checks=13`, `human_approvals=15`, and
+  `image_pushes=24`.
+- **Latest image-push evidence after v0.6 release:** the automatic
+  post-merge image-push run `25078777374` ultimately went green after
+  a rerun, but its notifier timed out after the first Fly Registry 502
+  retry path and is not the canonical proof input. The proof used the
+  manual `workflow_dispatch` run
+  [`25079047944`](https://github.com/jaydenpiao/quorum/actions/runs/25079047944),
+  which posted `evt_a13b62ae2d43` / `imgpush_d656e57344f0` for commit
+  `2835ce91935a9fed7f11943ff8c70613e391261c` with staging/prod digest
+  `sha256:459c63cdbc432c2a9e4446e95ff9dcf932127ce2a06f7fec474b3b6a69ebebcf`.
 - **Image-push evidence proof:** workflow run
   `24925601409` posted `image_push_completed` into staging as
   `evt_fd0e051dca4b` / `imgpush_2e6a1c26fdd3`, reported by
@@ -321,12 +323,12 @@ authoritative state of the project.
   This is expected to be the last docs-adjacent image-push noise,
   because PR #84's `paths-ignore` is active for future docs-only
   merges.
-- **Prod deployment state:** `quorum-prod` is running Fly release v8,
+- **Prod deployment state:** `quorum-prod` is running Fly release v9,
   which reports platform image ref
-  `registry.fly.io/quorum-prod@sha256:c2d7d363f1a0330c4db332aa503d53fcdb643925589d1e933d75845ca48ccf65`.
+  `registry.fly.io/quorum-prod@sha256:3368f8888d951073f3278fe0e02e906d74443d11bb3cc27c6e22bb9b5b2dbade`.
   That release was requested from image-push manifest-list digest
-  `sha256:03d973240513a0216ab948168fe49a74165175ba1a340f86017c96ce8d35a5b5`
-  through staging proposal `proposal_8406f7776c33`, not a direct local
+  `sha256:459c63cdbc432c2a9e4446e95ff9dcf932127ce2a06f7fec474b3b6a69ebebcf`
+  through staging proposal `proposal_ee73bc8461df`, not a direct local
   prod `fly deploy`.
   Machine `e829625b579d78` is started in `iad` with 2/2 checks
   passing, mounted volume `vol_v8emwyn2gj70k11v`, and `autostop:
@@ -478,6 +480,11 @@ authoritative state of the project.
     `quorum_llm_tokens_total`, `quorum_llm_ticks_total`, and
     `quorum_llm_proposals_created_total`; operators expose them with
     `--metrics-port` or `QUORUM_LLM_METRICS_PORT`.
+  - **v0.6 alpha-polish release** — tagged `v0.6.0-alpha.1` after
+    PR #105. The released image was deployed through the existing
+    staging-controls-prod proof path, with `deploy-llm-agent` authoring
+    proposal `proposal_ee73bc8461df`, two approvals plus human
+    approval, prod health checks, and a verified staging event chain.
 - **⬜ Phase 6** — parallel operator-agent worktrees.
 
 All known doc-vs-code drift is closed. No known outstanding tech debt.
@@ -524,8 +531,8 @@ Canonical order — load these before touching code:
 2. **This file** (`docs/SESSION_HANDOFF.md`).
 3. `docs/ROADMAP.md` — phase status with ✅/⏳/⬜/✂️ markers.
 4. `CHANGELOG.md` — every feature since bootstrap; the current
-   release-prep branch moves post-v0.5 alpha-polish entries under
-   `v0.6.0-alpha.1`.
+   release section `v0.6.0-alpha.1` records the post-v0.5
+   alpha-polish entries.
 5. `docs/design/phase-4-github-actuator.md` — reference (done, but the patterns are reusable).
 6. `docs/design/llm-adapter.md` — reference.
 7. `docs/ARCHITECTURE.md` — current system picture including the Actuators section.
