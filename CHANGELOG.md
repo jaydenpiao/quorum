@@ -31,6 +31,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
   evidence, runs `deploy-llm-agent --once`, verifies the resulting
   `quorum-prod` proposal contract, and only votes/approves/executes
   when `QUORUM_PROOF_EXECUTE=1` is explicitly set.
+- **LLM deploy guard proof mode** —
+  `QUORUM_PROOF_EXPECT_GUARD=1 scripts/prove_llm_prod_deploy.sh`
+  verifies the safe negative path: when staging success evidence is
+  missing, `deploy-llm-agent` must create a finding and must not create
+  a `quorum-prod` deploy proposal.
 - **Professional operator console + dog-food demo runbook** —
   `/console` now has a light SaaS dashboard shell, external stylesheet,
   proposal inspector, image-push evidence view, live event timeline, and
