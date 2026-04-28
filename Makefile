@@ -1,7 +1,9 @@
 .PHONY: dev test lint format validate typecheck coverage-html demo reset venv install sbom clean-worktrees preflight
 
 VENV := .venv
-UV := uv
+UV_VERSION := 0.11.8
+UVX ?= uvx
+UV := $(UVX) --from uv==$(UV_VERSION) uv
 PYTHON_VERSION := 3.12
 UV_SYNC := $(UV) sync --frozen --extra dev --python $(PYTHON_VERSION) --python-preference only-managed
 UV_RUN := $(UV) run --frozen --extra dev --python $(PYTHON_VERSION) --python-preference only-managed

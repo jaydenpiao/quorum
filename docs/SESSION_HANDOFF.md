@@ -15,7 +15,11 @@ authoritative state of the project.
   PR #58 (release workflow now auto-creates the GitHub release), PR #59
   (`make clean-worktrees`), and runtime hardening that pins the Docker
   base image / `uv` / `flyctl` so `fly.deploy` can run inside the
-  production container. Live flyctl smoke uncovered that pinned
+  production container. The local/CI/release/Docker `uv` toolchain is
+  pinned at `0.11.8` and local `make` invokes that exact resolver via
+  `uvx --from uv==0.11.8 uv`, so older ambient `uv` binaries on an
+  operator machine no longer decide lockfile semantics. Live flyctl
+  smoke uncovered that pinned
   `flyctl` v0.4.39 has no `fly releases --limit` flag; the Fly client
   now calls `fly releases --app <app> --json` and slices locally.
 - **Test suite:** 420 passing + 13 integration-gated (excluded from CI
@@ -34,13 +38,15 @@ authoritative state of the project.
   first-party `quorum` package is not audited as an unpublished PyPI
   dependency.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count:** 94. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, and #100 dependency lower-bound + lock sync.
+- **Merged PR count:** 95. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, and #101 maintenance state refresh.
 - **Current operator alpha-polish state:** local bootstrap and
   validation now run on the same locked `uv`-managed Python path CI
   uses. `make install` recreates `.venv` on managed CPython 3.12 and
   runs `scripts/check_python_runtime.py`, which fails fast on broken
   `readline` imports instead of letting `pytest` segfault during
-  startup.
+  startup. The `uv` resolver itself is pinned at `0.11.8` across
+  `pyproject.toml`, `Makefile`, GitHub Actions, the release workflow,
+  Docker, and operator scripts.
 - **Canonical version contract:** `apps/api/app/version.py` is now the
   single version source. Package metadata, FastAPI/OpenAPI metadata,
   tracing `service.version`, the unauthenticated root metadata
@@ -534,15 +540,11 @@ harness under `.claude/`. Codex and other agents can ignore them.
 6. **[Repo-wide]** Anthropic SDK in tests: construct with
    `api_key="test-key-ignored"` + `max_retries=0`; `respx` intercepts
    `https://api.anthropic.com/v1/messages`.
-7. **[Repo-wide]** `uv.lock` must stay compatible with both current
-   CI `uv` and the older local Homebrew `uv 0.5.6` that still exists on
-   this operator machine. Current `uv lock` may try to drop the
-   editable `quorum` package `version` field because `pyproject.toml`
-   uses dynamic version metadata; committing that shape makes local
-   `make validate` fail with `missing field version`. Before shipping
-   lockfile changes, run both `make validate` and a current-uv frozen
-   sync such as `uvx --from uv uv sync --frozen --extra dev --python
-   3.12 --python-preference only-managed`.
+7. **[Repo-wide]** Do not use ambient `uv` for lockfile or validation
+   work. The repo pins the resolver at `0.11.8`; use `make validate`
+   or invoke it directly as `uvx --from uv==0.11.8 uv ...`. This avoids
+   the old local Homebrew `uv 0.5.6` compatibility trap around dynamic
+   package metadata in `uv.lock`.
 8. **[Repo-wide]** `TestClient.stream()` hangs on infinite SSE
    generators. The stream never naturally terminates and context-exit
    blocks on drain. Don't try to end-to-end test the SSE endpoint

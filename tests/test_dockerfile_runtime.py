@@ -10,7 +10,7 @@ DOCKERFILE = Path(__file__).resolve().parents[1] / "Dockerfile"
 PYTHON_BASE = (
     "python:3.12-slim@sha256:4386a385d81dba9f72ed72a6fe4237755d7f5440c84b417650f38336bbc43117"
 )
-UV_VERSION = "0.11.7"
+UV_VERSION = "0.11.8"
 FLYCTL_VERSION = "0.4.39"
 FLYCTL_SHA256 = "87c89a59106e65569fb1d91aa2404a4d472248d240d87a5edfcace920d382f10"
 

@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-uv run --frozen --extra dev --python 3.12 --python-preference only-managed \
+UV_VERSION="${QUORUM_UV_VERSION:-0.11.8}"
+UVX="${QUORUM_UVX:-uvx}"
+command -v "$UVX" >/dev/null 2>&1 || {
+  printf "error: missing required command: %s\n" "$UVX" >&2
+  exit 1
+}
+UV=("$UVX" --from "uv==${UV_VERSION}" uv)
+
+"${UV[@]}" run --frozen --extra dev --python 3.12 --python-preference only-managed \
   python scripts/check_python_runtime.py
-uv run --frozen --extra dev --python 3.12 --python-preference only-managed \
+"${UV[@]}" run --frozen --extra dev --python 3.12 --python-preference only-managed \
   python -m compileall apps >/dev/null
-uv run --frozen --extra dev --python 3.12 --python-preference only-managed \
+"${UV[@]}" run --frozen --extra dev --python 3.12 --python-preference only-managed \
   pytest --cov-fail-under=60 -q
-uv run --frozen --extra dev --python 3.12 --python-preference only-managed \
+"${UV[@]}" run --frozen --extra dev --python 3.12 --python-preference only-managed \
   ruff check .
-uv run --frozen --extra dev --python 3.12 --python-preference only-managed \
+"${UV[@]}" run --frozen --extra dev --python 3.12 --python-preference only-managed \
   ruff format --check .
 echo "Merge validation passed."

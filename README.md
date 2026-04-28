@@ -63,7 +63,8 @@ See [docs/ROADMAP.md](docs/ROADMAP.md). Brief version:
 
 ## Quick start
 
-Requires `uv`.
+Requires `uvx` (installed with `uv`). The repo pins the uv resolver
+to `0.11.8` so local bootstrap and CI use the same lockfile semantics.
 
 The supported local path is the same locked interpreter flow CI uses:
 `make install` recreates `.venv` on a `uv`-managed CPython 3.12,
@@ -91,13 +92,14 @@ make typecheck  # mypy --strict apps
 ### Manual `uv` path
 
 ```bash
-uv python install 3.12
-uv venv --python 3.12 --python-preference only-managed .venv
-uv sync --frozen --extra dev --python 3.12 --python-preference only-managed
+uv_pinned() { uvx --from uv==0.11.8 uv "$@"; }
+uv_pinned python install 3.12
+uv_pinned venv --python 3.12 --python-preference only-managed .venv
+uv_pinned sync --frozen --extra dev --python 3.12 --python-preference only-managed
 
 QUORUM_API_KEYS='operator:operator-key-dev,telemetry-agent:telemetry-key-dev,deploy-agent:deploy-key-dev,code-agent:code-key-dev' \
 QUORUM_ALLOW_DEMO=true \
-uv run --frozen --extra dev --python 3.12 --python-preference only-managed \
+uv_pinned run --frozen --extra dev --python 3.12 --python-preference only-managed \
   python -m uvicorn apps.api.app.main:app --reload --port 8080
 ```
 
