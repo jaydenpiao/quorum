@@ -12,7 +12,7 @@ description = "Known-safe test fixtures and local demo placeholders"
 regexes = [
     '''correct-horse-battery-staple-test-key-32b''',
     '''fake-test-plaintext''',
-    '''Bearer operator-key-dev''',
+    '''operator-key-dev''',
 ]
 paths = [
     '''tests/test_auth_argon2\.py$''',

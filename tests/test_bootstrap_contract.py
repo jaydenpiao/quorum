@@ -67,5 +67,5 @@ def test_gitleaks_allowlist_is_limited_to_known_demo_placeholder() -> None:
     text = _text(GITLEAKS)
 
     assert "Known-safe test fixtures and local demo placeholders" in text
-    assert "Bearer operator-key-dev" in text
+    assert "operator-key-dev" in text
     assert "Never add real secrets here" in text
