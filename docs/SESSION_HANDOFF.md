@@ -29,6 +29,10 @@ authoritative state of the project.
   it affects the latest published PyPI `pip` (`26.0.1`) and pip-audit
   reports no fixed version. Keep `pip-audit --strict`; remove the
   single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
+  The audit syncs with `--no-install-project`, runs with `--no-sync`,
+  and restricts `pip-audit` to the venv `site-packages` path so the
+  first-party `quorum` package is not audited as an unpublished PyPI
+  dependency.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
 - **Merged PR count:** 85. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, and #85 final handoff refresh.
 - **Current operator alpha-polish state:** local bootstrap and
@@ -536,6 +540,9 @@ harness under `.claude/`. Codex and other agents can ignore them.
     `CVE-2026-3219` in CI because the advisory affects the latest
     published PyPI `pip` and has no fixed version. Do not add broad
     ignores; remove this one as soon as a fixed pip release exists.
+    Keep the audit install on `--no-install-project`, the audit run on
+    `--no-sync`, and the `--path "$SITE_PACKAGES"` restriction so
+    strict mode does not fail on the local unpublished `quorum` package.
 24. **[Repo-wide]** Neon emits default `postgresql://` connection URIs.
     Quorum must normalize those to `postgresql+psycopg://` because the
     repo ships `psycopg`, not `psycopg2`. Keep runtime engine creation

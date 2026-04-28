@@ -93,5 +93,7 @@ def test_readme_demo_seed_matches_auth_and_demo_gate_contract() -> None:
     text = (ROOT / "README.md").read_text(encoding="utf-8")
 
     assert "QUORUM_ALLOW_DEMO=true" in text
-    assert "Authorization: Bearer" in text
+    assert 'QUORUM_AUTH_HEADER="Authorization"' in text
+    assert '"${QUORUM_AUTH_HEADER}: Bearer ${QUORUM_OPERATOR_KEY}"' in text
+    assert "Authorization: Bearer" not in text
     assert "/api/v1/demo/incident" in text

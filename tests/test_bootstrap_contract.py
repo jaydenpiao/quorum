@@ -10,6 +10,7 @@ MAKEFILE = ROOT / "Makefile"
 PYPROJECT = ROOT / "pyproject.toml"
 VALIDATE_SCRIPT = ROOT / "scripts" / "validate_merge.sh"
 PREFLIGHT_SCRIPT = ROOT / "scripts" / "check_python_runtime.py"
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 
 
 def _text(path: Path) -> str:
@@ -50,3 +51,12 @@ def test_python_runtime_preflight_script_exists_with_readline_probe() -> None:
     assert "import readline" in text
     assert "subprocess.run" in text
     assert "segfault" in text.lower()
+
+
+def test_pip_audit_installs_only_third_party_dependencies() -> None:
+    text = _text(CI_WORKFLOW)
+
+    assert "uv sync --frozen --extra dev --no-install-project" in text
+    assert 'sysconfig.get_paths()["purelib"]' in text
+    assert 'uv run --no-sync pip-audit --strict --path "$SITE_PACKAGES"' in text
+    assert "continue-on-error: true" in text

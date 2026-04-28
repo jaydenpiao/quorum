@@ -45,6 +45,14 @@ def test_uv_bootstrap_version_is_pinned() -> None:
     assert 'pip install --no-cache-dir "uv==${UV_VERSION}"' in text
 
 
+def test_dynamic_version_module_is_seeded_before_dependency_sync() -> None:
+    text = _dockerfile_text()
+
+    assert text.index("COPY apps/api/app/version.py ./apps/api/app/version.py") < text.index(
+        "RUN uv sync --frozen --no-dev"
+    )
+
+
 def test_flyctl_download_is_pinned_and_checksum_verified() -> None:
     text = _dockerfile_text()
 

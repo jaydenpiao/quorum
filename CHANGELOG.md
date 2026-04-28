@@ -162,6 +162,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
   template now match the real `POST /api/v1/demo/incident` contract,
   including bearer auth, `QUORUM_ALLOW_DEMO`, and the shipped
   Postgres/managed-`uv` defaults.
+- **CI release trust checks after canonical versioning** — Docker now
+  seeds the canonical version module before isolated dependency sync,
+  and `pip-audit --strict` runs against a dependency-only sync so the
+  unpublished first-party package is not treated as a PyPI dependency.
 - **Console demo recording foot-guns** — `/console` and
   `/console-static/*` now send no-cache headers so stale browser tabs do
   not keep showing the old POC console, and the dog-food demo seed

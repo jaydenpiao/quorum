@@ -43,6 +43,11 @@ RUN pip install --no-cache-dir "uv==${UV_VERSION}"
 # Copy dependency manifests first so Docker can cache the sync layer.
 COPY pyproject.toml uv.lock ./
 
+# Dynamic package metadata reads the canonical version module during build
+# isolation, before the full source tree is copied into this stage.
+COPY apps/api/app/__init__.py ./apps/api/app/__init__.py
+COPY apps/api/app/version.py ./apps/api/app/version.py
+
 # Install only production dependencies into /app/.venv.
 # --frozen: refuse to update uv.lock; --no-dev: skip test / lint tools.
 RUN uv sync --frozen --no-dev

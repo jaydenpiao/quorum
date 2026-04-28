@@ -127,8 +127,10 @@ Open:
 ### Seed the demo
 
 ```bash
+QUORUM_OPERATOR_KEY="${QUORUM_OPERATOR_KEY:-operator-key-dev}"
+QUORUM_AUTH_HEADER="Authorization"
 curl -fsS -X POST http://127.0.0.1:8080/api/v1/demo/incident \
-  -H 'Authorization: Bearer operator-key-dev' \
+  -H "${QUORUM_AUTH_HEADER}: Bearer ${QUORUM_OPERATOR_KEY}" \
   | python3 -m json.tool
 ```
 
