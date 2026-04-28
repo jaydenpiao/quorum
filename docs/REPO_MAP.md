@@ -259,7 +259,9 @@ from default CI; opt in with `pytest -m integration`.
   `quorum-<tag>.spdx.json`
 - `.github/workflows/image-push.yml` — on merge to `main`: build +
   push image to `registry.fly.io/quorum-staging:<sha>` and
-  `registry.fly.io/quorum-prod:<sha>` (gated on `FLY_API_TOKEN`)
+  `registry.fly.io/quorum-prod:<sha>` (gated on `FLY_API_TOKEN`);
+  optional Quorum evidence posting retries with bounded backoff and
+  records notifier status / returned IDs in the step summary
 - `.github/dependabot.yml` — weekly pip, monthly github-actions
 - `.github/CODEOWNERS` — protects shared-core files
 - `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/`
