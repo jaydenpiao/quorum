@@ -211,6 +211,19 @@ gh run list --workflow image-push.yml --limit 3
 The default script mode stops after it verifies the LLM-authored
 proposal. It does not vote, grant human approval, or execute prod.
 
+Guard-only proof:
+
+```bash
+QUORUM_PROOF_EXPECT_GUARD=1 scripts/prove_llm_prod_deploy.sh
+```
+
+Use this when fresh image-push evidence exists but staging success evidence is missing.
+The script points `deploy-llm-agent` at the latest
+image-push window, creates a guard intent, verifies the agent records a
+finding, and fails if it creates a `quorum-prod` proposal before staging
+has produced `execution_succeeded` plus passing health-check evidence
+for the same digest.
+
 Live execution proof:
 
 ```bash

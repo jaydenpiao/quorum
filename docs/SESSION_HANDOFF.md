@@ -68,7 +68,23 @@ authoritative state of the project.
   evidence, runs `deploy-llm-agent --once`, verifies that the proposal
   targets `quorum-prod` with the exact `prod_digest` and prod health
   checks, then stops before mutation unless `QUORUM_PROOF_EXECUTE=1`
-  is set.
+  is set. It also has `QUORUM_PROOF_EXPECT_GUARD=1` for the safe
+  negative proof when staging success evidence is missing.
+- **Post-merge live guard proof:** after PR #93 merged as `73f9f93`,
+  image-push run `25035587753` posted `evt_3ffcf5655d77` /
+  `imgpush_23bc8714edfa` with prod digest
+  `sha256:8651424e5bbb1bf42cf0092d6caed1ab4c39713f9dde1f8d004877428865224c`.
+  There was no matching `quorum-staging` `execution_succeeded` event
+  for that digest, so a real Anthropic-backed `deploy-llm-agent` tick
+  against staging created guard finding `finding_1d560add1716`
+  (`evt_2c6b1f43d8a4`) under intent `intent_53b9ca91552b` and did not
+  create a prod deploy proposal. The scripted guard mode
+  `QUORUM_PROOF_EXPECT_GUARD=1 scripts/prove_llm_prod_deploy.sh` was
+  then verified end-to-end and created guard finding
+  `finding_82190024cee2` (`evt_eb31bf35b374`) under intent
+  `intent_1345488b143b`. Staging `/api/v1/events/verify` returned
+  `event_count=92` and
+  `last_hash=af732287553e19975cbe226f3e92ed8c79ba0bfb082ec7d3afa30aeea4321b4a`.
 - **Docs/onboarding drift:** `README.md`, `docs/DEMO_VIDEO.md`,
   `docs/REPO_MAP.md`, and `.env.example` now match the shipped auth,
   demo-gate, managed-`uv`, and console contracts.
@@ -638,6 +654,8 @@ Do not execute `proposal_7e096a4d63fe` from inside
 `quorum-staging`; it remains the historical same-app proposal proof.
 If a true external executor is desired, design that as its own PR
 before attempting same-app staging execution.
+Until that staging evidence exists, the expected live behavior is the
+guard finding path, now covered by `QUORUM_PROOF_EXPECT_GUARD=1`.
 
 ### B — Minor operator hardening worth batching into one PR
 

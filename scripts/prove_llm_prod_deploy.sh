@@ -6,6 +6,7 @@ CURSOR_DIR="${QUORUM_PROOF_CURSOR_DIR:-$(mktemp -d /tmp/quorum-llm-prod-proof.XX
 POLL_SECONDS="${QUORUM_PROOF_POLL_SECONDS:-900}"
 POLL_INTERVAL_SECONDS="${QUORUM_PROOF_POLL_INTERVAL_SECONDS:-15}"
 EXECUTE="${QUORUM_PROOF_EXECUTE:-0}"
+EXPECT_GUARD="${QUORUM_PROOF_EXPECT_GUARD:-0}"
 
 OPERATOR_KEY="${QUORUM_PROOF_OPERATOR_KEY:-}"
 CODE_AGENT_KEY="${QUORUM_PROOF_CODE_AGENT_KEY:-}"
@@ -15,6 +16,7 @@ EVENTS_FILE="$CURSOR_DIR/events.json"
 WINDOW_FILE="$CURSOR_DIR/proof-window.json"
 PROPOSAL_FILE="$CURSOR_DIR/proposal-proof.json"
 EXECUTION_FILE="$CURSOR_DIR/execution-proof.json"
+GUARD_FILE="$CURSOR_DIR/guard-proof.json"
 CURSOR_FILE="$CURSOR_DIR/deploy-llm-agent.json"
 
 die() {
@@ -73,6 +75,30 @@ def after_cursor(events: list[dict], cursor: str) -> list[dict]:
 
 def latest_cursor(events: list[dict]) -> None:
     print(events[-1]["id"] if events else "")
+
+
+def latest_image_window(events: list[dict]) -> None:
+    for index in range(len(events) - 1, -1, -1):
+        event = events[index]
+        if event.get("event_type") != "image_push_completed":
+            continue
+        payload = event["payload"]
+        cursor = events[index - 1]["id"] if index > 0 else ""
+        print(
+            json.dumps(
+                {
+                    "cursor": cursor,
+                    "image_push_event_id": event["id"],
+                    "image_push_id": payload["id"],
+                    "workflow_run_id": payload["workflow_run_id"],
+                    "workflow_url": payload["workflow_url"],
+                    "staging_digest": payload["staging_digest"],
+                    "prod_digest": payload["prod_digest"],
+                }
+            )
+        )
+        return
+    raise SystemExit("no image_push_completed events found")
 
 
 def proof_window(events: list[dict], cursor: str) -> None:
@@ -256,6 +282,52 @@ def terminal_prod_execution(events: list[dict], proposal_id: str, prod_digest: s
     )
 
 
+def verified_guard_finding(events: list[dict], cursor: str, intent_id: str) -> None:
+    window = after_cursor(events, cursor)
+    unexpected_prod_proposals = [
+        event
+        for event in window
+        if event.get("event_type") == "proposal_created"
+        and event.get("payload", {}).get("agent_id") == "deploy-llm-agent"
+        and event.get("payload", {}).get("intent_id") == intent_id
+        and (
+            event.get("payload", {}).get("target") == "quorum-prod"
+            or event.get("payload", {}).get("payload", {}).get("app") == "quorum-prod"
+        )
+    ]
+    if unexpected_prod_proposals:
+        proposal = unexpected_prod_proposals[-1]["payload"]
+        raise SystemExit(
+            "deploy-llm-agent created an unexpected prod proposal "
+            f"{proposal.get('id')} while staging success evidence is missing"
+        )
+
+    for event in reversed(window):
+        if event.get("event_type") != "finding_created":
+            continue
+        finding = event["payload"]
+        if finding.get("agent_id") != "deploy-llm-agent":
+            continue
+        if finding.get("intent_id") != intent_id:
+            continue
+        print(
+            json.dumps(
+                {
+                    "finding_event_id": event["id"],
+                    "finding_id": finding["id"],
+                    "summary": finding["summary"],
+                    "evidence_refs": finding.get("evidence_refs", []),
+                }
+            )
+        )
+        return
+
+    raise SystemExit(
+        "deploy-llm-agent did not create a guard finding while staging success "
+        "evidence is missing"
+    )
+
+
 mode = sys.argv[1]
 events_path = sys.argv[-1]
 with open(events_path, encoding="utf-8") as handle:
@@ -263,6 +335,8 @@ with open(events_path, encoding="utf-8") as handle:
 
 if mode == "latest-cursor":
     latest_cursor(events)
+elif mode == "latest-image-window":
+    latest_image_window(events)
 elif mode == "proof-window":
     proof_window(events, sys.argv[2])
 elif mode == "verified-prod-proposal":
@@ -279,6 +353,8 @@ elif mode == "verified-prod-proposal":
     )
 elif mode == "terminal-prod-execution":
     terminal_prod_execution(events, sys.argv[2], sys.argv[3])
+elif mode == "verified-guard-finding":
+    verified_guard_finding(events, sys.argv[2], sys.argv[3])
 else:
     raise SystemExit(f"unknown mode: {mode}")
 PY
@@ -397,6 +473,37 @@ run_deploy_agent_once() {
       --once
 }
 
+run_guard_proof() {
+  refresh_events
+  python_events latest-image-window >"$WINDOW_FILE"
+  cursor="$(json_field "$WINDOW_FILE" cursor)"
+  printf '{"cursor": "%s"}\n' "$cursor" >"$CURSOR_FILE"
+
+  image_push_event_id="$(json_field "$WINDOW_FILE" image_push_event_id)"
+  image_push_id="$(json_field "$WINDOW_FILE" image_push_id)"
+  workflow_run_id="$(json_field "$WINDOW_FILE" workflow_run_id)"
+  prod_digest="$(json_field "$WINDOW_FILE" prod_digest)"
+
+  printf "guard proof cursor before latest image: %s\n" "${cursor:-<empty-log>}"
+  printf "guard proof image evidence: %s / %s / workflow %s\n" \
+    "$image_push_event_id" "$image_push_id" "$workflow_run_id"
+  printf "guard proof prod digest: %s\n" "$prod_digest"
+
+  intent_json="$(api_post "/api/v1/intents" "$OPERATOR_KEY" "$(intent_payload)")"
+  intent_id="$(printf "%s" "$intent_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
+  printf "created guard intent: %s\n" "$intent_id"
+
+  printf "\nRunning deploy-llm-agent --once to verify it records a finding, not a prod proposal.\n"
+  run_deploy_agent_once
+
+  refresh_events
+  python_events verified-guard-finding "$cursor" "$intent_id" >"$GUARD_FILE"
+  finding_id="$(json_field "$GUARD_FILE" finding_id)"
+  printf "verified_guard_finding: %s\n" "$finding_id"
+  printf "Guard-only proof complete; staging success evidence is missing, so no prod deploy was proposed.\n"
+  printf "Guard proof JSON: %s\n" "$GUARD_FILE"
+}
+
 main() {
   require_command curl
   require_command python3
@@ -410,6 +517,11 @@ main() {
   printf "Using Quorum API: %s\n" "$API"
   printf "Using scratch cursor dir: %s\n" "$CURSOR_DIR"
   api_get "/readiness" >/dev/null
+
+  if [[ "$EXPECT_GUARD" == "1" ]]; then
+    run_guard_proof
+    exit 0
+  fi
 
   refresh_events
   cursor="$(python_events latest-cursor)"
