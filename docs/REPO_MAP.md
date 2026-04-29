@@ -180,6 +180,8 @@ Last refreshed for the v0.6.1 release-prep pass.
 - `docs/design/postgres-projection.md` — projection architecture
 - `docs/design/phase-4-github-actuator.md` — GitHub actuator design
 - `docs/design/llm-adapter.md` — LLM adapter design
+- `docs/design/llm-voter-role.md` — design-only safety gate for a
+  future LLM voter role
 - `docs/design/fly-deployment.md` — Phase 5 Fly.io design
 
 ## Tests — `tests/`
@@ -212,6 +214,8 @@ files:
   release monitor script and scheduled/manual workflow
 - `tests/test_release_proof_docs.py` — static checks that archived
   release proof docs retain required evidence IDs
+- `tests/test_llm_voter_design.py` — static checks for the design-only
+  LLM voter role gate
 - `tests/test_image_push_evidence.py` — authenticated
   `image_push_completed` route + reducer coverage
 - `tests/test_readiness.py` — Phase 5 readiness probe

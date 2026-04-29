@@ -18,6 +18,9 @@ artifact against that tag (see `.github/workflows/release.yml`).
 - Stable `docs/releases/v0.6.1-proof.md` archive for the signed tag,
   SBOM, image-push evidence, deploy proposal/execution IDs, health
   checks, proof capture, and final event-chain hash.
+- Design-only LLM voter role gate documenting per-action trust caps,
+  protected/high-risk quorum constraints, audit metadata, and console
+  visibility before any implementation work.
 
 ## [v0.6.1] — 2026-04-29
 
