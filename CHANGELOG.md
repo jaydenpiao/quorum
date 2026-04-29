@@ -9,7 +9,12 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Added
+
+- Stable `docs/releases/v0.6.2-proof.md` archive for the signed tag,
+  SBOM, image-push evidence, deploy proposal/execution IDs, health
+  checks, proof capture, live monitor result, and final event-chain
+  hash.
 
 ## [v0.6.2] — 2026-04-29
 
