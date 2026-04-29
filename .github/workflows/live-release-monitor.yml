@@ -1,0 +1,37 @@
+name: live-release-monitor
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to verify
+        required: false
+        default: v0.6.1
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: live-release-monitor-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: check live release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      QUORUM_RELEASE_TAG: v0.6.1
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate script syntax
+        run: bash -n scripts/check_live_release.sh
+
+      - name: Check live release health
+        run: scripts/check_live_release.sh
+        env:
+          QUORUM_RELEASE_TAG: ${{ github.event.inputs.release_tag || env.QUORUM_RELEASE_TAG }}
