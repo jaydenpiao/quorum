@@ -22,11 +22,12 @@ def test_root_exposes_runtime_version() -> None:
     assert response.json()["display_version"] == display_version
 
 
-def test_alpha_display_version_is_derived_from_runtime_version() -> None:
-    assert __version__ == "0.6.0a1"
+def test_display_version_is_derived_from_runtime_version() -> None:
+    assert __version__ == "0.6.1"
     assert _format_display_version(__version__) == display_version
     assert _format_display_version("1.2.3a4") == "v1.2.3-alpha.4"
-    assert display_version == "v0.6.0-alpha.1"
+    assert _format_display_version("1.2.3") == "v1.2.3"
+    assert display_version == "v0.6.1"
 
 
 def test_fastapi_and_tracing_versions_match_runtime_version() -> None:
