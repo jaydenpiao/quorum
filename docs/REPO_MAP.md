@@ -175,6 +175,8 @@ Last refreshed for the v0.6.1 release-prep pass.
   dog-food seed commands, and 3-minute narration
 - `docs/SESSION_HANDOFF.md` — live state, gotchas, next candidates
 - `docs/GITHUB_AUTOMATION.md` — repo / CI setup reference
+- `docs/releases/v0.6.1-proof.md` — durable release/deploy proof
+  archive for the `v0.6.1` tag and live prod execution
 - `docs/design/postgres-projection.md` — projection architecture
 - `docs/design/phase-4-github-actuator.md` — GitHub actuator design
 - `docs/design/llm-adapter.md` — LLM adapter design
@@ -208,6 +210,8 @@ files:
   Quorum evidence notification
 - `tests/test_live_release_monitor.py` — static checks for the live
   release monitor script and scheduled/manual workflow
+- `tests/test_release_proof_docs.py` — static checks that archived
+  release proof docs retain required evidence IDs
 - `tests/test_image_push_evidence.py` — authenticated
   `image_push_completed` route + reducer coverage
 - `tests/test_readiness.py` — Phase 5 readiness probe

@@ -28,6 +28,8 @@ authoritative state of the project.
   `/readiness` and `/api/v1/health` with `ok=true`, and verified the
   staging event chain with `event_count=146` and last hash
   `3bc246b36e4fea73b8746a27f9d2d1865e7f77da5b9e3a5194b693db84ca5e29`.
+  The durable release/deploy evidence archive is
+  `docs/releases/v0.6.1-proof.md`.
 - **v0.6 release content:** PR #105 packaged the post-Phase-5
   alpha-polish and proof work: managed local/CI/release `uv`
   bootstrap, canonical runtime/package versioning, full operator
