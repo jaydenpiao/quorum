@@ -48,7 +48,7 @@ Quorum is the minimal control plane that makes those guarantees real.
 - **Two LLM roles** (via the Anthropic SDK adapter in `apps/llm_agent/`):
   - `telemetry-llm-agent` — watches the event stream, emits findings + low-risk GitHub proposals (`comment_issue` / `add_labels`).
   - `deploy-llm-agent` — watches for new image digests, proposes `fly.deploy` actions.
-  - Both run as their own OS processes, authenticated with argon2id-hashed API keys, server-capped by per-agent `allowed_action_types`.
+  - Both run as their own OS processes, authenticated with argon2id-hashed API keys, server-capped by per-agent `allowed_action_types` plus explicit `can_propose` / `can_vote` capability gates.
 - **Ready to deploy on Fly.io**: `fly.toml` + `/readiness` endpoint + image-push CI workflow (`.github/workflows/image-push.yml`) that auto-pushes tagged images to both `registry.fly.io/quorum-staging` and `registry.fly.io/quorum-prod` on every `main` merge.
 - Bearer-authenticated demo incident seeder (`POST /api/v1/demo/incident`) is gated by `QUORUM_ALLOW_DEMO=true` and runs the full flow end-to-end.
 
@@ -178,10 +178,13 @@ make dev                                                       # Quorum on :8080
 Adapter tick budgets, model, and system-prompt reference are read
 from the agent's `llm:` block in `config/agents.yaml`. Token usage
 is capped per-tick and per-day with atomic JSON checkpoints under
-`data/llm_usage/`. Per-agent `allowed_action_types` in the same
-config server-side caps what each LLM role can propose — deploy-agent
-can only propose `fly.deploy`; telemetry-agent can only propose the
-low-risk GitHub actions. Add `--metrics-port 9107` or set
+`data/llm_usage/`. Per-agent `allowed_action_types` and
+`can_propose` / `can_vote` flags in the same config server-side cap
+what each LLM role can do. Today the LLM agents are proposer-only:
+deploy-agent can only propose `fly.deploy`; telemetry-agent can only
+propose the low-risk GitHub actions; neither can vote until a separate
+voter implementation changes policy and tests. Add
+`--metrics-port 9107` or set
 `QUORUM_LLM_METRICS_PORT=9107` to expose adapter Prometheus counters
 from the standalone process.
 

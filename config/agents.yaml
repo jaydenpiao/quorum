@@ -49,7 +49,7 @@ agents:
   # other caller.
   - id: telemetry-llm-agent
     role: telemetry
-    can_vote: false        # v1: proposer only, voting is deferred
+    can_vote: false        # server-enforced proposer only; voting is deferred
     can_propose: true
     scope:
       - metrics
@@ -83,7 +83,7 @@ agents:
   # the executor shells to `fly deploy`.
   - id: deploy-llm-agent
     role: deployment
-    can_vote: false        # proposer only, same pattern as telemetry-llm-agent
+    can_vote: false        # server-enforced proposer only; voting is deferred
     can_propose: true
     scope:
       - deployments

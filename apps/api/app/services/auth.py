@@ -13,6 +13,11 @@ Two registries are consulted in order on each request:
 A 401 is returned if neither registry matches. The response never reveals
 which registry was consulted, which key was nearly matched, or any plaintext.
 
+Configured YAML agent capability flags are enforced separately by mutating
+routes. Explicit ``can_propose: false`` and ``can_vote: false`` deny the
+corresponding proposal/vote route before event-log mutation; missing YAML
+entries or missing fields remain permissive for env-only dev/test agents.
+
 Read-only routes remain unauthenticated so the console and liveness probes
 still work without credentials. Only the write routes use `require_agent`.
 """
@@ -107,6 +112,7 @@ def reload_all_registries() -> None:
     _load_registry.cache_clear()
     _load_yaml_registry.cache_clear()
     _load_allowed_action_types.cache_clear()
+    _load_agent_capabilities.cache_clear()
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +166,64 @@ def allowed_action_types_for(agent_id: str) -> tuple[str, ...] | None:
     """
     registry = _load_allowed_action_types()
     return registry.get(agent_id)
+
+
+# ---------------------------------------------------------------------------
+# Per-agent mutation capability flags
+# ---------------------------------------------------------------------------
+#
+# Agents can opt out of proposal or vote mutation with explicit
+# ``can_propose: false`` or ``can_vote: false`` in ``config/agents.yaml``.
+# Missing YAML entries and missing fields stay permissive to preserve the
+# env-only local/dev compatibility path.
+
+
+@lru_cache(maxsize=1)
+def _load_agent_capabilities() -> dict[str, dict[str, bool]]:
+    """Return explicit per-agent capability flags from config/agents.yaml."""
+    import yaml  # local import to keep top-level deps minimal
+
+    path = _AGENTS_YAML_PATH
+    try:
+        with open(path) as fh:
+            data = yaml.safe_load(fh)
+    except (FileNotFoundError, OSError, yaml.YAMLError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+
+    result: dict[str, dict[str, bool]] = {}
+    for agent in data.get("agents", []):
+        if not isinstance(agent, dict):
+            continue
+        agent_id = (agent.get("id") or "").strip()
+        if not agent_id:
+            continue
+        capabilities: dict[str, bool] = {}
+        for field in ("can_propose", "can_vote"):
+            value = agent.get(field)
+            if isinstance(value, bool):
+                capabilities[field] = value
+        if capabilities:
+            result[agent_id] = capabilities
+    return result
+
+
+def _agent_capability(agent_id: str, field: str) -> bool:
+    capabilities = _load_agent_capabilities().get(agent_id)
+    if capabilities is None:
+        return True
+    return capabilities.get(field, True)
+
+
+def can_agent_propose(agent_id: str) -> bool:
+    """Return False only when the agent explicitly sets can_propose=false."""
+    return _agent_capability(agent_id, "can_propose")
+
+
+def can_agent_vote(agent_id: str) -> bool:
+    """Return False only when the agent explicitly sets can_vote=false."""
+    return _agent_capability(agent_id, "can_vote")
 
 
 # ---------------------------------------------------------------------------
