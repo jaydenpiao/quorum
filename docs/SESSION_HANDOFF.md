@@ -837,12 +837,15 @@ harness under `.claude/`. Codex and other agents can ignore them.
 - Watch for any drift in the image-push evidence notifier summaries or
   Fly health endpoints before planning the next hardening patch.
 
-### B — LLM adapter voter role
+### B — LLM adapter voter role implementation
 
-Open question from `docs/design/llm-adapter.md`. Requires its own design pass first:
-- Per-action trust caps (e.g. vote on `github.add_labels` but not `github.open_pr`).
-- Policy rule: LLM-emitted votes count toward quorum but can't unanimously carry a decision without a human vote.
-- Audit: log the agent's prompt hash + model for every vote.
+The design-only gate now lives in `docs/design/llm-voter-role.md`.
+Do not implement until a new plan turns that design into small PRs:
+- Policy-owned per-action trust caps.
+- Protected/high-risk proposals cannot become executable from LLM
+  votes alone.
+- Audit and console visibility for model, prompt hash, counted/capped
+  vote state, and self-vote disqualification.
 
 ## Cross-tool onboarding
 
