@@ -9,6 +9,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+_No unreleased changes._
+
+## [v0.6.2] — 2026-04-29
+
 ### Added
 
 - Read-only live release monitor script and scheduled/manual GitHub
