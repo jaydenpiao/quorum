@@ -283,7 +283,7 @@ Stop if any of these are false:
 Post-execution audit capture:
 
 ```bash
-QUORUM_RELEASE_TAG=v0.6.1 scripts/capture_operator_proof.sh
+QUORUM_RELEASE_TAG=v0.6.2 scripts/capture_operator_proof.sh
 ```
 
 Use this after a live execution proof succeeds. The helper is
