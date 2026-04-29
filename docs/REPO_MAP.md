@@ -74,7 +74,8 @@ Last refreshed for the v0.6.2 release-proof archive pass.
 ### Services
 
 - `apps/api/app/services/auth.py` — bearer auth, argon2id key
-  registry, per-agent `allowed_action_types` loader
+  registry, per-agent `allowed_action_types` loader, and
+  `can_propose` / `can_vote` capability gates
 - `apps/api/app/services/event_log.py` — append-only JSONL writer
   with sha256 hash chain, `verify()`, pub/sub `subscribe()` for SSE
 - `apps/api/app/services/state_store.py` — event reducer + current
@@ -193,7 +194,8 @@ files:
 
 - `tests/conftest.py`, `tests/_helpers.py` — shared fixtures
 - `tests/test_auth.py`, `tests/test_auth_argon2.py`,
-  `tests/test_allowed_action_types.py` — auth surface
+  `tests/test_allowed_action_types.py`,
+  `tests/test_agent_capability_gates.py` — auth surface
 - `tests/test_event_log_chain.py`, `tests/test_event_log_subscribe.py`
 - `tests/test_policy_action_type_rules.py`
 - `tests/test_executor_github_dispatch.py`,

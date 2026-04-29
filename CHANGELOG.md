@@ -16,6 +16,13 @@ artifact against that tag (see `.github/workflows/release.yml`).
   checks, proof capture, live monitor result, and final event-chain
   hash.
 
+### Changed
+
+- Enforced existing `config/agents.yaml` `can_propose` and `can_vote`
+  capability flags on proposal and vote routes before event-log
+  mutation, while preserving permissive behavior for env-only agents
+  and YAML entries without explicit capability fields.
+
 ## [v0.6.2] — 2026-04-29
 
 ### Added

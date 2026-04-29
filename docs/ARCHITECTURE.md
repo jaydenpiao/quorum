@@ -158,6 +158,19 @@ Rules enforced by `_enforce_agent` in `apps/api/app/api/routes.py`:
 
 This closes the spoof surface: a valid key for agent A cannot claim authorship as agent B.
 
+### Agent capability gates
+
+`config/agents.yaml` can explicitly disable mutation capabilities per
+agent. `can_propose: false` returns 403 from `POST /api/v1/proposals`
+before any `proposal_created` event is appended; `can_vote: false`
+returns 403 from `POST /api/v1/votes` before any `proposal_voted` event
+is appended. Missing YAML entries or missing capability fields remain
+permissive so env-only local/dev agents keep the previous behavior.
+
+The LLM-backed agents ship as proposer-only: `telemetry-llm-agent` and
+`deploy-llm-agent` have `can_vote: false`. A future LLM voter role must
+change these capabilities intentionally alongside policy and tests.
+
 ### What auth is NOT
 
 - No JWT.

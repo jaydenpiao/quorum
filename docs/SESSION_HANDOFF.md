@@ -37,11 +37,11 @@ authoritative state of the project.
   console review-to-execute controls, the active GitHub fixture demo,
   the LLM-authored prod deploy proof helper, and the pinned gitleaks
   CLI security check.
-- **Test suite:** 445 passing + 13 integration-gated (excluded from CI
+- **Test suite:** 451 passing + 13 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres, Fly.io, or GitHub, with additional env gates for destructive
   tests).
-- **Coverage:** 80.62% (gate floor: 60%).
+- **Coverage:** 80.71% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 50 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series. The `gitleaks` check installs checksum-verified `gitleaks 8.30.1` directly instead of using the deprecated Node 20-backed `gitleaks/gitleaks-action`.
 - **pip-audit note:** CI temporarily ignores `CVE-2026-3219` because
@@ -53,7 +53,7 @@ authoritative state of the project.
   first-party `quorum` package is not audited as an unpublished PyPI
   dependency.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count after this release-proof archive PR merges:** 117. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, #105 v0.6.0-alpha.1 release prep, #107 console execution-actionability hardening, #108 audit proof capture/read models, #109 image-push evidence retry hardening, #110 v0.6.1 hardening handoff refresh, #111 v0.6.1 release prep, #112 v0.6.1 release-proof handoff, #113 live release monitor, #114 v0.6.1 proof archive, #115 LLM voter design gate, #116 v0.6.2 release prep, and #117 v0.6.2 proof archive.
+- **Merged PR count after this capability-gate PR merges:** 118. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, #105 v0.6.0-alpha.1 release prep, #107 console execution-actionability hardening, #108 audit proof capture/read models, #109 image-push evidence retry hardening, #110 v0.6.1 hardening handoff refresh, #111 v0.6.1 release prep, #112 v0.6.1 release-proof handoff, #113 live release monitor, #114 v0.6.1 proof archive, #115 LLM voter design gate, #116 v0.6.2 release prep, #117 v0.6.2 proof archive, and #118 agent capability gates.
 - **Current operator alpha-polish state:** local bootstrap and
   validation now run on the same locked `uv`-managed Python path CI
   uses. `make install` recreates `.venv` on managed CPython 3.12 and
@@ -74,6 +74,15 @@ authoritative state of the project.
   single version source. Package metadata, FastAPI/OpenAPI metadata,
   tracing `service.version`, the unauthenticated root metadata
   response, and the console release badge all resolve from that module.
+- **Current agent capability state:** `config/agents.yaml`
+  `can_propose` and `can_vote` flags are enforced before mutation.
+  Explicit `can_propose=false` blocks `POST /api/v1/proposals` before
+  `proposal_created`; explicit `can_vote=false` blocks
+  `POST /api/v1/votes` before `proposal_voted`. Missing YAML entries
+  or missing capability fields remain permissive for env-only dev/test
+  agents. `telemetry-llm-agent` and `deploy-llm-agent` remain
+  proposer-only with `can_vote: false`; no LLM voting behavior is
+  implemented.
 - **Current console/demo state:** `/console` now renders first-class
   intent and finding panels, rollback state beside execution and health
   state, an operator **Execute proposal** action, and a **Verify event
@@ -709,11 +718,13 @@ harness under `.claude/`. Codex and other agents can ignore them.
 4. **[Repo-wide]** Hash chain verification runs on startup. Tampered
    or truncated `data/events.jsonl` refuses to boot — uvicorn raises
    at import. `make reset` wipes it.
-5. **[Repo-wide]** `allowed_action_types` + other YAML caches leak
-   between tests. `@lru_cache(maxsize=1)` loaders are cleared by
+5. **[Repo-wide]** `allowed_action_types`, `can_propose` /
+   `can_vote`, and other YAML caches leak between tests.
+   `@lru_cache(maxsize=1)` loaders are cleared by
    `auth_module.reload_all_registries()`. Test fixtures that write
    throwaway YAMLs must call it — pattern in
-   `tests/test_allowed_action_types.py` and
+   `tests/test_allowed_action_types.py`,
+   `tests/test_agent_capability_gates.py`, and
    `tests/test_human_approval.py`.
 6. **[Repo-wide]** Anthropic SDK in tests: construct with
    `api_key="test-key-ignored"` + `max_retries=0`; `respx` intercepts
@@ -871,30 +882,22 @@ harness under `.claude/`. Codex and other agents can ignore them.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Agent capability-gate hardening
+### A — LLM voter implementation plan
 
-- Enforce existing `config/agents.yaml` capability flags before
-  mutation: explicit `can_propose=false` blocks
-  `POST /api/v1/proposals`, and explicit `can_vote=false` blocks
-  `POST /api/v1/votes`.
-- Denials must return `403` before appending to the event log. Missing
-  YAML entries or missing capability fields should preserve current
-  permissive behavior for env-only dev/test agents.
-- Keep `telemetry-llm-agent` and `deploy-llm-agent` proposer-only by
-  default; do not implement LLM voting behavior in this hardening PR.
-- Update the LLM voter design doc to mark capability enforcement as
-  the prerequisite for any future LLM voter implementation.
-
-### B — LLM adapter voter role implementation
-
-The design-only gate now lives in `docs/design/llm-voter-role.md`, but
-implementation remains blocked until capability gates are merged and a
-new plan turns that design into small PRs:
-- Policy-owned per-action trust caps.
-- Protected/high-risk proposals cannot become executable from LLM
+- Start with a small written implementation plan based on
+  `docs/design/llm-voter-role.md`; do not jump straight to behavior.
+- Keep LLM votes disabled by default. Any implementation must change
+  `can_vote`, policy caps, audit metadata, tests, and console copy in
+  the same small PR series.
+- Protected/high-risk proposals must not become executable from LLM
   votes alone.
-- Audit and console visibility for model, prompt hash, counted/capped
-  vote state, and self-vote disqualification.
+
+### B — Phase 6 gate check
+
+- Phase 6 remains blocked until the documented event-schema stability
+  window has elapsed. If the gate opens, switch to the worktree model in
+  `docs/PARALLEL_DEVELOPMENT.md`; otherwise keep one small PR at a
+  time on `main`.
 
 ## Cross-tool onboarding
 

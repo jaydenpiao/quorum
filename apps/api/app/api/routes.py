@@ -28,6 +28,8 @@ from apps.api.app.domain.models import (
 )
 from apps.api.app.services.auth import (
     allowed_action_types_for,
+    can_agent_propose,
+    can_agent_vote,
     demo_allowed,
     require_agent,
 )
@@ -256,6 +258,12 @@ def create_proposal(
 ) -> dict[str, Any]:
     bound_agent = _enforce_agent(payload.agent_id, agent_id)
 
+    if not can_agent_propose(bound_agent):
+        raise HTTPException(
+            status_code=403,
+            detail=f"agent {bound_agent!r} has can_propose=false and cannot create proposals",
+        )
+
     # Per-agent action_type allow-list (LLM PR 3). Returns None for
     # unrestricted agents (human operators, pre-existing agents); a
     # tuple for agents that explicitly scope their proposals. We reject
@@ -332,6 +340,12 @@ def create_vote(
 ) -> dict[str, Any]:
     # Spoof check precedes existence check so 403 wins over 404.
     bound_agent = _enforce_agent(payload.agent_id, agent_id)
+
+    if not can_agent_vote(bound_agent):
+        raise HTTPException(
+            status_code=403,
+            detail=f"agent {bound_agent!r} has can_vote=false and cannot vote on proposals",
+        )
 
     refresh_state(request)
     if payload.proposal_id not in request.app.state.state_store.proposals:

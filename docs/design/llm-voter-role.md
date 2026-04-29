@@ -1,11 +1,18 @@
 # Design: LLM Voter Role
 
-Status: design only - no implementation in this PR.
+Status: design only - no LLM voting behavior is implemented.
 
 This document resolves the voter-role open question from
 `docs/design/llm-adapter.md`. Quorum's shipped LLM agents remain
 proposer-only. This design describes the safety contract required
 before a future implementation may let an LLM-backed agent cast votes.
+
+As of the capability-gate hardening pass, server-side
+`config/agents.yaml` flags are enforced before mutation:
+`can_propose=false` blocks proposal creation and `can_vote=false`
+blocks vote creation. The shipped LLM agents keep `can_vote: false`
+until a separate voter implementation intentionally changes
+capabilities, policy, tests, and console copy.
 
 ## Goal
 
@@ -57,6 +64,10 @@ proposals. A future voter implementation needs a separate explicit
 vote allow-list or policy capability so proposal authority and vote
 authority cannot drift together accidentally.
 
+The implementation must also opt the target LLM agent into
+`can_vote: true`; without that config change, the API rejects the vote
+before it reaches the event log.
+
 ## Policy Expectations
 
 Policy must decide whether an LLM vote counts, not the adapter process.
@@ -103,6 +114,8 @@ non-LLM agent votes:
 
 A future implementation PR is not complete unless tests prove:
 
+- Configured LLM agents with `can_vote=false` cannot append vote
+  events.
 - LLM votes are ignored by default.
 - LLM votes count only for explicitly allowed action types.
 - Protected/high-risk proposals cannot become executable from LLM
