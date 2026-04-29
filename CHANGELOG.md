@@ -9,7 +9,12 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Added
+
+- Read-only live release monitor script and scheduled/manual GitHub
+  Actions workflow that verify the published release, staging/prod
+  runtime metadata, prod health, staging event-chain integrity, and
+  latest `main` CI/security status.
 
 ## [v0.6.1] — 2026-04-29
 

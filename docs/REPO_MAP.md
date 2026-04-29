@@ -206,6 +206,8 @@ files:
 - `tests/test_image_push_workflow.py` — image-push workflow checks
   for staging/prod registry tags, digest summaries, and optional
   Quorum evidence notification
+- `tests/test_live_release_monitor.py` — static checks for the live
+  release monitor script and scheduled/manual workflow
 - `tests/test_image_push_evidence.py` — authenticated
   `image_push_completed` route + reducer coverage
 - `tests/test_readiness.py` — Phase 5 readiness probe
@@ -247,6 +249,10 @@ from default CI; opt in with `pytest -m integration`.
   that writes `proof.json` and `proof.md` from staging/prod root
   metadata, event-chain verification, prod health, and the terminal
   `deploy-llm-agent` prod deploy proposal
+- `scripts/check_live_release.sh` — read-only monitor for the current
+  tagged release: staging/prod version metadata, prod health, staging
+  event-chain verification, release SBOM asset, and latest main
+  CI/security status
 
 ## CI / GitHub — `.github/`
 
@@ -262,6 +268,9 @@ from default CI; opt in with `pytest -m integration`.
   `registry.fly.io/quorum-prod:<sha>` (gated on `FLY_API_TOKEN`);
   optional Quorum evidence posting retries with bounded backoff and
   records notifier status / returned IDs in the step summary
+- `.github/workflows/live-release-monitor.yml` — manual + scheduled
+  read-only live release check that runs
+  `scripts/check_live_release.sh` without repo secrets
 - `.github/dependabot.yml` — weekly pip, monthly github-actions
 - `.github/CODEOWNERS` — protects shared-core files
 - `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/`
