@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PROOF = ROOT / "docs" / "releases" / "v0.6.1-proof.md"
 PROOF_062 = ROOT / "docs" / "releases" / "v0.6.2-proof.md"
 PROOF_063 = ROOT / "docs" / "releases" / "v0.6.3-proof.md"
+PROOF_064 = ROOT / "docs" / "releases" / "v0.6.4-proof.md"
 HANDOFF = ROOT / "docs" / "SESSION_HANDOFF.md"
 
 
@@ -96,3 +97,34 @@ def test_session_handoff_points_to_v063_release_proof_archive() -> None:
     text = _text(HANDOFF)
 
     assert "docs/releases/v0.6.3-proof.md" in text
+
+
+def test_v064_release_proof_records_required_evidence() -> None:
+    text = _text(PROOF_064)
+
+    assert "v0.6.4" in text
+    assert "https://github.com/jaydenpiao/quorum/releases/tag/v0.6.4" in text
+    assert "quorum-v0.6.4.spdx.json" in text
+    assert "2d093dbb539a4e7a3076330f0cecba99b3b3eca5" in text
+    assert "ca7e38364fc02ea0e2c93384dc35c0e7f09b1005" in text
+    assert "25158475015" in text
+    assert "evt_0b0a4e245e0e" in text
+    assert "imgpush_0a8e8981c4bf" in text
+    assert "sha256:5113540f467afcc1fc32fc3cbbc9029791fbe8b9d10650e06719cbe59f1b9e8b" in text
+    assert "proposal_cd52ff99d4f7" in text
+    assert "exec_4590bf26d0a9" in text
+    assert "hcr_c220bbc8192b" in text
+    assert "hcr_e3789dabc541" in text
+    assert "proposal_36ab7d5601e3" in text
+    assert "vote_3bd1a8c7a780" in text
+    assert "review-llm-agent" in text
+    assert "031e0246ee1ed689de80763ad78e65118d9f3113e6474d2cc039bd64c2ace472" in text
+    assert "365c04926d887735d8d2fbf9dbf44804b055c29f53d0e4d270937df7c522413e" in text
+    assert "/tmp/quorum-proof.20260430T094222Z/proof.md" in text
+    assert "/tmp/quorum-review-proof.20260430T095352Z/proof.md" in text
+
+
+def test_session_handoff_points_to_v064_release_proof_archive() -> None:
+    text = _text(HANDOFF)
+
+    assert "docs/releases/v0.6.4-proof.md" in text
