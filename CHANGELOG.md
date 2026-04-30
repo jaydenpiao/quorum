@@ -11,6 +11,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- `scripts/prove_review_llm_vote.sh`, a repeatable review-voter proof
+  helper that validates a counted `review-llm-agent` LLM vote on an
+  eligible low-risk GitHub proposal and writes JSON/Markdown proof
+  artifacts.
 - Stable `docs/releases/v0.6.3-proof.md` archive for the signed tag,
   SBOM, image-push evidence, deploy proposal/execution IDs,
   review-voter vote evidence, health checks, proof capture, browser

@@ -220,6 +220,8 @@ files:
   deploy/rollback test, gated by `QUORUM_FLY_LIVE_TESTS=1`
 - `tests/test_deploy_llm_agent.py` — deploy-agent role wiring
 - `tests/test_review_llm_agent.py` — review-voter role wiring
+- `tests/test_review_voter_proof_helper.py` — static contract checks
+  for the review-voter proof helper script
 - `tests/test_dockerfile_runtime.py` — container runtime pinning
   checks for Python base image, `uv`, and `flyctl`
 - `tests/test_image_push_workflow.py` — image-push workflow checks
@@ -271,6 +273,11 @@ from default CI; opt in with `pytest -m integration`.
   `external_staging_verification` finding), verified `quorum-prod`
   proposal, optional vote/approval/execute path gated by
   `QUORUM_PROOF_EXECUTE=1`
+- `scripts/prove_review_llm_vote.sh` — review-voter acceptance proof
+  helper for `review-llm-agent`: validates an existing eligible
+  low-risk GitHub proposal or creates an explicit fixture proposal,
+  runs the adapter only when a counted proof vote is missing, and
+  writes `proof.json` / `proof.md`
 - `scripts/capture_operator_proof.sh` — read-only audit capture helper
   that writes `proof.json` and `proof.md` from staging/prod root
   metadata, event-chain verification, prod health, and the terminal
