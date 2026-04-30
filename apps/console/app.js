@@ -47,6 +47,35 @@ function setHtml(id, value) {
   }
 }
 
+function proposalIdFromLocation() {
+  var search = window.location && window.location.search ? window.location.search : '';
+  if (!search) return null;
+  try {
+    var params = new URLSearchParams(search);
+    var proposalId = params.get('proposal_id');
+    return proposalId || null;
+  } catch (_err) {
+    return null;
+  }
+}
+
+function updateSelectedProposalUrl(proposalId) {
+  if (!proposalId || !window.location || !window.history || !window.history.replaceState) {
+    return;
+  }
+
+  try {
+    var url = new URL(window.location.href);
+    url.searchParams.set('proposal_id', proposalId);
+    if (!url.hash && window.location.hash) {
+      url.hash = window.location.hash;
+    }
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  } catch (_err) {
+    // URL state is a convenience for browser proof capture; rendering remains authoritative.
+  }
+}
+
 function formatTime(value) {
   if (!value) return '';
   var date = new Date(value);
@@ -291,7 +320,10 @@ function renderDashboard(state, events) {
   _state = state;
   _events = events || [];
 
-  if (!_selectedProposalId || !proposalById(state, _selectedProposalId)) {
+  var linkedProposalId = proposalIdFromLocation();
+  if (linkedProposalId && proposalById(state, linkedProposalId)) {
+    _selectedProposalId = linkedProposalId;
+  } else if (!_selectedProposalId || !proposalById(state, _selectedProposalId)) {
     _selectedProposalId = state.proposals && state.proposals.length ? state.proposals[0].id : null;
   }
 
@@ -847,6 +879,7 @@ async function executeSelectedProposal() {
 
 function selectProposal(id) {
   _selectedProposalId = id;
+  updateSelectedProposalUrl(id);
   if (_state) {
     renderProposals(_state);
     renderInspector(_state);
