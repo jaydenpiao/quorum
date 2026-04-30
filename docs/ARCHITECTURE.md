@@ -167,10 +167,11 @@ returns 403 from `POST /api/v1/votes` before any `proposal_voted` event
 is appended. Missing YAML entries or missing capability fields remain
 permissive so env-only local/dev agents keep the previous behavior.
 
-The LLM-backed agents ship as proposer-only: `telemetry-llm-agent` and
-`deploy-llm-agent` have `can_vote: false`. LLM voting is implemented
-through a separate review-voter path so proposal authority and vote
-authority do not drift together accidentally.
+The telemetry/deploy LLM-backed agents ship as proposer-only:
+`telemetry-llm-agent` and `deploy-llm-agent` have `can_vote: false`.
+LLM voting is implemented through the separate `review-llm-agent` path
+so proposal authority and vote authority do not drift together
+accidentally.
 
 ### LLM vote metadata and caps
 
@@ -183,7 +184,7 @@ try to spoof those fields before appending `proposal_voted`.
 
 The server sets vote audit fields before the event log append:
 `voter_kind`, `counted`, and `counted_reason`. `config/agents.yaml`
-may also set `allowed_vote_action_types` so an LLM reviewer can vote
+sets `allowed_vote_action_types` on `review-llm-agent` so it can vote
 only on explicitly scoped action types. The default remains legacy
 permissive for YAML entries that omit the field and for env-only local
 agents.

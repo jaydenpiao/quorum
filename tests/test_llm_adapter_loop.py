@@ -351,6 +351,82 @@ def test_tick_records_prometheus_metrics_for_successful_proposal(
     assert captured.ticks == [{"agent_id": "telemetry-llm-agent", "outcome": "acted"}]
 
 
+def test_tick_dispatches_cast_vote_with_runtime_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("QUORUM_API_KEYS", "review-llm-agent:review-key")
+    quorum = QuorumApiClient(base_url="http://localhost:8080", agent_id="review-llm-agent")
+    sdk = anthropic.Anthropic(api_key="test-key-ignored", max_retries=0)
+    claude = ClaudeClient(
+        _config(system_prompt_ref="prompts/review-agent.md"),
+        system_prompt="ROLE: review voter",
+        sdk=sdk,
+    )
+    budget = LlmBudget(
+        agent_id="review-llm-agent",
+        daily_cap=1_000_000,
+        per_tick_cap=100_000,
+        storage_dir=tmp_path,
+    )
+    cursor_path = tmp_path / "cursor.json"
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.get("http://localhost:8080/api/v1/events").mock(
+            return_value=httpx.Response(200, json=_events("evt_1", "evt_2"))
+        )
+        mock.post("https://api.anthropic.com/v1/messages").mock(
+            return_value=httpx.Response(
+                200,
+                json=_claude_response(
+                    tool_calls=[
+                        {
+                            "id": "toolu_vote",
+                            "name": "cast_vote",
+                            "input": {
+                                "proposal_id": "proposal_low",
+                                "decision": "approve",
+                                "reason": "Low-risk GitHub action is evidence-backed.",
+                            },
+                        }
+                    ],
+                    input_tokens=123,
+                    output_tokens=45,
+                ),
+            )
+        )
+        route = mock.post("http://localhost:8080/api/v1/votes").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "votes": {
+                        "proposal_low": [
+                            {
+                                "id": "vote_review",
+                                "agent_id": "review-llm-agent",
+                                "proposal_id": "proposal_low",
+                            }
+                        ]
+                    }
+                },
+            )
+        )
+
+        outcome = run_tick(budget=budget, claude=claude, quorum=quorum, cursor_path=cursor_path)
+
+    sent = json.loads(route.calls.last.request.content)
+    expected_prompt_hash = hashlib.sha256(claude.system_prompt_text.encode("utf-8")).hexdigest()
+    assert sent["proposal_id"] == "proposal_low"
+    assert sent["decision"] == "approve"
+    assert sent["llm_model"] == "claude-opus-4-7"
+    assert sent["system_prompt_sha256"] == expected_prompt_hash
+    assert sent["observed_event_cursor"] == "evt_2"
+    assert "agent_id" not in sent
+    assert outcome.tool_calls[0].ok is True
+    assert outcome.tool_calls[0].tool_name == "cast_vote"
+    assert outcome.tool_calls[0].quorum_entity_id == "vote_review"
+
+
 # ---------------------------------------------------------------------------
 # Refusal — Claude refuses, no tool dispatch, cursor still advances
 # ---------------------------------------------------------------------------
