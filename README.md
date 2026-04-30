@@ -33,7 +33,7 @@ Agentic engineering becomes viable when an AI agent's actions are:
 
 Quorum is the minimal control plane that makes those guarantees real.
 
-## Core capabilities (v0.6.3)
+## Core capabilities (v0.6.4)
 
 - FastAPI control-plane service with typed domain entities (Intent, Finding, Proposal, Vote, PolicyDecision, ExecutionRecord, HealthCheckResult, RollbackRecord, HumanApprovalRequest, EventEnvelope).
 - Append-only JSONL event log with sha256 hash chain; tamper-evidence verified on startup and on demand.
@@ -41,7 +41,7 @@ Quorum is the minimal control plane that makes those guarantees real.
 - YAML-based policy configuration with risk levels, environment overrides, denied action types, and per-action-type rule overrides.
 - Quorum voting with configurable thresholds; human-approval entity for high-risk actions (`requires_human=true` → explicit grant event before execute).
 - Pluggable typed health checks (`always_pass`, `always_fail`, `http`, `github_check_run`) with automatic rollback on failure and a terminal `rollback_impossible` event when an actuator cannot undo a mutation.
-- Operator console (`/console`) with SSE live-tail, release badge, first-class intent/finding/proposal views, counted/capped LLM vote audit metadata, execute + approval controls, rollback visibility, and event-chain verification.
+- Operator console (`/console`) with SSE live-tail, release badge, first-class intent/finding/proposal views, counted/capped LLM vote audit metadata, execute + approval controls, rollback visibility, event-chain verification, and proof deep links via `/console?proposal_id=...#proposals`.
 - **Two built-in actuators**:
   - **GitHub App** (Phase 4): `open_pr` / `comment_issue` / `close_pr` / `add_labels` with actuator-aware rollback.
   - **Fly.io** (Phase 5): `fly.deploy` — content-addressed deploys via `flyctl` subprocess; rollback redeploys the previous image digest. Requires 2 votes + explicit human approval by policy.
@@ -59,7 +59,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md). Brief version:
 
 1. **Phases 2–3** ✅ — tamper-evident event log, typed health checks, authenticated API, locked CORS, rate limiting, Dockerfile, Postgres projection, observability (structlog + OpenTelemetry + Prometheus), hardened CI with SBOM.
 2. **Phase 4** ✅ — GitHub App actuator, LLM adapter via the Anthropic SDK, interactive console (SSE + forms), human-approval entity.
-3. **Phase 5** ✅ (first shipped in v0.5.0-alpha.1; polished in v0.6.0-alpha.1; operator-hardened in v0.6.1; trust-monitored in v0.6.2; LLM-voter-hardened in v0.6.3) — Fly.io deployment with `fly.toml` + Fly Volume + readiness probe, `fly.deploy` actuator, deploy-llm-agent role, image-push CI, operator console execute/verify workflow, repeatable LLM-authored prod deploy proof, live release monitoring, and policy-capped review-LLM voting for low-risk GitHub actions.
+3. **Phase 5** ✅ (first shipped in v0.5.0-alpha.1; polished in v0.6.0-alpha.1; operator-hardened in v0.6.1; trust-monitored in v0.6.2; LLM-voter-hardened in v0.6.3; operator-proof-hardened in v0.6.4) — Fly.io deployment with `fly.toml` + Fly Volume + readiness probe, `fly.deploy` actuator, deploy-llm-agent role, image-push CI, operator console execute/verify workflow, repeatable LLM-authored prod deploy proof, live release monitoring, policy-capped review-LLM voting for low-risk GitHub actions, repeatable review-voter proof capture, and console proposal proof deep links.
 4. **Phase 6** ⬜ — parallel development via git worktrees per [docs/PARALLEL_DEVELOPMENT.md](docs/PARALLEL_DEVELOPMENT.md). Gated on ≥2 weeks of event-schema stability.
 
 ## Quick start
