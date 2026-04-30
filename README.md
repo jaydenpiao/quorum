@@ -41,14 +41,15 @@ Quorum is the minimal control plane that makes those guarantees real.
 - YAML-based policy configuration with risk levels, environment overrides, denied action types, and per-action-type rule overrides.
 - Quorum voting with configurable thresholds; human-approval entity for high-risk actions (`requires_human=true` → explicit grant event before execute).
 - Pluggable typed health checks (`always_pass`, `always_fail`, `http`, `github_check_run`) with automatic rollback on failure and a terminal `rollback_impossible` event when an actuator cannot undo a mutation.
-- Operator console (`/console`) with SSE live-tail, release badge, first-class intent/finding/proposal views, execute + approval controls, rollback visibility, and event-chain verification.
+- Operator console (`/console`) with SSE live-tail, release badge, first-class intent/finding/proposal views, counted/capped LLM vote audit metadata, execute + approval controls, rollback visibility, and event-chain verification.
 - **Two built-in actuators**:
   - **GitHub App** (Phase 4): `open_pr` / `comment_issue` / `close_pr` / `add_labels` with actuator-aware rollback.
   - **Fly.io** (Phase 5): `fly.deploy` — content-addressed deploys via `flyctl` subprocess; rollback redeploys the previous image digest. Requires 2 votes + explicit human approval by policy.
-- **Two LLM roles** (via the Anthropic SDK adapter in `apps/llm_agent/`):
+- **Three LLM roles** (via the Anthropic SDK adapter in `apps/llm_agent/`):
   - `telemetry-llm-agent` — watches the event stream, emits findings + low-risk GitHub proposals (`comment_issue` / `add_labels`).
   - `deploy-llm-agent` — watches for new image digests, proposes `fly.deploy` actions.
-  - Both run as their own OS processes, authenticated with argon2id-hashed API keys, server-capped by per-agent `allowed_action_types` plus explicit `can_propose` / `can_vote` capability gates.
+  - `review-llm-agent` — casts policy-capped review votes only on low-risk GitHub proposals, with server-owned audit metadata and counted-vote caps.
+  - All run as their own OS processes, authenticated with argon2id-hashed API keys, server-capped by per-agent `allowed_action_types` / `allowed_vote_action_types` plus explicit `can_propose` / `can_vote` capability gates.
 - **Ready to deploy on Fly.io**: `fly.toml` + `/readiness` endpoint + image-push CI workflow (`.github/workflows/image-push.yml`) that auto-pushes tagged images to both `registry.fly.io/quorum-staging` and `registry.fly.io/quorum-prod` on every `main` merge.
 - Bearer-authenticated demo incident seeder (`POST /api/v1/demo/incident`) is gated by `QUORUM_ALLOW_DEMO=true` and runs the full flow end-to-end.
 

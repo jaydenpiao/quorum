@@ -502,7 +502,8 @@ select:focus {
 }
 
 .check-list,
-.evidence-refs {
+.evidence-refs,
+.vote-list {
   display: grid;
   gap: 6px;
   padding: 0;
@@ -511,11 +512,47 @@ select:focus {
 }
 
 .check-list li,
-.evidence-refs li {
+.evidence-refs li,
+.vote-card {
   padding: 7px 9px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfcff;
+}
+
+.vote-card {
+  display: grid;
+  gap: 8px;
+}
+
+.vote-card.vote-llm {
+  border-color: #b8c8ff;
+  background: #f7f9ff;
+}
+
+.vote-card.vote-not-counted {
+  border-color: #f0cf95;
+  background: #fffaf1;
+}
+
+.vote-header,
+.vote-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.vote-pills {
+  justify-content: flex-end;
+}
+
+.vote-meta {
+  display: grid;
+  gap: 5px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
 }
 
 .stacked-form {

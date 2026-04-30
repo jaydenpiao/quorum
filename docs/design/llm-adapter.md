@@ -444,8 +444,8 @@ schema change, no auth change.
    revisit after observing a month of proposer-only activity? Lean:
    yes for proposer-only deploy/telemetry agents. The design gate now
    lives in `docs/design/llm-voter-role.md`; API-side vote metadata,
-   policy caps, and the adapter-side `review-llm-agent` are
-   implemented as a separate voter path.
+   policy caps, console visibility, and the adapter-side
+   `review-llm-agent` are implemented as a separate voter path.
 2. **`requires_human=true` for all LLM-origin proposals.** Safest
    default, but slows the demo. Lean: make it per-action_type — LLM-
    emitted `comment_issue` / `add_labels` stay

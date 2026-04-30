@@ -158,7 +158,8 @@ Last refreshed for the v0.6.2 release-proof archive pass.
   inspector, timeline, and action forms
 - `apps/console/app.js` — browser-only rendering + SSE live-tail +
   bearer-token storage + create-intent / cast-vote /
-  grant-deny-approval / execute-proposal / event-chain-verify handlers
+  grant-deny-approval / execute-proposal / event-chain-verify handlers,
+  including counted/capped LLM vote audit rendering
 - `apps/console/styles.css` — light SaaS dashboard styling for the
   static console
 

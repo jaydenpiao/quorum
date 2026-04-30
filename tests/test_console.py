@@ -84,3 +84,35 @@ def test_console_shell_exposes_actionable_metric(client: TestClient) -> None:
     assert response.status_code == 200
     assert "Actionable proposals" in response.text
     assert 'id="metric-actionable-proposals"' in response.text
+
+
+def test_app_js_counts_only_counted_votes_for_quorum(client: TestClient) -> None:
+    response = client.get("/console-static/app.js")
+
+    assert response.status_code == 200
+    assert "function voteCountsForQuorum" in response.text
+    assert "vote.counted !== false" in response.text
+    assert "vote.decision === 'approve' && voteCountsForQuorum(vote)" in response.text
+
+
+def test_app_js_renders_llm_vote_audit_metadata(client: TestClient) -> None:
+    response = client.get("/console-static/app.js")
+
+    assert response.status_code == 200
+    assert "function renderVotes" in response.text
+    assert "llm-voter" in response.text
+    assert "llm_model" in response.text
+    assert "system_prompt_sha256" in response.text
+    assert "observed_event_cursor" in response.text
+    assert "counted_reason" in response.text
+    assert "counted LLM vote" in response.text
+    assert "capped/non-counting LLM vote" in response.text
+
+
+def test_console_stylesheet_marks_llm_and_uncounted_votes(client: TestClient) -> None:
+    response = client.get("/console-static/styles.css")
+
+    assert response.status_code == 200
+    assert ".vote-card.vote-llm" in response.text
+    assert ".vote-card.vote-not-counted" in response.text
+    assert ".vote-meta" in response.text

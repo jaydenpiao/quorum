@@ -187,6 +187,10 @@ function approvalLabel(approvals) {
   return 'not required';
 }
 
+function voteCountsForQuorum(vote) {
+  return vote && vote.counted !== false;
+}
+
 function terminalProposal(proposal) {
   return ['executed', 'failed', 'rolled_back', 'blocked', 'rollback_impossible', 'approval_denied']
     .indexOf(proposal.status) >= 0;
@@ -200,7 +204,9 @@ function controlPlaneFlyApp() {
 }
 
 function approvalCount(votes) {
-  return votes.filter(function (vote) { return vote.decision === 'approve'; }).length;
+  return votes.filter(function (vote) {
+    return vote.decision === 'approve' && voteCountsForQuorum(vote);
+  }).length;
 }
 
 function sameControlPlaneFlyDeploy(proposal) {
@@ -258,8 +264,14 @@ function proposalActionability(state, proposal) {
 
 function voteSummary(votes) {
   var approve = approvalCount(votes);
-  var reject = votes.filter(function (vote) { return vote.decision === 'reject'; }).length;
-  return approve + ' approve / ' + reject + ' reject';
+  var reject = votes.filter(function (vote) {
+    return vote.decision === 'reject' && voteCountsForQuorum(vote);
+  }).length;
+  var uncounted = votes.filter(function (vote) {
+    return !voteCountsForQuorum(vote);
+  }).length;
+  var summary = approve + ' approve / ' + reject + ' reject';
+  return uncounted ? summary + ' / ' + uncounted + ' not counted' : summary;
 }
 
 function proposalById(state, proposalId) {
@@ -490,6 +502,10 @@ function renderInspector(state) {
     kv('Previous digest', shortDigest(result.previous_image_digest)),
     '</div>',
     '<div class="inspector-section">',
+    '<h3>Votes</h3>',
+    renderVotes(votes),
+    '</div>',
+    '<div class="inspector-section">',
     '<h3>Health checks</h3>',
     renderChecks(checks),
     '</div>',
@@ -509,6 +525,63 @@ function renderInspector(state) {
 function kv(label, value) {
   return '<div class="kv-row"><span>' + escapeHtml(label) + '</span><span>' +
     escapeHtml(value || 'none') + '</span></div>';
+}
+
+function voteSourceLabel(vote) {
+  return vote.voter_kind === 'llm' ? 'llm-voter' : 'agent-voter';
+}
+
+function voteCountedLabel(vote) {
+  if (vote.voter_kind === 'llm' && vote.counted === false) {
+    return 'capped/non-counting LLM vote';
+  }
+  if (vote.voter_kind === 'llm') {
+    return 'counted LLM vote';
+  }
+  return voteCountsForQuorum(vote) ? 'counted vote' : 'not counted vote';
+}
+
+function renderVotes(votes) {
+  if (!votes || !votes.length) {
+    return '<div class="muted">No votes recorded.</div>';
+  }
+
+  return '<div class="vote-list">' + votes.map(function (vote) {
+    var isLlm = vote.voter_kind === 'llm';
+    var counts = voteCountsForQuorum(vote);
+    var classes = 'vote-card' + (isLlm ? ' vote-llm' : '') + (counts ? '' : ' vote-not-counted');
+    var countKind = counts ? 'success' : 'warning';
+    var metadata = [
+      kv('Agent', vote.agent_id),
+      kv('Source', voteSourceLabel(vote)),
+      kv('Counted reason', vote.counted_reason || (counts ? 'legacy_counted' : 'not_counted')),
+    ];
+
+    if (isLlm) {
+      metadata.push(kv('Model', vote.llm_model));
+      metadata.push(kv('Prompt SHA-256', vote.system_prompt_sha256));
+      metadata.push(kv('Observed cursor', vote.observed_event_cursor));
+    }
+
+    return [
+      '<div class="' + classes + '">',
+      '<div class="vote-header">',
+      '<div>',
+      '<strong>' + escapeHtml(vote.agent_id || 'unknown-agent') + '</strong>',
+      '<div class="muted">' + escapeHtml(vote.reason || 'no rationale provided') + '</div>',
+      '</div>',
+      '<div class="vote-pills">',
+      pill(vote.decision || 'unknown', vote.decision === 'approve' ? 'success' : 'danger'),
+      pill(voteSourceLabel(vote), isLlm ? 'info' : 'neutral'),
+      pill(voteCountedLabel(vote), countKind),
+      '</div>',
+      '</div>',
+      '<div class="vote-meta">',
+      metadata.join(''),
+      '</div>',
+      '</div>',
+    ].join('');
+  }).join('') + '</div>';
 }
 
 function renderChecks(checks) {

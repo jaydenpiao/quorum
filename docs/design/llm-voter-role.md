@@ -2,8 +2,9 @@
 
 Status: implementation series in progress. The API/policy/read-model
 support for structured LLM vote metadata and policy-owned vote caps is
-implemented, and the adapter has a separate `review-llm-agent` role
-with a `cast_vote` tool. Console polish is still a follow-up PR.
+implemented, the adapter has a separate `review-llm-agent` role with a
+`cast_vote` tool, and the console renders counted/capped LLM vote
+metadata for operators.
 
 This document resolves the voter-role open question from
 `docs/design/llm-adapter.md`. Quorum's telemetry/deploy LLM agents
@@ -108,8 +109,8 @@ model, prompt hash, and observed cursor. The server sets `voter_kind`,
 
 ## Console Visibility
 
-The console should make LLM votes visibly different from human or
-non-LLM agent votes:
+The console makes LLM votes visibly different from human or non-LLM
+agent votes:
 
 - show source as `llm-voter`
 - show model and `system_prompt_sha256`

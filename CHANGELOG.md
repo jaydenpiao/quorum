@@ -34,6 +34,9 @@ artifact against that tag (see `.github/workflows/release.yml`).
   votes audit-visible but non-counting.
 - Kept `telemetry-llm-agent` and `deploy-llm-agent` proposer-only
   while isolating LLM voting in the separate review role.
+- Updated `/console` vote rendering so operators can distinguish
+  normal votes, counted LLM votes, capped/non-counting LLM votes, and
+  the metadata/reason that explains each LLM vote.
 
 ## [v0.6.2] — 2026-04-29
 
