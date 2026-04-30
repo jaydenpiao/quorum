@@ -2,20 +2,20 @@
 
 Status: implementation series in progress. The API/policy/read-model
 support for structured LLM vote metadata and policy-owned vote caps is
-implemented; the adapter review-voter role and console polish are still
-separate follow-up PRs.
+implemented, and the adapter has a separate `review-llm-agent` role
+with a `cast_vote` tool. Console polish is still a follow-up PR.
 
 This document resolves the voter-role open question from
-`docs/design/llm-adapter.md`. Quorum's shipped LLM agents remain
-proposer-only. This design describes the safety contract required
-before a future implementation may let an LLM-backed agent cast votes.
+`docs/design/llm-adapter.md`. Quorum's telemetry/deploy LLM agents
+remain proposer-only; review voting is isolated in `review-llm-agent`.
+This document describes the safety contract for that role.
 
 Server-side `config/agents.yaml` flags are enforced before mutation:
 `can_propose=false` blocks proposal creation and `can_vote=false`
 blocks vote creation. The shipped `telemetry-llm-agent` and
-`deploy-llm-agent` keep `can_vote: false`; the voter series introduces
-a separate review-voter role instead of widening deploy/telemetry
-authority.
+`deploy-llm-agent` keep `can_vote: false`; `review-llm-agent` has
+`can_vote: true`, `can_propose: false`, and a narrow
+`allowed_vote_action_types` list.
 
 ## Goal
 
@@ -62,13 +62,13 @@ The first implementation should not count LLM votes for:
   votes without a human vote
 
 `allowed_action_types` remains the server-side action allow-list for
-proposals. A future voter implementation needs a separate explicit
-vote allow-list (`allowed_vote_action_types`) so proposal authority and
-vote authority cannot drift together accidentally.
+proposals. Vote authority is controlled separately with
+`allowed_vote_action_types` so proposal authority and vote authority
+cannot drift together accidentally.
 
-The implementation must also opt the target LLM agent into
-`can_vote: true`; without that config change, the API rejects the vote
-before it reaches the event log.
+The implementation opts only `review-llm-agent` into `can_vote: true`;
+without that config change, the API rejects the vote before it reaches
+the event log.
 
 ## Policy Expectations
 

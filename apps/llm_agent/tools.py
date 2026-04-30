@@ -1,6 +1,6 @@
 """Tool schemas + tool-use dispatch for the LLM adapter.
 
-PR 2 ships one tool: ``create_finding``. Each tool here has two pieces:
+Each tool here has two pieces:
 
 1. A JSON Schema (``*_TOOL_SCHEMA``) that Claude sees in the request
    body. The shape mirrors Quorum's ``FindingCreate`` DTO so an
@@ -19,6 +19,11 @@ sees the failure on the next turn (once the loop runs multi-turn in
 PR 3+); the operator sees the same failure in the structlog
 ``llm_tool_dispatch_completed`` event.
 
+The one local ownership check is ``cast_vote`` metadata: model, prompt
+hash, cursor, counted state, and actor identity are runtime/server-owned
+audit fields, so a tool call that tries to supply them is rejected before
+POSTing.
+
 Tool order is deterministic: the list ``TOOL_SCHEMAS`` is sorted by
 ``name`` so the rendered request body has stable bytes across ticks.
 Prompt caching cares about stable tool lists — any reorder here
@@ -35,8 +40,72 @@ import anthropic
 
 from apps.llm_agent.quorum_api import QuorumApiClient, QuorumApiError
 
-# Tool-dispatch handler signature.
-_Handler = Callable[[str, dict[str, Any], QuorumApiClient], "ToolDispatchResult"]
+_RUNTIME_OWNED_VOTE_FIELDS = frozenset(
+    (
+        "agent_id",
+        "llm_model",
+        "system_prompt_sha256",
+        "observed_event_cursor",
+        "voter_kind",
+        "counted",
+        "counted_reason",
+    )
+)
+
+
+@dataclass(frozen=True)
+class ToolRuntimeContext:
+    """Runtime-owned audit context injected into tools, never authored by Claude."""
+
+    llm_model: str
+    system_prompt_sha256: str
+    observed_event_cursor: str | None
+
+
+_Handler = Callable[
+    [str, dict[str, Any], QuorumApiClient, ToolRuntimeContext | None],
+    "ToolDispatchResult",
+]
+
+
+# ---------------------------------------------------------------------------
+# cast_vote
+# ---------------------------------------------------------------------------
+
+# Quorum's VoteCreate DTO accepts optional LLM audit metadata, but those
+# fields are intentionally omitted here. The adapter injects model, prompt
+# hash, and observed cursor from runtime context so Claude cannot spoof them.
+CAST_VOTE_TOOL_SCHEMA: dict[str, Any] = {
+    "name": "cast_vote",
+    "description": (
+        "Cast an approve/reject review vote on an existing proposal. Use only "
+        "when your review-agent prompt says the proposal is eligible for LLM "
+        "voting. The adapter injects model, prompt hash, and event cursor "
+        "metadata; never include those fields yourself."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "proposal_id": {
+                "type": "string",
+                "maxLength": 128,
+                "description": "The proposal id to vote on.",
+            },
+            "decision": {
+                "type": "string",
+                "enum": ["approve", "reject"],
+                "description": "The vote decision.",
+            },
+            "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000,
+                "description": "Concise rationale grounded in event-stream evidence.",
+            },
+        },
+        "required": ["proposal_id", "decision", "reason"],
+    },
+}
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +338,7 @@ PROPOSAL_TOOL_SCHEMA: dict[str, Any] = {
 # Ordered tool list. Sorted by name so body bytes are stable across
 # ticks — prompt caching depends on exact-byte prefix match.
 TOOL_SCHEMAS: list[dict[str, Any]] = sorted(
-    [FINDING_TOOL_SCHEMA, PROPOSAL_TOOL_SCHEMA],
+    [CAST_VOTE_TOOL_SCHEMA, FINDING_TOOL_SCHEMA, PROPOSAL_TOOL_SCHEMA],
     key=lambda t: t["name"],
 )
 
@@ -307,6 +376,8 @@ class ToolDispatchResult:
 def dispatch_tool_use(
     block: anthropic.types.ToolUseBlock,
     quorum: QuorumApiClient,
+    *,
+    runtime_context: ToolRuntimeContext | None = None,
 ) -> ToolDispatchResult:
     """Execute one tool_use block against the Quorum API.
 
@@ -323,13 +394,75 @@ def dispatch_tool_use(
         raise LlmToolError(f"tool_use.input must be an object, got {type(tool_input).__name__}")
 
     handler = _HANDLERS[block.name]
-    return handler(block.id, tool_input, quorum)
+    return handler(block.id, tool_input, quorum, runtime_context)
+
+
+def _dispatch_cast_vote(
+    tool_use_id: str,
+    tool_input: dict[str, Any],
+    quorum: QuorumApiClient,
+    runtime_context: ToolRuntimeContext | None,
+) -> ToolDispatchResult:
+    if runtime_context is None or not runtime_context.observed_event_cursor:
+        return ToolDispatchResult(
+            tool_name="cast_vote",
+            tool_use_id=tool_use_id,
+            ok=False,
+            detail="cast_vote requires runtime context with an observed_event_cursor",
+        )
+
+    spoofed = sorted(_RUNTIME_OWNED_VOTE_FIELDS.intersection(tool_input))
+    if spoofed:
+        return ToolDispatchResult(
+            tool_name="cast_vote",
+            tool_use_id=tool_use_id,
+            ok=False,
+            detail=(f"cast_vote input cannot include runtime-owned metadata fields: {spoofed}"),
+        )
+
+    payload = {
+        **tool_input,
+        "llm_model": runtime_context.llm_model,
+        "system_prompt_sha256": runtime_context.system_prompt_sha256,
+        "observed_event_cursor": runtime_context.observed_event_cursor,
+    }
+    try:
+        response = quorum.cast_vote(payload)
+    except QuorumApiError as exc:
+        return ToolDispatchResult(
+            tool_name="cast_vote",
+            tool_use_id=tool_use_id,
+            ok=False,
+            detail=f"quorum rejected vote: {exc.status_code}: {exc.message}",
+            api_status_code=exc.status_code,
+        )
+
+    proposal_id = tool_input.get("proposal_id")
+    vote_id = (
+        _vote_id_from_response(response, proposal_id, quorum.agent_id)
+        if isinstance(proposal_id, str)
+        else None
+    )
+    detail = (
+        f"cast vote {vote_id} on {proposal_id}"
+        if vote_id is not None
+        else f"cast vote on {proposal_id}"
+    )
+    return ToolDispatchResult(
+        tool_name="cast_vote",
+        tool_use_id=tool_use_id,
+        ok=True,
+        detail=detail,
+        api_status_code=200,
+        quorum_entity_id=vote_id,
+    )
 
 
 def _dispatch_create_finding(
     tool_use_id: str,
     tool_input: dict[str, Any],
     quorum: QuorumApiClient,
+    _runtime_context: ToolRuntimeContext | None,
 ) -> ToolDispatchResult:
     try:
         response = quorum.create_finding(tool_input)
@@ -366,6 +499,7 @@ def _dispatch_create_proposal(
     tool_use_id: str,
     tool_input: dict[str, Any],
     quorum: QuorumApiClient,
+    _runtime_context: ToolRuntimeContext | None,
 ) -> ToolDispatchResult:
     # Client-side allow-list check. The server enforces the same list
     # via allowed_action_types (agents.yaml), but gating here too gives
@@ -437,6 +571,26 @@ def _proposal_id_from_response(response: dict[str, Any]) -> str | None:
     return None
 
 
+def _vote_id_from_response(
+    response: dict[str, Any],
+    proposal_id: str,
+    agent_id: str,
+) -> str | None:
+    votes_by_proposal = response.get("votes")
+    if not isinstance(votes_by_proposal, dict):
+        return None
+    votes = votes_by_proposal.get(proposal_id)
+    if not isinstance(votes, list):
+        return None
+    for vote in reversed(votes):
+        if not isinstance(vote, dict) or vote.get("agent_id") != agent_id:
+            continue
+        vote_id = vote.get("id")
+        if isinstance(vote_id, str) and vote_id:
+            return vote_id
+    return None
+
+
 def _same_control_plane_fly_deploy_detail(
     tool_input: dict[str, Any],
     control_plane_fly_app: str | None,
@@ -457,6 +611,7 @@ def _same_control_plane_fly_deploy_detail(
 
 
 _HANDLERS: dict[str, _Handler] = {
+    "cast_vote": _dispatch_cast_vote,
     "create_finding": _dispatch_create_finding,
     "create_proposal": _dispatch_create_proposal,
 }

@@ -20,6 +20,8 @@ def test_llm_voter_design_locks_safety_contract() -> None:
 
     assert "implementation series in progress" in normalized
     assert "api/policy/read-model support" in normalized
+    assert "review-llm-agent" in text
+    assert "cast_vote" in text
     assert "no new event types" in normalized
     assert "no new mutation routes" in normalized
     assert "per-action trust caps" in text

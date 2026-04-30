@@ -133,8 +133,8 @@ Every tick:
 3. **Build a request.** System prompt + last-N events as a compact
    JSON object in the user message. The payload also includes
    non-secret `control_plane` metadata so deployment prompts know which
-   Fly app is serving the Quorum API. Tools are `create_finding` and
-   `create_proposal` (see below).
+   Fly app is serving the Quorum API. Tools are `cast_vote`,
+   `create_finding`, and `create_proposal` (see below).
 4. **Call Claude.** Stream or block; for v1 block. Enforce
    `per_tick_token_cap` on the input side; the SDK errors if output
    would exceed Claude's context.
@@ -154,7 +154,32 @@ back-pressure signal yet.
 
 ## Tool schema
 
-Two tools in v1, both thin wrappers over existing API routes:
+Three tools in v1, all thin wrappers over existing API routes:
+
+### `cast_vote`
+
+```json
+{
+  "name": "cast_vote",
+  "description": "Cast an approve/reject review vote on an existing proposal.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "proposal_id": { "type": "string", "maxLength": 128 },
+      "decision":    { "type": "string", "enum": ["approve", "reject"] },
+      "reason":      { "type": "string", "minLength": 1, "maxLength": 2000 }
+    },
+    "required": ["proposal_id", "decision", "reason"]
+  }
+}
+```
+
+`agent_id`, `llm_model`, `system_prompt_sha256`,
+`observed_event_cursor`, `voter_kind`, `counted`, and
+`counted_reason` are deliberately absent from the schema. The adapter
+injects model, prompt hash, and observed event cursor from the current
+tick context before POSTing to `POST /api/v1/votes`; the API sets the
+remaining server-owned fields and applies policy caps.
 
 ### `create_finding`
 
@@ -326,6 +351,8 @@ apps/llm_agent/
   tools.py                    # tool schemas + tool-call dispatch
   prompts/
     telemetry-agent.md        # system prompt
+    deploy-agent.md           # deploy proposer prompt
+    review-agent.md           # review voter prompt
   quorum_api.py               # HTTP client over /api/v1 (requests/httpx)
   budget.py                   # per-tick + daily cap enforcement + accounting
 ```
@@ -338,23 +365,27 @@ tests/test_llm_adapter_tools.py        # tool-call → POST translation
 tests/test_llm_adapter_loop.py         # cursor advance + idle skip
 tests/test_llm_adapter_metrics.py      # Prometheus counter samples
 tests/test_llm_adapter_run.py          # CLI metrics-port wiring
+tests/test_review_llm_agent.py         # review-voter config + prompt
 ```
 
 ## Policy interaction
 
 The LLM agent posts through the existing authenticated routes; the
-policy engine is unchanged. Two additions worth planning for:
+adapter does not bypass policy or quorum. Current gates:
 
-1. **Per-agent action_type allow-list** — a `config/agents.yaml`
-   field `allowed_action_types: [github.comment_issue, github.add_labels]`.
-   Route handlers reject mismatched proposals with 403 before the
-   event log sees them. Lands in implementation PR 2.
-2. **LLM-emitted proposals may demand `requires_human=true`** — open
-   question below. If we decide yes, add a policy rule:
-   `proposals emitted by llm:* agents are forced to requires_human=true`.
-   This is a one-line change in `policy_engine.evaluate`.
+1. **Per-agent proposal allow-list** — `allowed_action_types` in
+   `config/agents.yaml` caps proposal authority before
+   `proposal_created`.
+2. **Per-agent vote allow-list** — `allowed_vote_action_types` caps
+   review-voter authority before `proposal_voted`.
+3. **LLM vote caps** — `llm_vote_caps` in `config/policies.yaml`
+   decides whether an LLM vote counts. Default is zero counted LLM
+   votes; only `github.add_labels` and `github.comment_issue` permit
+   one counted LLM vote.
+4. **Server-owned vote metadata** — the adapter injects runtime model,
+   prompt hash, and cursor context; the API sets counted/capped fields.
 
-## Rollout plan (3 PRs)
+## Historical rollout plan (Phase 4)
 
 **PR 1 — scaffold + auth + config + loop skeleton** (~600 LOC)
 - `apps/llm_agent/` package with `run.py`, `loop.py`, `budget.py`,
@@ -412,9 +443,9 @@ schema change, no auth change.
 1. **Voter role timing.** Should we skip voter entirely for v1 and
    revisit after observing a month of proposer-only activity? Lean:
    yes for proposer-only deploy/telemetry agents. The design gate now
-   lives in `docs/design/llm-voter-role.md`; API-side vote metadata
-   and policy caps are implemented, while adapter-side review voting
-   remains a separate follow-up.
+   lives in `docs/design/llm-voter-role.md`; API-side vote metadata,
+   policy caps, and the adapter-side `review-llm-agent` are
+   implemented as a separate voter path.
 2. **`requires_human=true` for all LLM-origin proposals.** Safest
    default, but slows the demo. Lean: make it per-action_type — LLM-
    emitted `comment_issue` / `add_labels` stay

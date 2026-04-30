@@ -139,14 +139,16 @@ Last refreshed for the v0.6.2 release-proof archive pass.
 - `apps/llm_agent/config.py` — agents.yaml `llm:` block loader
 - `apps/llm_agent/budget.py` — per-tick + daily input-token caps
   with atomic JSON checkpoints under `data/llm_usage/`
-- `apps/llm_agent/tools.py` — `create_finding` + `create_proposal`
-  tool schemas + dispatcher, including the deploy-agent same-control-
-  plane `fly.deploy` proposal guard
+- `apps/llm_agent/tools.py` — `cast_vote`, `create_finding`, and
+  `create_proposal` tool schemas + dispatcher, including runtime LLM
+  vote metadata injection and the deploy-agent same-control-plane
+  `fly.deploy` proposal guard
 - `apps/llm_agent/quorum_api.py` — httpx client authenticated as the
   configured agent; infers the control-plane Fly app from `*.fly.dev`
   URLs or `QUORUM_LLM_CONTROL_PLANE_FLY_APP`
 - `apps/llm_agent/prompts/telemetry-agent.md` — telemetry role prompt
 - `apps/llm_agent/prompts/deploy-agent.md` — Phase 5 deploy-agent role
+- `apps/llm_agent/prompts/review-agent.md` — review-voter role prompt
 
 ## Console — `apps/console/`
 
@@ -214,6 +216,7 @@ files:
 - `tests/test_fly_live_integration.py` — opt-in live staging
   deploy/rollback test, gated by `QUORUM_FLY_LIVE_TESTS=1`
 - `tests/test_deploy_llm_agent.py` — deploy-agent role wiring
+- `tests/test_review_llm_agent.py` — review-voter role wiring
 - `tests/test_dockerfile_runtime.py` — container runtime pinning
   checks for Python base image, `uv`, and `flyctl`
 - `tests/test_image_push_workflow.py` — image-push workflow checks

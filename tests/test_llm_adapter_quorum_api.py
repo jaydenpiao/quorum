@@ -191,6 +191,30 @@ def test_create_proposal_posts_with_bearer_auth(
     assert result["id"] == "proposal_abc"
 
 
+def test_cast_vote_posts_with_bearer_auth(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _client(monkeypatch)
+    payload = {
+        "proposal_id": "proposal_abc",
+        "decision": "approve",
+        "reason": "safe",
+        "llm_model": "claude-opus-4-7",
+        "system_prompt_sha256": "b" * 64,
+        "observed_event_cursor": "evt_seen123",
+    }
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post("http://localhost:8080/api/v1/votes").mock(
+            return_value=httpx.Response(200, json={"votes": {"proposal_abc": []}})
+        )
+        result = client.cast_vote(payload)
+
+    assert result["votes"] == {"proposal_abc": []}
+    req = route.calls.last.request
+    assert req.headers["Authorization"] == "Bearer test-plaintext-abc"
+    assert json.loads(req.content) == payload
+
+
 # ---------------------------------------------------------------------------
 # Error handling
 # ---------------------------------------------------------------------------

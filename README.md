@@ -158,6 +158,8 @@ same authenticated routes as any other caller. Two roles ship today:
   `github.add_labels` proposals.
 - `deploy-llm-agent` (Phase 5) — emits `fly.deploy` proposals when a
   new image digest appears in the stream.
+- `review-llm-agent` — casts policy-capped review votes only on
+  low-risk `github.comment_issue` / `github.add_labels` proposals.
 
 See [`docs/design/llm-adapter.md`](docs/design/llm-adapter.md) for the
 full design.
@@ -180,11 +182,12 @@ from the agent's `llm:` block in `config/agents.yaml`. Token usage
 is capped per-tick and per-day with atomic JSON checkpoints under
 `data/llm_usage/`. Per-agent `allowed_action_types` and
 `allowed_vote_action_types` plus `can_propose` / `can_vote` flags in
-the same config server-side cap what each LLM role can do. The vote
-API supports structured LLM audit metadata and policy-owned counted
-vote caps, but the shipped telemetry/deploy LLM agents remain
-proposer-only: deploy-agent can only propose `fly.deploy`;
-telemetry-agent can only propose low-risk GitHub actions. Add
+the same config server-side cap what each LLM role can do. The
+telemetry/deploy LLM agents remain proposer-only: deploy-agent can
+only propose `fly.deploy`; telemetry-agent can only propose low-risk
+GitHub actions. The separate review agent can only vote on those
+low-risk GitHub actions, with runtime-injected audit metadata and
+policy-owned counted-vote caps. Add
 `--metrics-port 9107` or set
 `QUORUM_LLM_METRICS_PORT=9107` to expose adapter Prometheus counters
 from the standalone process.

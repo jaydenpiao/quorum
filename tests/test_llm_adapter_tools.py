@@ -11,10 +11,12 @@ import respx
 
 from apps.llm_agent.quorum_api import QuorumApiClient
 from apps.llm_agent.tools import (
+    CAST_VOTE_TOOL_SCHEMA,
     FINDING_TOOL_SCHEMA,
     TOOL_SCHEMAS,
     LlmToolError,
     ToolDispatchResult,
+    ToolRuntimeContext,
     dispatch_tool_use,
 )
 
@@ -63,6 +65,24 @@ def test_finding_tool_schema_is_complete() -> None:
     assert set(schema["input_schema"]["required"]) == {"intent_id", "summary"}
     # agent_id must NOT be present — server-side actor binding sets it.
     assert "agent_id" not in props
+
+
+def test_cast_vote_tool_schema_omits_agent_and_metadata() -> None:
+    schema = CAST_VOTE_TOOL_SCHEMA
+    assert schema["name"] == "cast_vote"
+    props = schema["input_schema"]["properties"]
+    assert set(schema["input_schema"]["required"]) == {"proposal_id", "decision", "reason"}
+    assert props["decision"]["enum"] == ["approve", "reject"]
+    for forbidden in (
+        "agent_id",
+        "llm_model",
+        "system_prompt_sha256",
+        "observed_event_cursor",
+        "voter_kind",
+        "counted",
+        "counted_reason",
+    ):
+        assert forbidden not in props
 
 
 def test_tool_schemas_are_sorted_by_name() -> None:
@@ -128,6 +148,111 @@ def test_dispatch_forwards_input_verbatim(quorum: QuorumApiClient) -> None:
     }
 
 
+def test_dispatch_cast_vote_injects_runtime_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QUORUM_API_KEYS", "review-llm-agent:review-key")
+    quorum = QuorumApiClient(base_url="http://localhost:8080", agent_id="review-llm-agent")
+    context = ToolRuntimeContext(
+        llm_model="claude-opus-4-7",
+        system_prompt_sha256="b" * 64,
+        observed_event_cursor="evt_seen123",
+    )
+    block = _FakeToolUse(
+        id="toolu_vote",
+        name="cast_vote",
+        input={
+            "proposal_id": "proposal_low",
+            "decision": "approve",
+            "reason": "Low-risk GitHub comment is evidence-backed.",
+        },
+    )
+
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post("http://localhost:8080/api/v1/votes").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "votes": {
+                        "proposal_low": [
+                            {
+                                "id": "vote_llm",
+                                "proposal_id": "proposal_low",
+                                "agent_id": "review-llm-agent",
+                            }
+                        ]
+                    }
+                },
+            )
+        )
+        result = dispatch_tool_use(block, quorum, runtime_context=context)  # type: ignore[arg-type]
+
+    import json as _json
+
+    sent = _json.loads(route.calls.last.request.content)
+    assert sent == {
+        "proposal_id": "proposal_low",
+        "decision": "approve",
+        "reason": "Low-risk GitHub comment is evidence-backed.",
+        "llm_model": "claude-opus-4-7",
+        "system_prompt_sha256": "b" * 64,
+        "observed_event_cursor": "evt_seen123",
+    }
+    assert result.ok is True
+    assert result.tool_name == "cast_vote"
+    assert result.quorum_entity_id == "vote_llm"
+
+
+def test_dispatch_cast_vote_rejects_tool_supplied_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QUORUM_API_KEYS", "review-llm-agent:review-key")
+    quorum = QuorumApiClient(base_url="http://localhost:8080", agent_id="review-llm-agent")
+    context = ToolRuntimeContext(
+        llm_model="claude-opus-4-7",
+        system_prompt_sha256="b" * 64,
+        observed_event_cursor="evt_seen123",
+    )
+    block = _FakeToolUse(
+        id="toolu_vote_spoof",
+        name="cast_vote",
+        input={
+            "proposal_id": "proposal_low",
+            "decision": "approve",
+            "reason": "safe",
+            "llm_model": "claude-haiku-4-5",
+        },
+    )
+
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post("http://localhost:8080/api/v1/votes")
+        result = dispatch_tool_use(block, quorum, runtime_context=context)  # type: ignore[arg-type]
+
+    assert result.ok is False
+    assert "runtime-owned metadata" in result.detail
+    assert route.call_count == 0
+
+
+def test_dispatch_cast_vote_requires_runtime_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QUORUM_API_KEYS", "review-llm-agent:review-key")
+    quorum = QuorumApiClient(base_url="http://localhost:8080", agent_id="review-llm-agent")
+    block = _FakeToolUse(
+        id="toolu_vote_no_context",
+        name="cast_vote",
+        input={"proposal_id": "proposal_low", "decision": "approve", "reason": "safe"},
+    )
+
+    with respx.mock(assert_all_called=False) as mock:
+        route = mock.post("http://localhost:8080/api/v1/votes")
+        result = dispatch_tool_use(block, quorum)  # type: ignore[arg-type]
+
+    assert result.ok is False
+    assert "runtime context" in result.detail
+    assert route.call_count == 0
+
+
 # ---------------------------------------------------------------------------
 # Failure modes that return a ToolDispatchResult (ok=False)
 # ---------------------------------------------------------------------------
@@ -166,6 +291,33 @@ def test_dispatch_reports_quorum_401_as_not_ok(quorum: QuorumApiClient) -> None:
 
     assert result.ok is False
     assert result.api_status_code == 401
+
+
+def test_dispatch_cast_vote_reports_server_403(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QUORUM_API_KEYS", "review-llm-agent:review-key")
+    quorum = QuorumApiClient(base_url="http://localhost:8080", agent_id="review-llm-agent")
+    context = ToolRuntimeContext(
+        llm_model="claude-opus-4-7",
+        system_prompt_sha256="b" * 64,
+        observed_event_cursor="evt_seen123",
+    )
+    block = _FakeToolUse(
+        id="toolu_vote_forbidden",
+        name="cast_vote",
+        input={"proposal_id": "proposal_low", "decision": "approve", "reason": "safe"},
+    )
+
+    with respx.mock(assert_all_called=False) as mock:
+        mock.post("http://localhost:8080/api/v1/votes").mock(
+            return_value=httpx.Response(403, json={"detail": "self-vote blocked"})
+        )
+        result = dispatch_tool_use(block, quorum, runtime_context=context)  # type: ignore[arg-type]
+
+    assert result.ok is False
+    assert result.api_status_code == 403
+    assert "self-vote blocked" in result.detail
 
 
 def test_dispatch_reports_missing_id_in_response(quorum: QuorumApiClient) -> None:

@@ -52,7 +52,12 @@ from apps.llm_agent.budget import DailyBudgetExceeded, LlmBudget, TickBudgetExce
 from apps.llm_agent.claude_client import ClaudeClient
 from apps.llm_agent.metrics import DEFAULT_METRICS
 from apps.llm_agent.quorum_api import QuorumApiClient
-from apps.llm_agent.tools import TOOL_SCHEMAS, ToolDispatchResult, dispatch_tool_use
+from apps.llm_agent.tools import (
+    TOOL_SCHEMAS,
+    ToolDispatchResult,
+    ToolRuntimeContext,
+    dispatch_tool_use,
+)
 
 _log = structlog.get_logger(__name__)
 _metrics = DEFAULT_METRICS
@@ -147,6 +152,7 @@ def run_tick(
         cache_write_tokens=cache_write_tokens,
     )
 
+    system_prompt_sha256 = _sha256_hex(claude.system_prompt_text)
     _log.info(
         "llm_call_completed",
         agent_id=agent_id,
@@ -155,12 +161,17 @@ def run_tick(
         output_tokens=output_tokens,
         cache_read_tokens=cache_read_tokens,
         cache_write_tokens=cache_write_tokens,
-        system_prompt_sha256=_sha256_hex(claude.system_prompt_text),
+        system_prompt_sha256=system_prompt_sha256,
         latency_ms=latency_ms,
         stop_reason=response.stop_reason,
     )
 
     tool_results: list[ToolDispatchResult] = []
+    runtime_context = ToolRuntimeContext(
+        llm_model=claude.config.model,
+        system_prompt_sha256=system_prompt_sha256,
+        observed_event_cursor=_last_event_id(events) or cursor,
+    )
     if response.stop_reason == "refusal":
         _log.warning(
             "llm_tick_refusal",
@@ -171,7 +182,7 @@ def run_tick(
     else:
         for block in response.content:
             if isinstance(block, anthropic.types.ToolUseBlock):
-                result = dispatch_tool_use(block, quorum)
+                result = dispatch_tool_use(block, quorum, runtime_context=runtime_context)
                 _log.info(
                     "llm_tool_dispatch_completed",
                     agent_id=agent_id,

@@ -98,6 +98,10 @@ class QuorumApiClient:
         """POST a proposal. Used by PR 3+."""
         return cast(dict[str, Any], self._request("POST", "/api/v1/proposals", json_body=payload))
 
+    def cast_vote(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """POST a vote. Used by the review LLM voter role."""
+        return cast(dict[str, Any], self._request("POST", "/api/v1/votes", json_body=payload))
+
     # -- lifecycle -----------------------------------------------------------
 
     def close(self) -> None:

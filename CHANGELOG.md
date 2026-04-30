@@ -18,6 +18,9 @@ artifact against that tag (see `.github/workflows/release.yml`).
 - Server-owned LLM vote audit metadata for existing `proposal_voted`
   events and `/api/v1/history/votes`, including voter kind, model,
   prompt hash, observed cursor, counted flag, and counted reason.
+- `review-llm-agent` adapter role and prompt plus a `cast_vote` tool
+  that injects runtime model, prompt hash, and observed event cursor
+  before calling the existing vote route.
 
 ### Changed
 
@@ -29,6 +32,8 @@ artifact against that tag (see `.github/workflows/release.yml`).
   votes; only low-risk `github.comment_issue` and `github.add_labels`
   may count one LLM vote, and protected/high-risk proposals keep LLM
   votes audit-visible but non-counting.
+- Kept `telemetry-llm-agent` and `deploy-llm-agent` proposer-only
+  while isolating LLM voting in the separate review role.
 
 ## [v0.6.2] — 2026-04-29
 
