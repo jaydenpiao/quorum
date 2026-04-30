@@ -311,6 +311,61 @@ executed `fly.deploy` targeting `quorum-prod`, or the terminal
 execution is missing passing `prod-readiness` and `prod-api-health`
 checks.
 
+## Review-voter acceptance proof
+
+Use this after the review-voter code is deployed when you need a
+repeatable proof that `review-llm-agent` can cast exactly the kind of
+LLM vote Quorum allows: low-risk GitHub review only, never
+`fly.deploy`, protected environment, or self-review.
+
+Existing proposal mode is read-only when the target already has a valid
+vote:
+
+```bash
+QUORUM_REVIEW_PROOF_PROPOSAL_ID=proposal_36ab7d5601e3 \
+  scripts/prove_review_llm_vote.sh
+```
+
+Fixture mode creates a low-risk `github.comment_issue` proposal only
+when explicitly requested. The helper never executes the fixture
+proposal:
+
+```bash
+export ANTHROPIC_API_KEY="$(
+  security find-generic-password -a "$USER" -s quorum-anthropic-api-key -w
+)"
+export QUORUM_REVIEW_PROOF_REVIEW_AGENT_KEY="$(
+  security find-generic-password -a "$USER" -s quorum-staging-review-llm-agent-api-key -w
+)"
+export QUORUM_REVIEW_PROOF_OPERATOR_KEY="$(
+  security find-generic-password -a "$USER" -s quorum-staging-operator-api-key -w
+)"
+
+QUORUM_REVIEW_PROOF_CREATE_FIXTURE=1 \
+  QUORUM_REVIEW_PROOF_TARGET=jaydenpiao/quorum#122 \
+  scripts/prove_review_llm_vote.sh
+```
+
+The helper fails closed unless the selected vote is authored by
+`review-llm-agent`, has `voter_kind=llm`, includes `llm_model`,
+`system_prompt_sha256`, and `observed_event_cursor`, has
+`counted=true`, targets `github.comment_issue` or `github.add_labels`,
+uses a non-prod environment, is not a self-vote, and staging
+`/api/v1/events/verify` returns `ok=true`. It writes `proof.json` and
+`proof.md` under `/tmp/quorum-review-proof.<timestamp>/` unless
+`QUORUM_REVIEW_PROOF_OUTPUT_DIR` is set.
+
+Browser acceptance for a captured review-voter proof should open the
+selected proposal directly:
+
+```text
+https://quorum-staging.fly.dev/console?proposal_id=<proposal_id>#proposals
+```
+
+Confirm the console shows the proposal inspector, `review-llm-agent`
+vote metadata, counted/capped state, rollback section, and zero browser
+console errors.
+
 Browser acceptance checklist:
 
 1. Open `http://127.0.0.1:8080/console` or

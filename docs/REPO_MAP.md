@@ -5,7 +5,7 @@ the repo without scanning every file. It is updated as a blocker for
 any PR that moves / renames / adds top-level files or folders
 (see `AGENTS.md` §9).
 
-Last refreshed for the v0.6.3 release-proof archive pass.
+Last refreshed for the v0.6.4 operator-proof readiness pass.
 
 ## Top level
 
@@ -16,8 +16,9 @@ Last refreshed for the v0.6.3 release-proof archive pass.
 - `CHANGELOG.md` — versioned feature list (Keep a Changelog format)
 - `docs/GITHUB_APP_ACTUATOR_FLY.md` — operator runbook for enabling
   the GitHub App actuator on Fly
-- `docs/DEMO_VIDEO.md` — recording runbook + script for the polished
-  local dog-food deploy demo
+- `docs/DEMO_VIDEO.md` — recording runbook plus live operator proof
+  helpers for GitHub fixture execution, LLM-authored prod deploy
+  proof, and review-voter acceptance proof
 - `llms.txt` — shortest file list for LLM navigation
 - `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
 - `pyproject.toml`, `uv.lock` — Python packaging / locked deps;

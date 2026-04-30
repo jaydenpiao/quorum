@@ -147,6 +147,27 @@ def test_demo_video_documents_live_llm_prod_deploy_proof() -> None:
     assert "Fly-reported platform digest" in text
 
 
+def test_demo_video_documents_review_voter_proof_helper() -> None:
+    text = (ROOT / "docs" / "DEMO_VIDEO.md").read_text(encoding="utf-8")
+
+    assert "Review-voter acceptance proof" in text
+    assert "scripts/prove_review_llm_vote.sh" in text
+    assert "QUORUM_REVIEW_PROOF_PROPOSAL_ID" in text
+    assert "QUORUM_REVIEW_PROOF_CREATE_FIXTURE=1" in text
+    assert "QUORUM_REVIEW_PROOF_TARGET" in text
+    assert "review-llm-agent" in text
+    assert "voter_kind=llm" in text
+    assert "counted=true" in text
+    assert "system_prompt_sha256" in text
+    assert "observed_event_cursor" in text
+    assert "github.comment_issue" in text
+    assert "github.add_labels" in text
+    assert "fly.deploy" in text
+    assert "proof.json" in text
+    assert "proof.md" in text
+    assert "/console?proposal_id=" in text
+
+
 def test_readme_demo_seed_matches_auth_and_demo_gate_contract() -> None:
     text = (ROOT / "README.md").read_text(encoding="utf-8")
 

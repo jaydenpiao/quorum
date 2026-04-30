@@ -15,6 +15,9 @@ artifact against that tag (see `.github/workflows/release.yml`).
   helper that validates a counted `review-llm-agent` LLM vote on an
   eligible low-risk GitHub proposal and writes JSON/Markdown proof
   artifacts.
+- Review-voter proof helper runbook coverage in `docs/DEMO_VIDEO.md`,
+  including existing-proposal mode, fixture mode, fail-stop gates, and
+  console deep-link acceptance.
 - Stable `docs/releases/v0.6.3-proof.md` archive for the signed tag,
   SBOM, image-push evidence, deploy proposal/execution IDs,
   review-voter vote evidence, health checks, proof capture, browser
