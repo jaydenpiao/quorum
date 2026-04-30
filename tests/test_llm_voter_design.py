@@ -16,18 +16,23 @@ def _text(path: Path) -> str:
 
 def test_llm_voter_design_locks_safety_contract() -> None:
     text = _text(DESIGN)
+    normalized = text.lower().replace("\n", " ")
 
-    assert "design only" in text.lower()
-    assert "no implementation" in text.lower()
+    assert "implementation series in progress" in normalized
+    assert "api/policy/read-model support" in normalized
+    assert "no new event types" in normalized
+    assert "no new mutation routes" in normalized
     assert "per-action trust caps" in text
     assert "must never be sufficient alone" in text
     assert "protected/high-risk" in text
     assert "requires_human=true" in text
+    assert "llm_vote_caps" in text
+    assert "allowed_vote_action_types" in text
+    assert "counted_reason" in text
     assert "policy" in text.lower()
     assert "audit metadata" in text.lower()
     assert "system_prompt_sha256" in text
-    assert "model" in text
-    assert "allowed_action_types" in text
+    assert "llm_model" in text
     assert "console" in text.lower()
 
 

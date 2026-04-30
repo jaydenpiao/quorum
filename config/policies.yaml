@@ -47,5 +47,16 @@ action_type_rules:
     votes_required: 2
     requires_human: true
 
+# LLM votes are audit-visible by default but count for quorum only when an
+# action-specific cap explicitly permits it. Caps are applied by the vote
+# route before appending the existing proposal_voted event type.
+llm_vote_caps:
+  default_max_counted: 0
+  action_type_rules:
+    github.comment_issue:
+      max_counted: 1
+    github.add_labels:
+      max_counted: 1
+
 rollback:
   auto_on_failed_health_checks: true

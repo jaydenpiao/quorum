@@ -168,8 +168,33 @@ is appended. Missing YAML entries or missing capability fields remain
 permissive so env-only local/dev agents keep the previous behavior.
 
 The LLM-backed agents ship as proposer-only: `telemetry-llm-agent` and
-`deploy-llm-agent` have `can_vote: false`. A future LLM voter role must
-change these capabilities intentionally alongside policy and tests.
+`deploy-llm-agent` have `can_vote: false`. LLM voting is implemented
+through a separate review-voter path so proposal authority and vote
+authority do not drift together accidentally.
+
+### LLM vote metadata and caps
+
+`POST /api/v1/votes` remains the only vote mutation route. Normal
+human/non-LLM callers keep the original request shape. Agents
+configured with an `llm:` block in `config/agents.yaml` must include
+`llm_model`, `system_prompt_sha256`, and `observed_event_cursor`; the
+server rejects missing LLM metadata and rejects non-LLM callers that
+try to spoof those fields before appending `proposal_voted`.
+
+The server sets vote audit fields before the event log append:
+`voter_kind`, `counted`, and `counted_reason`. `config/agents.yaml`
+may also set `allowed_vote_action_types` so an LLM reviewer can vote
+only on explicitly scoped action types. The default remains legacy
+permissive for YAML entries that omit the field and for env-only local
+agents.
+
+Whether an LLM vote counts is owned by `config/policies.yaml`
+`llm_vote_caps`, not by the adapter process. The default cap is zero;
+only `github.add_labels` and `github.comment_issue` currently permit
+one counted LLM vote. Protected environments and high/critical risk
+proposals record LLM votes as audit-visible but `counted=false`, so
+they cannot approve or block proposals. Historical votes without a
+`counted` field still count during replay.
 
 ### What auth is NOT
 

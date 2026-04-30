@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Float, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -75,6 +75,12 @@ class VoteRow(Base):
     agent_id: Mapped[str] = mapped_column(String(128), index=True)
     decision: Mapped[str] = mapped_column(String(32), index=True)
     reason: Mapped[str] = mapped_column(String(2000))
+    voter_kind: Mapped[str] = mapped_column(String(32), default="agent")
+    llm_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    system_prompt_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    observed_event_cursor: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    counted: Mapped[bool] = mapped_column(Boolean, default=True)
+    counted_reason: Mapped[str] = mapped_column(String(256), default="non_llm_vote")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 

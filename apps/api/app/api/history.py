@@ -212,7 +212,20 @@ def list_votes(
     offset: _OFFSET = 0,
 ) -> list[dict[str, Any]]:
     factory = _require_db(request)
-    cols = ("id", "proposal_id", "agent_id", "decision", "reason", "created_at")
+    cols = (
+        "id",
+        "proposal_id",
+        "agent_id",
+        "decision",
+        "reason",
+        "voter_kind",
+        "llm_model",
+        "system_prompt_sha256",
+        "observed_event_cursor",
+        "counted",
+        "counted_reason",
+        "created_at",
+    )
     with factory() as session:
         stmt = select(VoteRow)
         if proposal_id:
