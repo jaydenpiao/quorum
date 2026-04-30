@@ -11,6 +11,12 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- _Nothing yet._
+
+## [v0.6.3] — 2026-04-30
+
+### Added
+
 - Stable `docs/releases/v0.6.2-proof.md` archive for the signed tag,
   SBOM, image-push evidence, deploy proposal/execution IDs, health
   checks, proof capture, live monitor result, and final event-chain

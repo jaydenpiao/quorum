@@ -5,7 +5,7 @@ the repo without scanning every file. It is updated as a blocker for
 any PR that moves / renames / adds top-level files or folders
 (see `AGENTS.md` §9).
 
-Last refreshed for the v0.6.2 release-proof archive pass.
+Last refreshed for the v0.6.3 release-prep pass.
 
 ## Top level
 

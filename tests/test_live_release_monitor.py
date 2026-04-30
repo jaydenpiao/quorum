@@ -45,7 +45,7 @@ def test_live_release_monitor_workflow_runs_without_secrets() -> None:
     assert "workflow_dispatch:" in text
     assert "schedule:" in text
     assert "GH_TOKEN: ${{ github.token }}" in text
-    assert "QUORUM_RELEASE_TAG: v0.6.2" in text
+    assert "QUORUM_RELEASE_TAG: v0.6.3" in text
     assert "scripts/check_live_release.sh" in text
     assert "secrets." not in text
     assert "actions: read" in text
