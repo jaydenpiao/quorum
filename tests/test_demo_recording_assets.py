@@ -92,6 +92,8 @@ def test_llm_prod_deploy_proof_script_gates_live_execution() -> None:
 def test_operator_proof_capture_script_fails_closed_on_required_gates() -> None:
     text = (ROOT / "scripts" / "capture_operator_proof.sh").read_text(encoding="utf-8")
 
+    assert "from datetime import UTC" not in text
+    assert "timezone.utc" in text
     assert "QUORUM_PROOF_API" in text
     assert "QUORUM_PROOF_PROD_URL" in text
     assert "QUORUM_PROOF_PROPOSAL_ID" in text

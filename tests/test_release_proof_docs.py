@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PROOF = ROOT / "docs" / "releases" / "v0.6.1-proof.md"
 PROOF_062 = ROOT / "docs" / "releases" / "v0.6.2-proof.md"
+PROOF_063 = ROOT / "docs" / "releases" / "v0.6.3-proof.md"
 HANDOFF = ROOT / "docs" / "SESSION_HANDOFF.md"
 
 
@@ -65,3 +66,33 @@ def test_session_handoff_points_to_v062_release_proof_archive() -> None:
     text = _text(HANDOFF)
 
     assert "docs/releases/v0.6.2-proof.md" in text
+
+
+def test_v063_release_proof_records_required_evidence() -> None:
+    text = _text(PROOF_063)
+
+    assert "v0.6.3" in text
+    assert "https://github.com/jaydenpiao/quorum/releases/tag/v0.6.3" in text
+    assert "quorum-v0.6.3.spdx.json" in text
+    assert "33e0ea44261fc77f302a531674df2a7b19144137" in text
+    assert "59c52433b67985587cd491b102c7dc2e0a8b226f" in text
+    assert "25142095648" in text
+    assert "evt_7d59f0836bc5" in text
+    assert "imgpush_cc0195677b55" in text
+    assert "sha256:5cb35f2aaaf0a720d9e0e31e72ae714524f26cdf300accc24b69a7c0846cc716" in text
+    assert "proposal_86c8a3f8d2e6" in text
+    assert "exec_2adb999b0c62" in text
+    assert "hcr_294efe04a461" in text
+    assert "hcr_963461660f01" in text
+    assert "proposal_36ab7d5601e3" in text
+    assert "vote_3bd1a8c7a780" in text
+    assert "review-llm-agent" in text
+    assert "031e0246ee1ed689de80763ad78e65118d9f3113e6474d2cc039bd64c2ace472" in text
+    assert "ebf41d9d574f89905e4f93957b7d5b22cbe264d10ac8e3bf6913fb016566cf4d" in text
+    assert "/tmp/quorum-proof.20260430T011848Z/proof.md" in text
+
+
+def test_session_handoff_points_to_v063_release_proof_archive() -> None:
+    text = _text(HANDOFF)
+
+    assert "docs/releases/v0.6.3-proof.md" in text

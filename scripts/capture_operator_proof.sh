@@ -68,7 +68,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -214,7 +214,7 @@ execution = find_latest_successful_execution(
 health_checks = require_execution_health(execution)
 execution_event = find_execution_event(list(events), str(execution["id"]))
 
-captured_at = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
+captured_at = datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z")
 proof = {
     "captured_at": captured_at,
     "api": api_url,
