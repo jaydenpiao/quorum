@@ -15,6 +15,9 @@ artifact against that tag (see `.github/workflows/release.yml`).
   SBOM, image-push evidence, deploy proposal/execution IDs, health
   checks, proof capture, live monitor result, and final event-chain
   hash.
+- Server-owned LLM vote audit metadata for existing `proposal_voted`
+  events and `/api/v1/history/votes`, including voter kind, model,
+  prompt hash, observed cursor, counted flag, and counted reason.
 
 ### Changed
 
@@ -22,6 +25,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
   capability flags on proposal and vote routes before event-log
   mutation, while preserving permissive behavior for env-only agents
   and YAML entries without explicit capability fields.
+- Added policy-owned LLM vote caps with default zero counted LLM
+  votes; only low-risk `github.comment_issue` and `github.add_labels`
+  may count one LLM vote, and protected/high-risk proposals keep LLM
+  votes audit-visible but non-counting.
 
 ## [v0.6.2] — 2026-04-29
 

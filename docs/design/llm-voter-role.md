@@ -1,18 +1,21 @@
 # Design: LLM Voter Role
 
-Status: design only - no LLM voting behavior is implemented.
+Status: implementation series in progress. The API/policy/read-model
+support for structured LLM vote metadata and policy-owned vote caps is
+implemented; the adapter review-voter role and console polish are still
+separate follow-up PRs.
 
 This document resolves the voter-role open question from
 `docs/design/llm-adapter.md`. Quorum's shipped LLM agents remain
 proposer-only. This design describes the safety contract required
 before a future implementation may let an LLM-backed agent cast votes.
 
-As of the capability-gate hardening pass, server-side
-`config/agents.yaml` flags are enforced before mutation:
+Server-side `config/agents.yaml` flags are enforced before mutation:
 `can_propose=false` blocks proposal creation and `can_vote=false`
-blocks vote creation. The shipped LLM agents keep `can_vote: false`
-until a separate voter implementation intentionally changes
-capabilities, policy, tests, and console copy.
+blocks vote creation. The shipped `telemetry-llm-agent` and
+`deploy-llm-agent` keep `can_vote: false`; the voter series introduces
+a separate review-voter role instead of widening deploy/telemetry
+authority.
 
 ## Goal
 
@@ -23,7 +26,6 @@ complete audit trail.
 
 ## Non-Goals
 
-- No implementation.
 - No new event types.
 - No new mutation routes.
 - No proposal schema changes.
@@ -61,8 +63,8 @@ The first implementation should not count LLM votes for:
 
 `allowed_action_types` remains the server-side action allow-list for
 proposals. A future voter implementation needs a separate explicit
-vote allow-list or policy capability so proposal authority and vote
-authority cannot drift together accidentally.
+vote allow-list (`allowed_vote_action_types`) so proposal authority and
+vote authority cannot drift together accidentally.
 
 The implementation must also opt the target LLM agent into
 `can_vote: true`; without that config change, the API rejects the vote
@@ -70,14 +72,15 @@ before it reaches the event log.
 
 ## Policy Expectations
 
-Policy must decide whether an LLM vote counts, not the adapter process.
-The future implementation should make these policy properties explicit:
+Policy decides whether an LLM vote counts, not the adapter process.
+`config/policies.yaml` now defaults LLM votes to zero counted votes and
+opts in only specific low-risk actions via `llm_vote_caps`:
 
-- action type is eligible for LLM voting
-- max counted LLM votes for that action type
-- whether a human/non-LLM vote is required
-- whether protected environments override the LLM vote cap to zero
-- whether the proposal author is disqualified from voting
+- default maximum counted LLM votes is `0`
+- `github.add_labels` may count at most one LLM vote
+- `github.comment_issue` may count at most one LLM vote
+- protected environments and high/critical risk override the effective
+  LLM vote cap to zero
 
 For protected/high-risk actions, the effective rule is: an LLM vote may
 be recorded for audit only if desired, but it cannot be enough to make
@@ -89,15 +92,19 @@ Every LLM-emitted vote must carry enough audit metadata to explain the
 decision later:
 
 - `agent_id`
-- `model`
+- `voter_kind`
+- `llm_model`
 - `system_prompt_sha256`
-- observed proposal ID and event cursor
+- `observed_event_cursor`
 - concise rationale
-- whether the vote counted after policy caps
+- `counted`
+- `counted_reason`
 
-The implementation should prefer existing event/audit shapes where
-possible. If extra metadata cannot fit without ambiguity, add a small
-design review before changing schemas.
+The implementation reuses the existing `proposal_voted` event type and
+`POST /api/v1/votes` route. Non-LLM callers remain backward-compatible
+and cannot spoof LLM metadata; configured LLM callers must provide the
+model, prompt hash, and observed cursor. The server sets `voter_kind`,
+`counted`, and `counted_reason` before appending the event.
 
 ## Console Visibility
 
@@ -110,9 +117,9 @@ non-LLM agent votes:
 - keep the existing executable-state explanation so a capped LLM vote
   cannot make the operator think a proposal is ready
 
-## Future Acceptance Criteria
+## Acceptance Criteria
 
-A future implementation PR is not complete unless tests prove:
+The implementation series is not complete unless tests prove:
 
 - Configured LLM agents with `can_vote=false` cannot append vote
   events.

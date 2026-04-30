@@ -411,10 +411,10 @@ schema change, no auth change.
 
 1. **Voter role timing.** Should we skip voter entirely for v1 and
    revisit after observing a month of proposer-only activity? Lean:
-   yes — the attack surface is materially larger and we can't write
-   a useful design until we see what LLM proposers actually submit.
-   The design gate now lives in `docs/design/llm-voter-role.md`; no
-   implementation has started.
+   yes for proposer-only deploy/telemetry agents. The design gate now
+   lives in `docs/design/llm-voter-role.md`; API-side vote metadata
+   and policy caps are implemented, while adapter-side review voting
+   remains a separate follow-up.
 2. **`requires_human=true` for all LLM-origin proposals.** Safest
    default, but slows the demo. Lean: make it per-action_type — LLM-
    emitted `comment_issue` / `add_labels` stay

@@ -25,12 +25,15 @@ from apps.api.app.domain.models import (
     ProposalCreate,
     Vote,
     VoteCreate,
+    VoterKind,
 )
 from apps.api.app.services.auth import (
     allowed_action_types_for,
+    allowed_vote_action_types_for,
     can_agent_propose,
     can_agent_vote,
     demo_allowed,
+    is_llm_agent,
     require_agent,
 )
 from apps.api.app.services.event_log import EventLogTamperError
@@ -351,8 +354,64 @@ def create_vote(
     if payload.proposal_id not in request.app.state.state_store.proposals:
         raise HTTPException(status_code=404, detail="proposal not found")
 
+    proposal = Proposal.model_validate(request.app.state.state_store.proposals[payload.proposal_id])
+    policy_payload = request.app.state.state_store.policy_decisions.get(payload.proposal_id)
+    if not policy_payload:
+        raise HTTPException(status_code=500, detail="missing policy decision")
+
     data = payload.model_dump()
     data["agent_id"] = bound_agent
+
+    if is_llm_agent(bound_agent):
+        allowed = allowed_vote_action_types_for(bound_agent)
+        if allowed is not None and proposal.action_type not in allowed:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"agent {bound_agent!r} is not permitted to vote on "
+                    f"action_type {proposal.action_type!r}; allowed: {list(allowed)}"
+                ),
+            )
+        if proposal.agent_id == bound_agent:
+            raise HTTPException(
+                status_code=403,
+                detail=f"agent {bound_agent!r} cannot self-vote on its own proposal",
+            )
+
+        missing = [
+            field
+            for field in ("llm_model", "system_prompt_sha256", "observed_event_cursor")
+            if data[field] is None
+        ]
+        if missing:
+            raise HTTPException(
+                status_code=422,
+                detail=f"llm vote metadata required for llm agent: {', '.join(missing)}",
+            )
+
+        existing_votes = request.app.state.state_store.votes.get(payload.proposal_id, [])
+        counted, counted_reason = request.app.state.policy_engine.llm_vote_counting_decision(
+            proposal,
+            existing_votes,
+        )
+        data["voter_kind"] = VoterKind.llm
+        data["counted"] = counted
+        data["counted_reason"] = counted_reason
+    else:
+        spoofed = [
+            field
+            for field in ("llm_model", "system_prompt_sha256", "observed_event_cursor")
+            if data[field] is not None
+        ]
+        if spoofed:
+            raise HTTPException(
+                status_code=422,
+                detail=(f"non-llm agent cannot submit llm vote metadata: {', '.join(spoofed)}"),
+            )
+        data["voter_kind"] = VoterKind.agent
+        data["counted"] = True
+        data["counted_reason"] = "non_llm_vote"
+
     vote = Vote(**data)
     request.app.state.event_log.append(
         EventEnvelope(
@@ -365,13 +424,7 @@ def create_vote(
 
     refresh_state(request)
     votes = request.app.state.state_store.votes.get(payload.proposal_id, [])
-    policy_payload = request.app.state.state_store.policy_decisions.get(payload.proposal_id)
-    if not policy_payload:
-        raise HTTPException(status_code=500, detail="missing policy decision")
-
-    policy_decision = request.app.state.policy_engine.evaluate(
-        Proposal.model_validate(request.app.state.state_store.proposals[payload.proposal_id])
-    )
+    policy_decision = request.app.state.policy_engine.evaluate(proposal)
 
     approved = request.app.state.quorum_engine.is_approved(votes, policy_decision)
     blocked = request.app.state.quorum_engine.is_blocked(votes)

@@ -112,6 +112,8 @@ def reload_all_registries() -> None:
     _load_registry.cache_clear()
     _load_yaml_registry.cache_clear()
     _load_allowed_action_types.cache_clear()
+    _load_allowed_vote_action_types.cache_clear()
+    _load_llm_agent_ids.cache_clear()
     _load_agent_capabilities.cache_clear()
 
 
@@ -166,6 +168,67 @@ def allowed_action_types_for(agent_id: str) -> tuple[str, ...] | None:
     """
     registry = _load_allowed_action_types()
     return registry.get(agent_id)
+
+
+@lru_cache(maxsize=1)
+def _load_allowed_vote_action_types() -> dict[str, tuple[str, ...]]:
+    """Return ``{agent_id: (allowed_vote_action_type, ...)}`` for agents that set it."""
+    import yaml  # local import to keep top-level deps minimal
+
+    path = _AGENTS_YAML_PATH
+    try:
+        with open(path) as fh:
+            data = yaml.safe_load(fh)
+    except (FileNotFoundError, OSError, yaml.YAMLError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+
+    result: dict[str, tuple[str, ...]] = {}
+    for agent in data.get("agents", []):
+        if not isinstance(agent, dict):
+            continue
+        agent_id = (agent.get("id") or "").strip()
+        raw = agent.get("allowed_vote_action_types")
+        if not agent_id or not isinstance(raw, list):
+            continue
+        cleaned = tuple(item for item in raw if isinstance(item, str) and item)
+        result[agent_id] = cleaned
+    return result
+
+
+def allowed_vote_action_types_for(agent_id: str) -> tuple[str, ...] | None:
+    """Return per-agent vote action allow-list, or None for legacy unrestricted."""
+    return _load_allowed_vote_action_types().get(agent_id)
+
+
+@lru_cache(maxsize=1)
+def _load_llm_agent_ids() -> frozenset[str]:
+    """Return ids for agents with an ``llm:`` block in config/agents.yaml."""
+    import yaml  # local import to keep top-level deps minimal
+
+    path = _AGENTS_YAML_PATH
+    try:
+        with open(path) as fh:
+            data = yaml.safe_load(fh)
+    except (FileNotFoundError, OSError, yaml.YAMLError):
+        return frozenset()
+    if not isinstance(data, dict):
+        return frozenset()
+
+    ids: set[str] = set()
+    for agent in data.get("agents", []):
+        if not isinstance(agent, dict):
+            continue
+        agent_id = (agent.get("id") or "").strip()
+        if agent_id and isinstance(agent.get("llm"), dict):
+            ids.add(agent_id)
+    return frozenset(ids)
+
+
+def is_llm_agent(agent_id: str) -> bool:
+    """Return True for agents explicitly configured with an ``llm:`` block."""
+    return agent_id in _load_llm_agent_ids()
 
 
 # ---------------------------------------------------------------------------

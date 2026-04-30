@@ -179,11 +179,12 @@ Adapter tick budgets, model, and system-prompt reference are read
 from the agent's `llm:` block in `config/agents.yaml`. Token usage
 is capped per-tick and per-day with atomic JSON checkpoints under
 `data/llm_usage/`. Per-agent `allowed_action_types` and
-`can_propose` / `can_vote` flags in the same config server-side cap
-what each LLM role can do. Today the LLM agents are proposer-only:
-deploy-agent can only propose `fly.deploy`; telemetry-agent can only
-propose the low-risk GitHub actions; neither can vote until a separate
-voter implementation changes policy and tests. Add
+`allowed_vote_action_types` plus `can_propose` / `can_vote` flags in
+the same config server-side cap what each LLM role can do. The vote
+API supports structured LLM audit metadata and policy-owned counted
+vote caps, but the shipped telemetry/deploy LLM agents remain
+proposer-only: deploy-agent can only propose `fly.deploy`;
+telemetry-agent can only propose low-risk GitHub actions. Add
 `--metrics-port 9107` or set
 `QUORUM_LLM_METRICS_PORT=9107` to expose adapter Prometheus counters
 from the standalone process.

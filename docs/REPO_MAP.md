@@ -35,9 +35,11 @@ Last refreshed for the v0.6.2 release-proof archive pass.
 - `config/system.yaml` — app and runtime settings (log path, CORS,
   rate limits, server port)
 - `config/agents.yaml` — agent registry: roles, scopes, argon2id
-  key hashes, per-agent `allowed_action_types`, optional `llm:` block
+  key hashes, per-agent `allowed_action_types` /
+  `allowed_vote_action_types`, capability gates, optional `llm:` block
 - `config/policies.yaml` — quorum policy: risk rules, environment
-  overrides, per-`action_type` rule overrides, rollback settings
+  overrides, per-`action_type` rule overrides, LLM vote caps, rollback
+  settings
 - `config/github.yaml` — GitHub App install IDs + limits (Phase 4)
 
 ## Backend — `apps/api/`
@@ -56,11 +58,11 @@ Last refreshed for the v0.6.2 release-proof archive pass.
 
 - `apps/api/app/api/routes.py` — mutating `POST /api/v1/*` endpoints
   (intents, findings, proposals, votes, approvals, demo seed,
-  execute)
+  execute), including server-owned LLM vote metadata/cap handling
 - `apps/api/app/api/history.py` — read-only `/api/v1/history/*`
   endpoints backed by the Postgres projection, including proposal,
-  policy, approval, execution, health-check, rollback, and image-push
-  history
+  policy, approval, execution, vote audit metadata, health-check,
+  rollback, and image-push history
 
 ### Domain
 
@@ -74,14 +76,17 @@ Last refreshed for the v0.6.2 release-proof archive pass.
 ### Services
 
 - `apps/api/app/services/auth.py` — bearer auth, argon2id key
-  registry, per-agent `allowed_action_types` loader, and
+  registry, per-agent `allowed_action_types` /
+  `allowed_vote_action_types` loaders, LLM-agent detection, and
   `can_propose` / `can_vote` capability gates
 - `apps/api/app/services/event_log.py` — append-only JSONL writer
   with sha256 hash chain, `verify()`, pub/sub `subscribe()` for SSE
 - `apps/api/app/services/state_store.py` — event reducer + current
   state snapshot
 - `apps/api/app/services/policy_engine.py` — YAML policy evaluator
-- `apps/api/app/services/quorum_engine.py` — vote counting
+  plus LLM vote-cap decisions
+- `apps/api/app/services/quorum_engine.py` — counted-vote quorum
+  calculation
 - `apps/api/app/services/health_checks.py` — runner for
   `always_pass`, `always_fail`, `http`, `github_check_run`
 - `apps/api/app/services/executor.py` — dispatch (prefix-based
@@ -183,8 +188,8 @@ Last refreshed for the v0.6.2 release-proof archive pass.
 - `docs/design/postgres-projection.md` — projection architecture
 - `docs/design/phase-4-github-actuator.md` — GitHub actuator design
 - `docs/design/llm-adapter.md` — LLM adapter design
-- `docs/design/llm-voter-role.md` — design-only safety gate for a
-  future LLM voter role
+- `docs/design/llm-voter-role.md` — safety contract and implementation
+  status for the LLM voter role series
 - `docs/design/fly-deployment.md` — Phase 5 Fly.io design
 
 ## Tests — `tests/`
@@ -218,8 +223,11 @@ files:
   release monitor script and scheduled/manual workflow
 - `tests/test_release_proof_docs.py` — static checks that archived
   release proof docs retain required evidence IDs
-- `tests/test_llm_voter_design.py` — static checks for the design-only
-  LLM voter role gate
+- `tests/test_llm_voter_design.py` — static checks for the LLM voter
+  role safety contract
+- `tests/test_llm_vote_policy.py` — LLM vote metadata, policy caps,
+  self-vote/disallowed-action gates, counted-quorum behavior, and
+  vote projection/history serialization
 - `tests/test_image_push_evidence.py` — authenticated
   `image_push_completed` route + reducer coverage
 - `tests/test_readiness.py` — Phase 5 readiness probe

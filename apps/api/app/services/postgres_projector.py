@@ -255,13 +255,31 @@ def _handle_proposal_voted(session: Session, event: EventEnvelope) -> None:
         agent_id=p["agent_id"],
         decision=p["decision"],
         reason=p.get("reason", ""),
+        voter_kind=p.get("voter_kind", "agent"),
+        llm_model=p.get("llm_model"),
+        system_prompt_sha256=p.get("system_prompt_sha256"),
+        observed_event_cursor=p.get("observed_event_cursor"),
+        counted=p.get("counted", True),
+        counted_reason=p.get("counted_reason", "non_llm_vote"),
         created_at=p["created_at"],
     )
     stmt = stmt.on_conflict_do_update(
         index_elements=["id"],
         set_={
             c: stmt.excluded[c]
-            for c in ("proposal_id", "agent_id", "decision", "reason", "created_at")
+            for c in (
+                "proposal_id",
+                "agent_id",
+                "decision",
+                "reason",
+                "voter_kind",
+                "llm_model",
+                "system_prompt_sha256",
+                "observed_event_cursor",
+                "counted",
+                "counted_reason",
+                "created_at",
+            )
         },
     )
     session.execute(stmt)

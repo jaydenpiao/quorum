@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 import yaml
 
 from apps.api.app.domain.models import PolicyDecision, Proposal
@@ -57,6 +58,38 @@ class PolicyEngine:
             votes_required=votes_required,
             reasons=reasons,
         )
+
+    def llm_vote_cap_for(self, proposal: Proposal) -> int:
+        caps = self.config.get("llm_vote_caps", {}) or {}
+        default_cap = int(caps.get("default_max_counted", 0))
+        action_rules = caps.get("action_type_rules", {}) or {}
+        action_cfg = action_rules.get(proposal.action_type)
+        if isinstance(action_cfg, dict):
+            return int(action_cfg.get("max_counted", default_cap))
+        return default_cap
+
+    def llm_vote_counting_decision(
+        self,
+        proposal: Proposal,
+        existing_votes: list[dict[str, Any]],
+    ) -> tuple[bool, str]:
+        protected_envs = set(self.config.get("protected_environments", []))
+        if proposal.environment in protected_envs or proposal.risk.value in {"high", "critical"}:
+            return False, "llm_vote_not_counted_for_protected_or_high_risk"
+
+        cap = self.llm_vote_cap_for(proposal)
+        if cap <= 0:
+            return False, "llm_vote_not_counted_for_action"
+
+        counted_llm_votes = sum(
+            1
+            for vote in existing_votes
+            if vote.get("voter_kind") == "llm" and vote.get("counted", True)
+        )
+        if counted_llm_votes >= cap:
+            return False, "llm_vote_cap_reached"
+
+        return True, "llm_vote_counted"
 
     @property
     def auto_rollback_enabled(self) -> bool:

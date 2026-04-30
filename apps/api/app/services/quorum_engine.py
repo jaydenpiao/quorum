@@ -7,9 +7,17 @@ from apps.api.app.domain.models import PolicyDecision, VoteDecision
 
 class QuorumEngine:
     def is_approved(self, votes: list[dict[str, Any]], policy_decision: PolicyDecision) -> bool:
-        approvals = {v["agent_id"] for v in votes if v["decision"] == VoteDecision.approve.value}
+        approvals = {
+            v["agent_id"]
+            for v in votes
+            if v["decision"] == VoteDecision.approve.value and v.get("counted", True)
+        }
         return len(approvals) >= policy_decision.votes_required
 
     def is_blocked(self, votes: list[dict[str, Any]]) -> bool:
-        rejects = {v["agent_id"] for v in votes if v["decision"] == VoteDecision.reject.value}
+        rejects = {
+            v["agent_id"]
+            for v in votes
+            if v["decision"] == VoteDecision.reject.value and v.get("counted", True)
+        }
         return len(rejects) >= 2

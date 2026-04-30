@@ -86,6 +86,11 @@ class VoteDecision(str, Enum):
     reject = "reject"
 
 
+class VoterKind(str, Enum):
+    agent = "agent"
+    llm = "llm"
+
+
 class ApprovalDecision(str, Enum):
     granted = "granted"
     denied = "denied"
@@ -323,6 +328,9 @@ class VoteCreate(BaseModel):
     agent_id: str | None = Field(default=None, max_length=128)
     decision: VoteDecision
     reason: str = Field(default="", max_length=2000)
+    llm_model: str | None = Field(default=None, min_length=1, max_length=128)
+    system_prompt_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    observed_event_cursor: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class Vote(BaseModel):
@@ -331,6 +339,12 @@ class Vote(BaseModel):
     agent_id: str
     decision: VoteDecision
     reason: str = ""
+    voter_kind: VoterKind = VoterKind.agent
+    llm_model: str | None = None
+    system_prompt_sha256: str | None = None
+    observed_event_cursor: str | None = None
+    counted: bool = True
+    counted_reason: str = "non_llm_vote"
     created_at: datetime = Field(default_factory=utc_now)
 
 
