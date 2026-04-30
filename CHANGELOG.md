@@ -11,6 +11,14 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [v0.6.4] — 2026-04-30
+
+### Added
+
 - `scripts/prove_review_llm_vote.sh`, a repeatable review-voter proof
   helper that validates a counted `review-llm-agent` LLM vote on an
   eligible low-risk GitHub proposal and writes JSON/Markdown proof

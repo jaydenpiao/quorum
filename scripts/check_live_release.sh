@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RELEASE_TAG="${QUORUM_RELEASE_TAG:-v0.6.3}"
+RELEASE_TAG="${QUORUM_RELEASE_TAG:-v0.6.4}"
 STAGING_URL="${QUORUM_STAGING_URL:-https://quorum-staging.fly.dev}"
 PROD_URL="${QUORUM_PROD_URL:-https://quorum-prod.fly.dev}"
 GITHUB_REPO="${QUORUM_GITHUB_REPO:-jaydenpiao/quorum}"

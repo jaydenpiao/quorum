@@ -2,7 +2,7 @@
 
 ## Right now: single-threaded main-branch development
 
-Through the v0.6.3 release-prep line the project has stayed
+Through the v0.6.4 release-prep line the project has stayed
 single-threaded on the main working branch. The POC vertical slice is
 stable; Phases 2–5 are complete.
 
@@ -18,7 +18,7 @@ That means:
 - no long-lived parallel branches
 - one PR at a time; wait for all 5 required CI checks green before
   merging; pause for operator confirmation before each merge unless a
-  durable instruction overrides
+  durable instruction or scoped merge-autonomy grant overrides
 
 ## Why
 
