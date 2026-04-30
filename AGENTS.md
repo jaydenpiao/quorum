@@ -71,6 +71,9 @@ Until Phase 6's gate (≥2 weeks of event-schema stability) is met, stay
 branches, no speculative abstractions for future concurrency. One PR
 at a time; wait for CI green before merging; pause for the operator's
 confirmation before each merge unless explicitly told otherwise.
+If the operator explicitly grants merge autonomy for a scoped series,
+merge green PRs in that series without re-pausing; do not extend that
+permission to unrelated work.
 
 When Phase 6 opens, switch to the worktree model in
 `docs/PARALLEL_DEVELOPMENT.md`.
