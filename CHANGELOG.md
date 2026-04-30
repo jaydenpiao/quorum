@@ -11,7 +11,16 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
-- _Nothing yet._
+- Stable `docs/releases/v0.6.3-proof.md` archive for the signed tag,
+  SBOM, image-push evidence, deploy proposal/execution IDs,
+  review-voter vote evidence, health checks, proof capture, browser
+  acceptance, live monitor result, and final event-chain hash.
+
+### Fixed
+
+- Made `scripts/capture_operator_proof.sh` compatible with macOS
+  Python 3.9 by using `datetime.timezone.utc` instead of
+  `datetime.UTC`.
 
 ## [v0.6.3] — 2026-04-30
 
