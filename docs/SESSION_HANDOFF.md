@@ -53,7 +53,7 @@ authoritative state of the project.
   first-party `quorum` package is not audited as an unpublished PyPI
   dependency.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count after this review-voter adapter PR merges:** 120. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, #105 v0.6.0-alpha.1 release prep, #107 console execution-actionability hardening, #108 audit proof capture/read models, #109 image-push evidence retry hardening, #110 v0.6.1 hardening handoff refresh, #111 v0.6.1 release prep, #112 v0.6.1 release-proof handoff, #113 live release monitor, #114 v0.6.1 proof archive, #115 LLM voter design gate, #116 v0.6.2 release prep, #117 v0.6.2 proof archive, #118 agent capability gates, #119 LLM vote policy caps, and #120 review-voter adapter support.
+- **Merged PR count after this LLM vote console visibility PR merges:** 121. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, #105 v0.6.0-alpha.1 release prep, #107 console execution-actionability hardening, #108 audit proof capture/read models, #109 image-push evidence retry hardening, #110 v0.6.1 hardening handoff refresh, #111 v0.6.1 release prep, #112 v0.6.1 release-proof handoff, #113 live release monitor, #114 v0.6.1 proof archive, #115 LLM voter design gate, #116 v0.6.2 release prep, #117 v0.6.2 proof archive, #118 agent capability gates, #119 LLM vote policy caps, #120 review-voter adapter support, and #121 LLM vote console visibility.
 - **Current operator alpha-polish state:** local bootstrap and
   validation now run on the same locked `uv`-managed Python path CI
   uses. `make install` recreates `.venv` on managed CPython 3.12 and
@@ -95,18 +95,29 @@ authoritative state of the project.
   votes as `counted=false`. Adapter-side `cast_vote` is wired through
   the separate `review-llm-agent` prompt/config; the tick loop injects
   `llm_model`, `system_prompt_sha256`, and `observed_event_cursor`
-  from runtime context before posting to `/api/v1/votes`. Console LLM
-  vote rendering is still a follow-up PR; no `fly.deploy` LLM voting
+  from runtime context before posting to `/api/v1/votes`. `/console`
+  now renders LLM vote source, model, prompt hash, observed cursor,
+  counted/capped state, and counted reason. No `fly.deploy` LLM voting
   exists.
+- **Current LLM vote console-polish verification:** on
+  `fix/llm-vote-console-visibility`, targeted
+  `tests/test_console.py tests/test_llm_voter_design.py` passed
+  (`11 passed`), `make validate` passed (`477 passed, 13 deselected`,
+  coverage `81.45%`), `make typecheck` passed (`50 source files`), and
+  `git diff --check` was clean before commit. Local browser smoke on
+  `http://127.0.0.1:8080/console#proposals` showed the release badge,
+  actionable metric, event-chain verification surface, `chainStatus`
+  verified, and zero browser console errors.
 - **Current console/demo state:** `/console` now renders first-class
   intent and finding panels, rollback state beside execution and health
-  state, an operator **Execute proposal** action, and a **Verify event
-  chain** control backed by `GET /api/v1/events/verify`. The execute
-  action is disabled unless the selected proposal is currently
-  executable: status `approved`, policy allowed, quorum met, required
-  human approval granted, and not a same-control-plane `fly.deploy`.
-  The overview separates actionable proposals from stale historical
-  pending proposals so old audit rows do not look like broken work.
+  state, counted/capped LLM vote audit cards, an operator **Execute
+  proposal** action, and a **Verify event chain** control backed by
+  `GET /api/v1/events/verify`. The execute action is disabled unless
+  the selected proposal is currently executable: status `approved`,
+  policy allowed, counted quorum met, required human approval granted,
+  and not a same-control-plane `fly.deploy`. The overview separates
+  actionable proposals from stale historical pending proposals so old
+  audit rows do not look like broken work.
   Cold browser verification during v0.6.1 release-prep on
   `http://127.0.0.1:8081/console#proposals` showed
   `releaseBadge=v0.6.1`, `chainStatus=verified`, actionable proposal
@@ -897,15 +908,15 @@ harness under `.claude/`. Codex and other agents can ignore them.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — LLM voter console/docs polish
+### A — v0.6.x release prep for the completed LLM voter series
 
-- Render LLM vote source, model, prompt hash, counted/capped state, and
-  counted reason in `/console`.
-- Keep executable-state copy honest: capped or ineligible LLM votes
-  must not make protected/high-risk or `fly.deploy` proposals look
-  actionable.
-- Refresh operator docs after console support lands so the series is
-  understandable end-to-end.
+- After #119, #120, and #121 are merged, prepare the next small release
+  that packages API vote caps, the `review-llm-agent` adapter path, and
+  console LLM vote visibility.
+- Validate the release as a control-plane hardening release only. Do
+  not expand to `fly.deploy` LLM voting, new event types, new mutation
+  routes, proposal schema changes, or Phase 6 work in the release-prep
+  PR.
 
 ### B — Phase 6 gate check
 

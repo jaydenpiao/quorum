@@ -74,7 +74,8 @@ observe -> find -> propose -> policy-check -> vote -> approve -> execute -> veri
    strings.
 
 8. **Operator Console**
-   - shows intents, proposals, votes, execution state, and log events
+   - shows intents, proposals, counted/capped vote state, execution
+     state, and log events
 
 9. **Observability**
    - `/metrics` endpoint exposes Prometheus-format histograms and counters via
