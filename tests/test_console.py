@@ -78,6 +78,39 @@ def test_app_js_contains_execute_actionability_gates(client: TestClient) -> None
     assert "actionable proposals" in response.text
 
 
+def test_app_js_supports_proposal_deep_links(client: TestClient) -> None:
+    response = client.get("/console-static/app.js")
+
+    assert response.status_code == 200
+    assert "function proposalIdFromLocation" in response.text
+    assert "new URLSearchParams" in response.text
+    assert "params.get('proposal_id')" in response.text
+    assert "proposalIdFromLocation()" in response.text
+    assert "proposalById(state, linkedProposalId)" in response.text
+
+
+def test_app_js_updates_proposal_deep_link_without_reload(client: TestClient) -> None:
+    response = client.get("/console-static/app.js")
+
+    assert response.status_code == 200
+    assert "function updateSelectedProposalUrl" in response.text
+    assert "window.history.replaceState" in response.text
+    assert "url.searchParams.set('proposal_id', proposalId)" in response.text
+    assert "window.location.hash" in response.text
+    assert "updateSelectedProposalUrl(id)" in response.text
+
+
+def test_console_route_allows_proposal_query_with_existing_anchor(client: TestClient) -> None:
+    response = client.get("/console?proposal_id=proposal_36ab7d5601e3")
+
+    assert response.status_code == 200
+    assert "/console-static/app.js" in response.text
+    assert 'href="#proposals"' in response.text
+    assert 'href="#overview"' in response.text
+    assert 'href="#timeline"' in response.text
+    assert 'href="#actions"' in response.text
+
+
 def test_console_shell_exposes_actionable_metric(client: TestClient) -> None:
     response = client.get("/console")
 
@@ -93,6 +126,8 @@ def test_app_js_counts_only_counted_votes_for_quorum(client: TestClient) -> None
     assert "function voteCountsForQuorum" in response.text
     assert "vote.counted !== false" in response.text
     assert "vote.decision === 'approve' && voteCountsForQuorum(vote)" in response.text
+    assert "var approvedVotes = approvalCount(votes)" in response.text
+    assert "approvedVotes < requiredVotes" in response.text
 
 
 def test_app_js_renders_llm_vote_audit_metadata(client: TestClient) -> None:
@@ -107,6 +142,17 @@ def test_app_js_renders_llm_vote_audit_metadata(client: TestClient) -> None:
     assert "counted_reason" in response.text
     assert "counted LLM vote" in response.text
     assert "capped/non-counting LLM vote" in response.text
+
+
+def test_app_js_renders_selected_proposal_rollback_and_actionability(client: TestClient) -> None:
+    response = client.get("/console-static/app.js")
+
+    assert response.status_code == 200
+    assert "function renderInspector" in response.text
+    assert "proposalById(state, _selectedProposalId)" in response.text
+    assert "Rollback details" in response.text
+    assert "renderRollback(rollback)" in response.text
+    assert "updateExecuteActionability(actionability)" in response.text
 
 
 def test_console_stylesheet_marks_llm_and_uncounted_votes(client: TestClient) -> None:

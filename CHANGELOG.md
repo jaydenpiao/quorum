@@ -22,6 +22,9 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- Added `/console?proposal_id=proposal_...#proposals` deep-link
+  support and URL updates on row selection so browser proof capture can
+  open directly to a proposal inspector.
 - Made `scripts/capture_operator_proof.sh` compatible with macOS
   Python 3.9 by using `datetime.timezone.utc` instead of
   `datetime.UTC`.
