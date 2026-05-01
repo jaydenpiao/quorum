@@ -162,6 +162,9 @@ PY
 
 check_latest_workflow "ci.yml" "ci"
 check_latest_workflow "security.yml" "security"
+# The Quorum evidence notifier inside image-push is best-effort; this
+# monitor only requires the image supply workflow itself to be green.
+check_latest_workflow "image-push.yml" "image-push"
 
 printf "live-release-ok: %s staging=%s prod=%s repo=%s main=%s\n" \
   "$RELEASE_TAG" "$STAGING_URL" "$PROD_URL" "$GITHUB_REPO" "$MAIN_BRANCH"

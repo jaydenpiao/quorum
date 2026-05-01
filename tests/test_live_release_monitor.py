@@ -35,6 +35,8 @@ def test_live_release_monitor_checks_github_release_and_main_status() -> None:
     assert "gh run list" in text
     assert "ci.yml" in text
     assert "security.yml" in text
+    assert "image-push.yml" in text
+    assert "image supply workflow itself" in text
     assert "completed" in text
     assert "success" in text
 
