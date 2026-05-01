@@ -302,6 +302,9 @@ Optional selectors:
   `https://quorum-staging.fly.dev`.
 - `QUORUM_PROOF_PROD_URL=<url>` overrides prod; default is
   `https://quorum-prod.fly.dev`.
+- `QUORUM_PROOF_GITHUB_REPO=<owner/repo>` controls the release and
+  SBOM links written to the proof artifacts; default is
+  `jaydenpiao/quorum`.
 
 The capture helper fails closed if staging and prod `display_version`
 drift, `QUORUM_RELEASE_TAG` does not match, event-chain verification is
@@ -310,6 +313,11 @@ proposal was not authored by `deploy-llm-agent`, the proposal is not an
 executed `fly.deploy` targeting `quorum-prod`, or the terminal
 execution is missing passing `prod-readiness` and `prod-api-health`
 checks.
+
+The generated `proof.json` and `proof.md` include the release URL,
+expected SBOM asset URL, selected proposal/execution IDs, final
+event-chain count/hash, and a staging console deep link such as
+`/console?proposal_id=proposal_...#proposals`.
 
 ## Review-voter acceptance proof
 

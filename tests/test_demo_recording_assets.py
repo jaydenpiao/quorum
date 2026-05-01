@@ -48,6 +48,30 @@ def test_operator_proof_capture_script_is_shell_valid() -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_operator_proof_capture_embedded_python_compiles() -> None:
+    script = ROOT / "scripts" / "capture_operator_proof.sh"
+    text = script.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    blocks: list[tuple[int, str]] = []
+    index = 0
+    while index < len(lines):
+        if "<<'PY'" not in lines[index]:
+            index += 1
+            continue
+        start_line = index + 2
+        index += 1
+        block: list[str] = []
+        while index < len(lines) and lines[index] != "PY":
+            block.append(lines[index])
+            index += 1
+        blocks.append((start_line, "\n".join(block) + "\n"))
+        index += 1
+
+    assert blocks, "expected at least one embedded Python heredoc"
+    for start_line, source in blocks:
+        compile(source, f"{script}:{start_line}", "exec")
+
+
 def test_github_fixture_demo_script_drives_real_quorum_flow() -> None:
     text = (ROOT / "scripts" / "demo_github_fixture_flow.sh").read_text(encoding="utf-8")
 
@@ -98,6 +122,7 @@ def test_operator_proof_capture_script_fails_closed_on_required_gates() -> None:
     assert "QUORUM_PROOF_PROD_URL" in text
     assert "QUORUM_PROOF_PROPOSAL_ID" in text
     assert "QUORUM_RELEASE_TAG" in text
+    assert "QUORUM_PROOF_GITHUB_REPO" in text
     assert "QUORUM_PROOF_OUTPUT_DIR" in text
     assert "/api/v1/events/verify" in text
     assert "/readiness" in text
@@ -111,6 +136,12 @@ def test_operator_proof_capture_script_fails_closed_on_required_gates() -> None:
     assert "executed" in text
     assert "execution_succeeded" in text
     assert "health_checks" in text
+    assert "/console?proposal_id=" in text
+    assert "console_url" in text
+    assert "release_url" in text
+    assert "sbom_asset_name" in text
+    assert "sbom_asset_url" in text
+    assert "event_chain_last_hash" in text
     assert "proof.json" in text
     assert "proof.md" in text
 
