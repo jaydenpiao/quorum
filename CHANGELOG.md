@@ -20,6 +20,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- Live release monitoring now also fails closed when the latest
+  `image-push.yml` run on `main` is not completed successfully, while
+  keeping optional Quorum evidence notification best-effort.
+
 ## [v0.6.4] — 2026-04-30
 
 ### Added
