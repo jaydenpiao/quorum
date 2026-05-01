@@ -54,3 +54,6 @@ area".
 - code changes should preserve LLM readability
 - DCO sign-off on every commit (`git commit -s`)
 - all 5 required CI checks must pass before merging to `main`
+- AI agents have durable operator-granted autonomy to merge validated
+  green PRs; never use that autonomy to skip hooks, bypass CI, force
+  push, push directly to `main`, or ignore safety/confirmation policy

@@ -18,6 +18,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- Documented the durable 2026-05-01 operator merge-autonomy grant for
+  validated green PRs while preserving branch protection, local
+  validation, hook, force-push, and safety-policy constraints.
+
 ### Fixed
 
 - Live release monitoring now also fails closed when the latest
