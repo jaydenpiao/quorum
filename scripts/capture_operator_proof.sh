@@ -5,6 +5,7 @@ API="${QUORUM_PROOF_API:-https://quorum-staging.fly.dev}"
 PROD_URL="${QUORUM_PROOF_PROD_URL:-https://quorum-prod.fly.dev}"
 PROPOSAL_ID="${QUORUM_PROOF_PROPOSAL_ID:-}"
 RELEASE_TAG="${QUORUM_RELEASE_TAG:-}"
+GITHUB_REPO="${QUORUM_PROOF_GITHUB_REPO:-jaydenpiao/quorum}"
 
 if [[ -n "${QUORUM_PROOF_OUTPUT_DIR:-}" ]]; then
   OUTPUT_DIR="$QUORUM_PROOF_OUTPUT_DIR"
@@ -63,7 +64,8 @@ python3 - \
   "$API" \
   "$PROD_URL" \
   "$PROPOSAL_ID" \
-  "$RELEASE_TAG" <<'PY'
+  "$RELEASE_TAG" \
+  "$GITHUB_REPO" <<'PY'
 from __future__ import annotations
 
 import json
@@ -86,6 +88,7 @@ from typing import Any
     prod_url,
     requested_proposal_id,
     release_tag,
+    github_repo,
 ) = sys.argv[1:]
 
 
@@ -182,6 +185,10 @@ def find_execution_event(events: list[dict[str, Any]], execution_id: str) -> dic
     fail(f"execution_succeeded event for {execution_id} was not found")
 
 
+def join_url(base: str, path: str) -> str:
+    return f"{base.rstrip('/')}/{path.lstrip('/')}"
+
+
 staging_root = load_json(staging_root_path)
 prod_root = load_json(prod_root_path)
 verify = load_json(verify_path)
@@ -215,14 +222,31 @@ health_checks = require_execution_health(execution)
 execution_event = find_execution_event(list(events), str(execution["id"]))
 
 captured_at = datetime.now(tz=timezone.utc).isoformat().replace("+00:00", "Z")
+resolved_release_tag = release_tag or staging_version
+release_url = f"https://github.com/{github_repo}/releases/tag/{resolved_release_tag}"
+sbom_asset_name = f"quorum-{resolved_release_tag}.spdx.json"
+sbom_asset_url = (
+    f"https://github.com/{github_repo}/releases/download/"
+    f"{resolved_release_tag}/{sbom_asset_name}"
+)
+console_url = join_url(api_url, f"/console?proposal_id={proposal['id']}#proposals")
 proof = {
     "captured_at": captured_at,
     "api": api_url,
     "prod_url": prod_url,
-    "release_tag": release_tag or staging_version,
+    "release_tag": resolved_release_tag,
+    "github_repo": github_repo,
+    "release_url": release_url,
+    "sbom_asset_name": sbom_asset_name,
+    "sbom_asset_url": sbom_asset_url,
+    "console_url": console_url,
+    "proposal_id": proposal["id"],
+    "execution_id": execution["id"],
     "staging_root": staging_root,
     "prod_root": prod_root,
     "staging_event_chain": verify,
+    "event_chain_event_count": verify.get("event_count"),
+    "event_chain_last_hash": verify.get("last_hash"),
     "prod_readiness": prod_readiness,
     "prod_health": prod_health,
     "proposal": proposal,
@@ -238,8 +262,12 @@ summary = [
     "",
     f"- Captured: `{captured_at}`",
     f"- Release: `{proof['release_tag']}`",
+    f"- Release URL: {release_url}",
+    f"- Expected SBOM asset: `{sbom_asset_name}`",
+    f"- Expected SBOM URL: {sbom_asset_url}",
     f"- Staging API: `{api_url}`",
     f"- Prod URL: `{prod_url}`",
+    f"- Console deep link: {console_url}",
     f"- Event chain: `ok=true`, count `{verify.get('event_count')}`, last hash `{verify.get('last_hash')}`",
     f"- Proposal: `{proposal['id']}` by `{proposal['agent_id']}` targeting `{proposal['target']}`",
     f"- Execution: `{execution['id']}` status `{execution['status']}`",

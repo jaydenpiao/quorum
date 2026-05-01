@@ -21,6 +21,9 @@ artifact against that tag (see `.github/workflows/release.yml`).
 - Documented the durable 2026-05-01 operator merge-autonomy grant for
   validated green PRs while preserving branch protection, local
   validation, hook, force-push, and safety-policy constraints.
+- Operator proof capture artifacts now include deterministic release,
+  SBOM, console deep-link, proposal/execution, and event-chain summary
+  fields for faster audit review.
 
 ### Fixed
 
