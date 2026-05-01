@@ -59,6 +59,13 @@ authoritative state of the project.
   This grant does not permit skipped hooks, direct pushes to `main`,
   force-pushes, failing-check merges, or bypassing safety/confirmation
   policy.
+- **Post-v0.6.4 hardening:** PR #129 extended the live release monitor
+  to require latest `image-push.yml` success on `main`. PR #130 made
+  merge autonomy durable in the canonical agent docs. PR #131 enriched
+  `scripts/capture_operator_proof.sh` artifacts with release, SBOM,
+  console deep-link, proposal/execution, and event-chain summary
+  fields. The Phase 6 gate criteria now live in
+  `docs/design/phase-6-gate-checklist.md`.
 - **v0.6 release content:** PR #105 packaged the post-Phase-5
   alpha-polish and proof work: managed local/CI/release `uv`
   bootstrap, canonical runtime/package versioning, full operator
@@ -974,7 +981,9 @@ harness under `.claude/`. Codex and other agents can ignore them.
 ### A — Phase 6 gate check
 
 - Phase 6 remains blocked until the documented event-schema stability
-  window has elapsed. If the gate opens, switch to the worktree model in
+  window has elapsed. Use
+  `docs/design/phase-6-gate-checklist.md` before opening Phase 6. If
+  the gate opens, switch to the worktree model in
   `docs/PARALLEL_DEVELOPMENT.md`; otherwise keep one small PR at a
   time on `main`.
 

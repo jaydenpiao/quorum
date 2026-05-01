@@ -11,6 +11,9 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- Phase 6 gate checklist documenting the earliest open date, required
+  stability/CI/live-proof evidence, reset/no-go triggers, and fallback
+  rules while the gate remains closed.
 - Stable `docs/releases/v0.6.4-proof.md` archive for the signed tag,
   SBOM, image-push evidence, deploy proposal/execution IDs,
   review-voter proof helper result, health checks, proof capture,
