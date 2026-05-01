@@ -10,52 +10,46 @@ authoritative state of the project.
 
 ## Current state (as of the handoff)
 
-- **Release candidate:** `v0.6.5` — proof-reliability hardening
-  release. Package/runtime version is `0.6.5`; public display/tag
-  version is `v0.6.5`. It packages the post-v0.6.4 live-monitor
-  image-push status check, durable merge-autonomy docs, proof-capture
-  operator links, and the Phase 6 gate checklist. The last completed
-  archived live release proof is still
-  [`v0.6.4`](https://github.com/jaydenpiao/quorum/releases/tag/v0.6.4)
-  until the `v0.6.5` tag, deploy proof, and proof archive are complete.
-  The v0.6.4 release workflow run
-  [`25158401213`](https://github.com/jaydenpiao/quorum/actions/runs/25158401213)
+- **Last tagged release:** [`v0.6.5`](https://github.com/jaydenpiao/quorum/releases/tag/v0.6.5) —
+  proof-reliability hardening release. Package/runtime version is
+  `0.6.5`; public display/tag version is `v0.6.5`. It packages the
+  post-v0.6.4 live-monitor image-push status check, durable
+  merge-autonomy docs, proof-capture operator links, the Phase 6 gate
+  checklist, and the versioned release-prep metadata. Release workflow
+  run
+  [`25201150920`](https://github.com/jaydenpiao/quorum/actions/runs/25201150920)
   succeeded on the signed tag and published SBOM asset
-  [`quorum-v0.6.4.spdx.json`](https://github.com/jaydenpiao/quorum/releases/download/v0.6.4/quorum-v0.6.4.spdx.json).
+  [`quorum-v0.6.5.spdx.json`](https://github.com/jaydenpiao/quorum/releases/download/v0.6.5/quorum-v0.6.5.spdx.json)
+  with digest
+  `sha256:e364c8d7001b8f8523f50524e5fa7c03407b02cee53eef4e955ef440760ece28`.
   The signed tag object is
-  `2d093dbb539a4e7a3076330f0cecba99b3b3eca5` and points at merge
-  commit `ca7e38364fc02ea0e2c93384dc35c0e7f09b1005`.
+  `8fc02870b4d9441ad4e9ca967dd492bc960bdf5c` and points at merge
+  commit `2e53e243784fc3b2bfa1c847bac62e516b6e4c3e`.
 - **Current deployed release proof:** staging and prod both report
-  `display_version=v0.6.4`. The live proof captured
-  `/tmp/quorum-proof.20260430T094222Z/proof.json`, selected
-  `proposal_cd52ff99d4f7` / `exec_4590bf26d0a9`, verified prod
+  `display_version=v0.6.5`. The live proof captured
+  `/tmp/quorum-proof.20260501T034718Z/proof.json`, selected
+  `proposal_9d44bceef7c2` / `exec_3b7609dee96e`, verified prod
   `/readiness` and `/api/v1/health` with `ok=true`, and verified the
-  staging event chain with `event_count=207` and last hash
-  `365c04926d887735d8d2fbf9dbf44804b055c29f53d0e4d270937df7c522413e`.
-  The proof used manual image-push run `25158475015`, image-push
-  evidence `evt_0b0a4e245e0e` / `imgpush_0a8e8981c4bf`, external
-  staging verification `finding_31dfcbc957f3`, and prod health checks
-  `hcr_c220bbc8192b` / `hcr_e3789dabc541`. The review-voter helper
-  also passed read-only existing-proposal mode on deployed `v0.6.4`
-  using `proposal_36ab7d5601e3` and existing counted LLM vote
-  `vote_3bd1a8c7a780`. The durable release/deploy evidence archive is
-  `docs/releases/v0.6.4-proof.md`; previous proof archives remain at
+  staging event chain with `event_count=226` and last hash
+  `96cbfc8d733b95000e79637ad1ae07d2388c8cec40ec8aa9b6ee9c85c1212588`.
+  The proof used manual image-push run `25201223624`, image-push
+  evidence `evt_709fdc3d1da3` / `imgpush_9bc84b96e81a`, external
+  staging verification `finding_a14dfde56a7a`, and prod health checks
+  `hcr_fa6dbe6d7666` / `hcr_90168b761585`. The durable release/deploy
+  evidence archive is `docs/releases/v0.6.5-proof.md`; previous proof
+  archives remain at `docs/releases/v0.6.4-proof.md`,
   `docs/releases/v0.6.3-proof.md`, `docs/releases/v0.6.2-proof.md`,
   and `docs/releases/v0.6.1-proof.md`.
-- **Current v0.6.4 hardening state:** Phase 6 remains blocked until
+- **Current v0.6.5 hardening state:** Phase 6 remains blocked until
   at least 2026-05-14 if the event schema and event payloads stay
-  stable after the v0.6.3 LLM vote metadata work. The v0.6.4
-  operator-proof series keeps that boundary: no new event types,
+  stable after the v0.6.3 LLM vote metadata work. The v0.6.5
+  proof-reliability release keeps that boundary: no new event types,
   mutation routes, proposal fields, projection tables, actuators, or
-  `fly.deploy` LLM voting. PR #124 added
-  `scripts/prove_review_llm_vote.sh`, which captures repeatable
-  review-voter proof artifacts for an existing eligible proposal or an
-  explicit low-risk `github.comment_issue` fixture. PR #125 added
-  `/console?proposal_id=proposal_...#proposals` support so browser
-  acceptance can deep-link directly to the proposal inspector and keep
-  row selection reflected in the URL. PR #126 documented the helper
-  and scoped merge-autonomy rule. PR #127 prepared `v0.6.4`, and the
-  signed release plus live staging-controls-prod proof are complete.
+  `fly.deploy` LLM voting. It includes the v0.6.4 review-voter helper
+  and console deep links plus the post-v0.6.4 monitor/proof
+  reliability work: live monitor image-push status checks, durable
+  merge-autonomy docs, proof-capture operator links, and the Phase 6
+  gate checklist.
 - **Merge autonomy:** on 2026-05-01 the operator granted durable
   repo-wide merge autonomy for AI agents. Agents may merge validated
   green PRs without pausing for per-PR confirmation, including future
@@ -63,20 +57,20 @@ authoritative state of the project.
   This grant does not permit skipped hooks, direct pushes to `main`,
   force-pushes, failing-check merges, or bypassing safety/confirmation
   policy.
-- **Post-v0.6.4 hardening:** PR #129 extended the live release monitor
-  to require latest `image-push.yml` success on `main`. PR #130 made
-  merge autonomy durable in the canonical agent docs. PR #131 enriched
-  `scripts/capture_operator_proof.sh` artifacts with release, SBOM,
-  console deep-link, proposal/execution, and event-chain summary
-  fields. The Phase 6 gate criteria now live in
-  `docs/design/phase-6-gate-checklist.md`.
+- **Post-v0.6.5 status:** the release-prep PR passed local targeted
+  version/live-monitor tests, `make validate`, `make typecheck`,
+  `uv lock --check`, and `git diff --check`, then all five required
+  GitHub checks. Post-merge `main` `ci`, `security`, and
+  `image-push` were green before the signed tag. The tag/release/SBOM,
+  staging-controls-prod deploy proof, proof capture, live monitor, and
+  staging console smoke are complete.
 - **v0.6 release content:** PR #105 packaged the post-Phase-5
   alpha-polish and proof work: managed local/CI/release `uv`
   bootstrap, canonical runtime/package versioning, full operator
   console review-to-execute controls, the active GitHub fixture demo,
   the LLM-authored prod deploy proof helper, and the pinned gitleaks
   CLI security check.
-- **Test suite:** 496 passing + 13 integration-gated (excluded from CI
+- **Test suite:** 498 passing + 13 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres, Fly.io, or GitHub, with additional env gates for destructive
   tests).
@@ -92,7 +86,7 @@ authoritative state of the project.
   first-party `quorum` package is not audited as an unpublished PyPI
   dependency.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count after the Phase 6 gate-checklist PR merges:** 132. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, #105 v0.6.0-alpha.1 release prep, #107 console execution-actionability hardening, #108 audit proof capture/read models, #109 image-push evidence retry hardening, #110 v0.6.1 hardening handoff refresh, #111 v0.6.1 release prep, #112 v0.6.1 release-proof handoff, #113 live release monitor, #114 v0.6.1 proof archive, #115 LLM voter design gate, #116 v0.6.2 release prep, #117 v0.6.2 proof archive, #118 agent capability gates, #119 LLM vote policy caps, #120 review-voter adapter support, #121 LLM vote console visibility, #122 v0.6.3 release prep, #123 v0.6.3 proof archive, #124 review-voter proof helper, #125 console proof deep links, #126 v0.6.4 release-readiness docs refresh, #127 v0.6.4 release prep, #128 v0.6.4 proof archive, #129 live monitor image-push status, #130 durable merge-autonomy docs, #131 operator proof links, and #132 Phase 6 gate checklist.
+- **Merged PR count after the v0.6.5 proof-archive PR merges:** 134. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, #105 v0.6.0-alpha.1 release prep, #107 console execution-actionability hardening, #108 audit proof capture/read models, #109 image-push evidence retry hardening, #110 v0.6.1 hardening handoff refresh, #111 v0.6.1 release prep, #112 v0.6.1 release-proof handoff, #113 live release monitor, #114 v0.6.1 proof archive, #115 LLM voter design gate, #116 v0.6.2 release prep, #117 v0.6.2 proof archive, #118 agent capability gates, #119 LLM vote policy caps, #120 review-voter adapter support, #121 LLM vote console visibility, #122 v0.6.3 release prep, #123 v0.6.3 proof archive, #124 review-voter proof helper, #125 console proof deep links, #126 v0.6.4 release-readiness docs refresh, #127 v0.6.4 release prep, #128 v0.6.4 proof archive, #129 live monitor image-push status, #130 durable merge-autonomy docs, #131 operator proof links, #132 Phase 6 gate checklist, #133 v0.6.5 release prep, and #134 v0.6.5 proof archive.
 - **Current operator alpha-polish state:** local bootstrap and
   validation now run on the same locked `uv`-managed Python path CI
   uses. `make install` recreates `.venv` on managed CPython 3.12 and
@@ -792,7 +786,7 @@ Canonical order — load these before touching code:
 2. **This file** (`docs/SESSION_HANDOFF.md`).
 3. `docs/ROADMAP.md` — phase status with ✅/⏳/⬜/✂️ markers.
 4. `CHANGELOG.md` — every feature since bootstrap; `v0.6.5` is the
-   current proof-reliability hardening release candidate.
+   latest tagged proof-reliability hardening release.
 5. `docs/design/phase-4-github-actuator.md` — reference (done, but the patterns are reusable).
 6. `docs/design/llm-adapter.md` — reference.
 7. `docs/ARCHITECTURE.md` — current system picture including the Actuators section.
@@ -982,14 +976,7 @@ harness under `.claude/`. Codex and other agents can ignore them.
 
 ## Next-session candidates (pick one, by priority)
 
-### A — Finish v0.6.5 release and proof archive
-
-- Merge the `v0.6.5` release-prep PR after all five checks pass, create
-  the signed `v0.6.5` tag, verify the GitHub release and SBOM, run the
-  staging-controls-prod proof path, capture proof, run the live
-  monitor, and archive the durable proof under `docs/releases/`.
-
-### B — Phase 6 gate check
+### A — Phase 6 gate check
 
 - Phase 6 remains blocked until the documented event-schema stability
   window has elapsed. Use
@@ -998,7 +985,7 @@ harness under `.claude/`. Codex and other agents can ignore them.
   `docs/PARALLEL_DEVELOPMENT.md`; otherwise keep one small PR at a
   time on `main`.
 
-### C — Next v0.6.x operator hardening
+### B — Next v0.6.x operator hardening
 
 - If Phase 6 is still gated, keep the next increment small and
   post-release: monitor `v0.6.5` with `scripts/check_live_release.sh`,
