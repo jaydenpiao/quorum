@@ -11,6 +11,14 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [v0.6.5] — 2026-05-01
+
+### Added
+
 - Phase 6 gate checklist documenting the earliest open date, required
   stability/CI/live-proof evidence, reset/no-go triggers, and fallback
   rules while the gate remains closed.
