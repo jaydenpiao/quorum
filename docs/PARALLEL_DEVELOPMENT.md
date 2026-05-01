@@ -63,6 +63,12 @@ Required before merge:
 - schema changes reviewed carefully
 - no breaking change to event log without explicit migration note
 
+Repo-wide operator merge autonomy, granted on 2026-05-01, still applies
+after Phase 6 opens: agents may merge validated green PRs without
+per-PR confirmation, but only through branch protection and normal
+squash-merge. It does not permit skipped hooks, direct pushes to
+`main`, force-pushes, or bypassing safety/confirmation policy.
+
 ### Shared-core rule
 
 Changes to any of these files are **high coordination** changes:

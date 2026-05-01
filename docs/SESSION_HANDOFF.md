@@ -52,11 +52,13 @@ authoritative state of the project.
   row selection reflected in the URL. PR #126 documented the helper
   and scoped merge-autonomy rule. PR #127 prepared `v0.6.4`, and the
   signed release plus live staging-controls-prod proof are complete.
-- **Merge autonomy:** during the v0.6.4 hardening series the operator
-  explicitly approved merging green PRs without pausing after every
-  required-check pass. Keep this scoped to the current accepted series;
-  for unrelated work, follow the default repo rule and pause unless the
-  operator grants autonomy again.
+- **Merge autonomy:** on 2026-05-01 the operator granted durable
+  repo-wide merge autonomy for AI agents. Agents may merge validated
+  green PRs without pausing for per-PR confirmation, including future
+  series, after local validation and all 5 required GitHub checks pass.
+  This grant does not permit skipped hooks, direct pushes to `main`,
+  force-pushes, failing-check merges, or bypassing safety/confirmation
+  policy.
 - **v0.6 release content:** PR #105 packaged the post-Phase-5
   alpha-polish and proof work: managed local/CI/release `uv`
   bootstrap, canonical runtime/package versioning, full operator

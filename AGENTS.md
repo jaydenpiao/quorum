@@ -69,11 +69,17 @@ human-approval entity, SSE event stream, and an image-push CI pipeline.
 Until Phase 6's gate (≥2 weeks of event-schema stability) is met, stay
 **single-threaded on the main working branch** — no long-lived parallel
 branches, no speculative abstractions for future concurrency. One PR
-at a time; wait for CI green before merging; pause for the operator's
-confirmation before each merge unless explicitly told otherwise.
-If the operator explicitly grants merge autonomy for a scoped series,
-merge green PRs in that series without re-pausing; do not extend that
-permission to unrelated work.
+at a time; wait for CI green before merging.
+
+**Durable merge autonomy:** on 2026-05-01 the operator granted AI
+agents repo-wide autonomy to merge validated green PRs without pausing
+for per-PR confirmation. This autonomy is gated by the normal rules:
+local validation for the touched path, all 5 required GitHub checks
+green, one concern per PR, squash-merge into `main`, no skipped hooks,
+no direct pushes to `main`, and no force-pushes. It does not override
+platform safety policy for destructive actions, sensitive-data
+transmission, external account changes, financial actions, or any
+other action that still requires explicit confirmation.
 
 When Phase 6 opens, switch to the worktree model in
 `docs/PARALLEL_DEVELOPMENT.md`.
@@ -195,9 +201,9 @@ or a new `[vX.Y.Z]` section.
   into the feature branch as a regular fast-forward push over a
   rebase + force-push cycle.
 - **PRs**: one concern per PR. Use the PR template. Squash-merge into
-  `main` (linear history is enforced). **Pause for the operator's
-  confirmation before each merge** unless a durable instruction says
-  otherwise.
+  `main` (linear history is enforced). AI agents may merge green PRs
+  autonomously under the durable 2026-05-01 operator grant in §3, but
+  only after required local validation and all 5 GitHub checks pass.
 
 ## 11. Required CI checks on `main`
 
