@@ -10,6 +10,7 @@ PROOF = ROOT / "docs" / "releases" / "v0.6.1-proof.md"
 PROOF_062 = ROOT / "docs" / "releases" / "v0.6.2-proof.md"
 PROOF_063 = ROOT / "docs" / "releases" / "v0.6.3-proof.md"
 PROOF_064 = ROOT / "docs" / "releases" / "v0.6.4-proof.md"
+PROOF_065 = ROOT / "docs" / "releases" / "v0.6.5-proof.md"
 HANDOFF = ROOT / "docs" / "SESSION_HANDOFF.md"
 
 
@@ -128,3 +129,29 @@ def test_session_handoff_points_to_v064_release_proof_archive() -> None:
     text = _text(HANDOFF)
 
     assert "docs/releases/v0.6.4-proof.md" in text
+
+
+def test_v065_release_proof_records_required_evidence() -> None:
+    text = _text(PROOF_065)
+
+    assert "v0.6.5" in text
+    assert "https://github.com/jaydenpiao/quorum/releases/tag/v0.6.5" in text
+    assert "quorum-v0.6.5.spdx.json" in text
+    assert "8fc02870b4d9441ad4e9ca967dd492bc960bdf5c" in text
+    assert "2e53e243784fc3b2bfa1c847bac62e516b6e4c3e" in text
+    assert "25201223624" in text
+    assert "evt_709fdc3d1da3" in text
+    assert "imgpush_9bc84b96e81a" in text
+    assert "sha256:ac40b39b0c27d577ded4bce693da7fd2601483c4624bbade5b4abf770429d27f" in text
+    assert "proposal_9d44bceef7c2" in text
+    assert "exec_3b7609dee96e" in text
+    assert "hcr_fa6dbe6d7666" in text
+    assert "hcr_90168b761585" in text
+    assert "96cbfc8d733b95000e79637ad1ae07d2388c8cec40ec8aa9b6ee9c85c1212588" in text
+    assert "/tmp/quorum-proof.20260501T034718Z/proof.md" in text
+
+
+def test_session_handoff_points_to_v065_release_proof_archive() -> None:
+    text = _text(HANDOFF)
+
+    assert "docs/releases/v0.6.5-proof.md" in text
