@@ -5,7 +5,7 @@ the repo without scanning every file. It is updated as a blocker for
 any PR that moves / renames / adds top-level files or folders
 (see `AGENTS.md` §9).
 
-Last refreshed for the v0.6.4 release-proof archive pass.
+Last refreshed for the post-v0.6.4 Phase 6 gate checklist pass.
 
 ## Top level
 
@@ -199,6 +199,8 @@ Last refreshed for the v0.6.4 release-proof archive pass.
 - `docs/design/llm-voter-role.md` — safety contract and implementation
   status for the LLM voter role series
 - `docs/design/fly-deployment.md` — Phase 5 Fly.io design
+- `docs/design/phase-6-gate-checklist.md` — criteria, no-go/reset
+  triggers, and worktree switch procedure for opening Phase 6
 
 ## Tests — `tests/`
 
@@ -234,6 +236,9 @@ files:
   release monitor script and scheduled/manual workflow
 - `tests/test_release_proof_docs.py` — static checks that archived
   release proof docs retain required evidence IDs
+- `tests/test_phase6_gate_checklist.py` — static checks that the Phase
+  6 gate doc records the stability, CI, live-monitor, no-go, and
+  fallback rules
 - `tests/test_llm_voter_design.py` — static checks for the LLM voter
   role safety contract
 - `tests/test_llm_vote_policy.py` — LLM vote metadata, policy caps,
