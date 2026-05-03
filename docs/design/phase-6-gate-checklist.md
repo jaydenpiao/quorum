@@ -5,8 +5,17 @@ have been stable for at least two weeks. The earliest gate-open date is
 **2026-05-14**, assuming no event-schema or event-payload changes after
 the v0.6.3 LLM vote metadata work.
 
-Use this checklist before switching from single-threaded `main` work to
-the worktree model in `docs/PARALLEL_DEVELOPMENT.md`.
+Run the read-only preflight before switching from single-threaded
+`main` work to the worktree model in
+`docs/PARALLEL_DEVELOPMENT.md`:
+
+```bash
+QUORUM_RELEASE_TAG=v0.6.5 scripts/check_phase6_gate.sh
+```
+
+Before the calendar gate opens it must fail closed with
+`phase6-gate-closed`. On or after the not-before date it must print
+`phase6-gate-ready` before any Phase 6 worktree is created.
 
 ## Open Criteria
 
@@ -21,6 +30,8 @@ the worktree model in `docs/PARALLEL_DEVELOPMENT.md`.
   against staging/prod, including release metadata, SBOM, prod health,
   event-chain verification, and latest `main` CI/security/image-push
   status.
+- `QUORUM_RELEASE_TAG=<latest> scripts/check_phase6_gate.sh` prints
+  `phase6-gate-ready`.
 - Durable release proof exists under `docs/releases/` for the latest
   deployed release, and `docs/SESSION_HANDOFF.md` points to it.
 - No unmerged PR is modifying shared-core files listed in
