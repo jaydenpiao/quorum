@@ -315,9 +315,13 @@ execution is missing passing `prod-readiness` and `prod-api-health`
 checks.
 
 The generated `proof.json` and `proof.md` include the release URL,
-expected SBOM asset URL, selected proposal/execution IDs, final
-event-chain count/hash, and a staging console deep link such as
-`/console?proposal_id=proposal_...#proposals`.
+expected SBOM asset URL and digest, selected proposal/execution IDs,
+final event-chain count/hash, and a staging console deep link such as
+`/console?proposal_id=proposal_...#proposals`. They also include the
+control-plane provenance IDs needed for audit review: proposal event,
+intent/finding/image-push evidence, policy decision, vote, human
+approval, execution-start/execution-success, and health-check event
+IDs.
 
 ## Review-voter acceptance proof
 

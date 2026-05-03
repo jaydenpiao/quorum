@@ -141,6 +141,20 @@ def test_operator_proof_capture_script_fails_closed_on_required_gates() -> None:
     assert "release_url" in text
     assert "sbom_asset_name" in text
     assert "sbom_asset_url" in text
+    assert "sbom_asset_digest" in text
+    assert "release_metadata" in text
+    assert "api.github.com/repos" in text
+    assert "proposal_event_id" in text
+    assert "intent_event_id" in text
+    assert "finding_event_ids" in text
+    assert "image_push_event_ids" in text
+    assert "policy_decision_event_id" in text
+    assert "vote_event_ids" in text
+    assert "human_approval_event_ids" in text
+    assert "execution_started_event_id" in text
+    assert "execution_succeeded_event_id" in text
+    assert "health_check_event_ids" in text
+    assert "provenance" in text
     assert "event_chain_last_hash" in text
     assert "proof.json" in text
     assert "proof.md" in text

@@ -73,6 +73,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 (
     staging_root_path,
@@ -185,6 +188,88 @@ def find_execution_event(events: list[dict[str, Any]], execution_id: str) -> dic
     fail(f"execution_succeeded event for {execution_id} was not found")
 
 
+def find_required_event(
+    events: list[dict[str, Any]],
+    event_type: str,
+    label: str,
+    predicate: object,
+) -> dict[str, Any]:
+    if not callable(predicate):
+        fail(f"internal error: predicate for {label} is not callable")
+    for event in reversed(events):
+        if event.get("event_type") != event_type:
+            continue
+        payload = event.get("payload", {})
+        if isinstance(payload, dict) and predicate(payload):
+            return event
+    fail(f"{label} event was not found")
+
+
+def find_matching_events(
+    events: list[dict[str, Any]],
+    event_type: str,
+    predicate: object,
+) -> list[dict[str, Any]]:
+    if not callable(predicate):
+        fail(f"internal error: predicate for {event_type} is not callable")
+    matches: list[dict[str, Any]] = []
+    for event in events:
+        if event.get("event_type") != event_type:
+            continue
+        payload = event.get("payload", {})
+        if isinstance(payload, dict) and predicate(payload):
+            matches.append(event)
+    return matches
+
+
+def event_payload_id(event: dict[str, Any]) -> str:
+    payload = event.get("payload", {})
+    if isinstance(payload, dict) and isinstance(payload.get("id"), str):
+        return payload["id"]
+    fail(f"event {event.get('id')} is missing payload.id")
+
+
+def release_metadata(github_repo: str, tag: str, expected_asset_name: str) -> dict[str, Any]:
+    url = f"https://api.github.com/repos/{github_repo}/releases/tags/{quote(tag, safe='')}"
+    request = Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "quorum-operator-proof-capture",
+        },
+    )
+    try:
+        with urlopen(request, timeout=30) as response:
+            release = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        fail(f"GitHub release metadata fetch failed for {tag}: HTTP {exc.code}")
+    except URLError as exc:
+        fail(f"GitHub release metadata fetch failed for {tag}: {exc.reason}")
+
+    if not isinstance(release, dict):
+        fail(f"GitHub release metadata for {tag} did not return an object")
+    assets = release.get("assets", [])
+    if not isinstance(assets, list):
+        fail(f"GitHub release metadata for {tag} has invalid assets")
+    asset = next(
+        (item for item in assets if isinstance(item, dict) and item.get("name") == expected_asset_name),
+        None,
+    )
+    if asset is None:
+        fail(f"GitHub release metadata is missing SBOM asset {expected_asset_name!r}")
+    digest = asset.get("digest")
+    if not isinstance(digest, str) or not digest.startswith("sha256:"):
+        fail(f"SBOM asset {expected_asset_name!r} is missing a sha256 digest")
+    return {
+        "tag_name": release.get("tag_name"),
+        "html_url": release.get("html_url"),
+        "published_at": release.get("published_at"),
+        "sbom_asset_name": expected_asset_name,
+        "sbom_asset_url": asset.get("browser_download_url"),
+        "sbom_asset_digest": digest,
+    }
+
+
 def join_url(base: str, path: str) -> str:
     return f"{base.rstrip('/')}/{path.lstrip('/')}"
 
@@ -229,7 +314,107 @@ sbom_asset_url = (
     f"https://github.com/{github_repo}/releases/download/"
     f"{resolved_release_tag}/{sbom_asset_name}"
 )
+release = release_metadata(github_repo, resolved_release_tag, sbom_asset_name)
+sbom_asset_digest = release["sbom_asset_digest"]
 console_url = join_url(api_url, f"/console?proposal_id={proposal['id']}#proposals")
+proposal_event = find_required_event(
+    list(events),
+    "proposal_created",
+    f"proposal_created for {proposal['id']}",
+    lambda payload: payload.get("id") == proposal["id"],
+)
+intent_id = proposal.get("intent_id")
+if not isinstance(intent_id, str) or not intent_id:
+    fail(f"proposal {proposal['id']} is missing intent_id")
+intent_event = find_required_event(
+    list(events),
+    "intent_created",
+    f"intent_created for {intent_id}",
+    lambda payload: payload.get("id") == intent_id,
+)
+evidence_refs = {str(ref) for ref in proposal.get("evidence_refs", [])}
+finding_events = find_matching_events(
+    list(events),
+    "finding_created",
+    lambda payload: payload.get("id") in evidence_refs
+    or payload.get("intent_id") == intent_id,
+)
+if not finding_events:
+    fail(f"proposal {proposal['id']} has no finding evidence")
+
+released_digest = execution.get("result", {}).get("released_image_digest")
+image_push_events = find_matching_events(
+    list(events),
+    "image_push_completed",
+    lambda payload: payload.get("id") in evidence_refs
+    or payload.get("prod_digest") == released_digest,
+)
+if not image_push_events:
+    fail(f"proposal {proposal['id']} has no image_push_completed evidence")
+
+policy_event = find_required_event(
+    list(events),
+    "policy_evaluated",
+    f"policy_evaluated for {proposal['id']}",
+    lambda payload: payload.get("proposal_id") == proposal["id"],
+)
+vote_events = find_matching_events(
+    list(events),
+    "proposal_voted",
+    lambda payload: payload.get("proposal_id") == proposal["id"],
+)
+if not vote_events:
+    fail(f"proposal {proposal['id']} has no vote events")
+
+human_approval_events = [
+    event
+    for event in list(events)
+    if event.get("event_type")
+    in {"human_approval_requested", "human_approval_granted", "human_approval_denied"}
+    and isinstance(event.get("payload"), dict)
+    and event["payload"].get("proposal_id") == proposal["id"]
+]
+if not human_approval_events:
+    fail(f"proposal {proposal['id']} has no human approval events")
+
+execution_started_event = find_required_event(
+    list(events),
+    "execution_started",
+    f"execution_started for {proposal['id']}",
+    lambda payload: payload.get("proposal_id") == proposal["id"],
+)
+health_check_ids = [str(check.get("id")) for check in health_checks if check.get("id")]
+health_check_events = find_matching_events(
+    list(events),
+    "health_check_completed",
+    lambda payload: payload.get("proposal_id") == proposal["id"]
+    and payload.get("id") in health_check_ids,
+)
+if len(health_check_events) != len(set(health_check_ids)):
+    fail(f"proposal {proposal['id']} is missing health_check_completed events")
+
+provenance = {
+    "release": release,
+    "proposal_event_id": proposal_event["id"],
+    "intent_id": intent_id,
+    "intent_event_id": intent_event["id"],
+    "finding_ids": [event_payload_id(event) for event in finding_events],
+    "finding_event_ids": [str(event["id"]) for event in finding_events],
+    "image_push_ids": [event_payload_id(event) for event in image_push_events],
+    "image_push_event_ids": [str(event["id"]) for event in image_push_events],
+    "policy_decision_event_id": policy_event["id"],
+    "policy_decision": policy_event["payload"],
+    "vote_ids": [event_payload_id(event) for event in vote_events],
+    "vote_event_ids": [str(event["id"]) for event in vote_events],
+    "human_approval_ids": [event_payload_id(event) for event in human_approval_events],
+    "human_approval_event_ids": [str(event["id"]) for event in human_approval_events],
+    "execution_started_id": event_payload_id(execution_started_event),
+    "execution_started_event_id": execution_started_event["id"],
+    "execution_succeeded_id": execution["id"],
+    "execution_succeeded_event_id": execution_event["id"],
+    "health_check_ids": list(health_check_ids),
+    "health_check_event_ids": [str(event["id"]) for event in health_check_events],
+}
 proof = {
     "captured_at": captured_at,
     "api": api_url,
@@ -239,9 +424,15 @@ proof = {
     "release_url": release_url,
     "sbom_asset_name": sbom_asset_name,
     "sbom_asset_url": sbom_asset_url,
+    "sbom_asset_digest": sbom_asset_digest,
     "console_url": console_url,
     "proposal_id": proposal["id"],
+    "proposal_event_id": provenance["proposal_event_id"],
+    "intent_id": intent_id,
+    "intent_event_id": provenance["intent_event_id"],
     "execution_id": execution["id"],
+    "execution_started_event_id": provenance["execution_started_event_id"],
+    "execution_succeeded_event_id": execution_event["id"],
     "staging_root": staging_root,
     "prod_root": prod_root,
     "staging_event_chain": verify,
@@ -251,8 +442,8 @@ proof = {
     "prod_health": prod_health,
     "proposal": proposal,
     "execution": execution,
-    "execution_succeeded_event_id": execution_event["id"],
     "health_checks": health_checks,
+    "provenance": provenance,
 }
 
 Path(proof_json_path).write_text(json.dumps(proof, indent=2, sort_keys=True) + "\n")
@@ -265,19 +456,35 @@ summary = [
     f"- Release URL: {release_url}",
     f"- Expected SBOM asset: `{sbom_asset_name}`",
     f"- Expected SBOM URL: {sbom_asset_url}",
+    f"- SBOM asset digest: `{sbom_asset_digest}`",
     f"- Staging API: `{api_url}`",
     f"- Prod URL: `{prod_url}`",
     f"- Console deep link: {console_url}",
     f"- Event chain: `ok=true`, count `{verify.get('event_count')}`, last hash `{verify.get('last_hash')}`",
-    f"- Proposal: `{proposal['id']}` by `{proposal['agent_id']}` targeting `{proposal['target']}`",
+    f"- Proposal: `{proposal['id']}` event `{provenance['proposal_event_id']}` by `{proposal['agent_id']}` targeting `{proposal['target']}`",
+    f"- Intent: `{intent_id}` event `{provenance['intent_event_id']}`",
+    f"- Findings: `{', '.join(provenance['finding_ids'])}` events `{', '.join(provenance['finding_event_ids'])}`",
+    f"- Image pushes: `{', '.join(provenance['image_push_ids'])}` events `{', '.join(provenance['image_push_event_ids'])}`",
+    f"- Policy decision event: `{provenance['policy_decision_event_id']}`",
+    f"- Votes: `{', '.join(provenance['vote_ids'])}` events `{', '.join(provenance['vote_event_ids'])}`",
+    f"- Human approvals: `{', '.join(provenance['human_approval_ids'])}` events `{', '.join(provenance['human_approval_event_ids'])}`",
     f"- Execution: `{execution['id']}` status `{execution['status']}`",
-    f"- Execution event: `{execution_event['id']}`",
+    f"- Execution start event: `{provenance['execution_started_event_id']}`",
+    f"- Execution success event: `{execution_event['id']}`",
     "- Prod checks: `readiness ok=true`, `api health ok=true`",
     "",
     "## Health Checks",
 ]
+event_by_health_id = {
+    event_payload_id(event): str(event["id"])
+    for event in health_check_events
+}
 for check in health_checks:
-    summary.append(f"- `{check.get('name')}` passed=`{check.get('passed')}` detail=`{check.get('detail', '')}`")
+    check_id = str(check.get("id"))
+    summary.append(
+        f"- `{check.get('name')}` id=`{check_id}` event=`{event_by_health_id.get(check_id, '')}` "
+        f"passed=`{check.get('passed')}` detail=`{check.get('detail', '')}`"
+    )
 Path(proof_md_path).write_text("\n".join(summary) + "\n")
 
 print(f"proof.json: {proof_json_path}")
