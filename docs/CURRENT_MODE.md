@@ -51,6 +51,8 @@ throughput.
 Switch to the worktree model in `docs/PARALLEL_DEVELOPMENT.md` when
 all of the following are true:
 
+- `QUORUM_RELEASE_TAG=<latest> scripts/check_phase6_gate.sh` prints
+  `phase6-gate-ready`
 - event schema has been stable for ≥2 weeks (no new event types in
   that window)
 - proposal schema is stable

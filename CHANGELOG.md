@@ -15,6 +15,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
   SBOM, image-push evidence, deploy proposal/execution IDs, health
   checks, proof capture, browser acceptance, live monitor result, and
   final event-chain hash.
+- `scripts/check_phase6_gate.sh`, a read-only preflight that keeps
+  Phase 6 closed before 2026-05-14 and requires live release monitor,
+  latest main workflow, proof archive, and handoff evidence before
+  printing `phase6-gate-ready`.
 
 ### Changed
 

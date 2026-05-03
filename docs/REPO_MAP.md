@@ -261,6 +261,8 @@ files:
   consistency checks
 - `tests/test_demo_recording_assets.py` — static coverage for the
   recording runbook and active GitHub fixture demo helper
+- `tests/test_phase6_gate_preflight.py` — static and fail-closed
+  coverage for the read-only Phase 6 gate preflight script
 
 Integration tests are marked `@pytest.mark.integration` and excluded
 from default CI; opt in with `pytest -m integration`.
@@ -295,7 +297,12 @@ from default CI; opt in with `pytest -m integration`.
 - `scripts/check_live_release.sh` — read-only monitor for the current
   tagged release: staging/prod version metadata, prod health, staging
   event-chain verification, release SBOM asset, and latest main
-  CI/security status
+  CI/security/image-push status
+- `scripts/check_phase6_gate.sh` — read-only Phase 6 gate preflight:
+  fail before 2026-05-14, require live release monitor and latest main
+  workflow success, require durable proof/handoff pointers, and print
+  `phase6-gate-ready` only when the switch to
+  `docs/PARALLEL_DEVELOPMENT.md` is allowed
 
 ## CI / GitHub — `.github/`
 
