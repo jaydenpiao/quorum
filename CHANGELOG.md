@@ -20,6 +20,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- Live release monitor HTTP checks now use bounded retry-all-errors,
+  connect/total timeouts, and endpoint-labeled diagnostics to reduce
+  transient network-reset false negatives without masking real release,
+  health, chain, SBOM, or workflow failures.
+
 ## [v0.6.5] — 2026-05-01
 
 ### Added

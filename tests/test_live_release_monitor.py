@@ -25,6 +25,21 @@ def test_live_release_monitor_checks_required_surfaces() -> None:
     assert "/api/v1/events/verify" in text
     assert "display_version" in text
     assert "ok=true" in text
+    assert "staging root" in text
+    assert "prod readiness" in text
+    assert "prod api health" in text
+    assert "staging event-chain verify" in text
+
+
+def test_live_release_monitor_retries_transient_network_errors() -> None:
+    text = _text(SCRIPT)
+
+    assert "--retry-all-errors" in text
+    assert "--connect-timeout" in text
+    assert "--max-time" in text
+    assert "QUORUM_MONITOR_CURL_RETRIES" in text
+    assert "fetch failed after" in text
+    assert "curl:" in text
 
 
 def test_live_release_monitor_checks_github_release_and_main_status() -> None:
