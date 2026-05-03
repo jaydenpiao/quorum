@@ -18,6 +18,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Changed
 
+- Operator proof capture artifacts now include release asset digest and
+  control-plane provenance IDs for the selected proposal, intent,
+  finding/image-push evidence, policy decision, votes, human approval,
+  execution, and health-check events.
+
 ### Fixed
 
 - Live release monitor HTTP checks now use bounded retry-all-errors,
