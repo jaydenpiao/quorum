@@ -6,6 +6,10 @@ STAGING_URL="${QUORUM_STAGING_URL:-https://quorum-staging.fly.dev}"
 PROD_URL="${QUORUM_PROD_URL:-https://quorum-prod.fly.dev}"
 GITHUB_REPO="${QUORUM_GITHUB_REPO:-jaydenpiao/quorum}"
 MAIN_BRANCH="${QUORUM_MAIN_BRANCH:-main}"
+CURL_RETRIES="${QUORUM_MONITOR_CURL_RETRIES:-4}"
+CURL_RETRY_DELAY_SECONDS="${QUORUM_MONITOR_CURL_RETRY_DELAY_SECONDS:-2}"
+CURL_CONNECT_TIMEOUT_SECONDS="${QUORUM_MONITOR_CURL_CONNECT_TIMEOUT_SECONDS:-10}"
+CURL_MAX_TIME_SECONDS="${QUORUM_MONITOR_CURL_MAX_TIME_SECONDS:-30}"
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/quorum-live-release.XXXXXX")"
 
@@ -24,9 +28,32 @@ require_command() {
 }
 
 fetch_json() {
-  local url="$1"
-  local output="$2"
-  curl --fail --silent --show-error --retry 2 --retry-delay 2 "$url" >"$output"
+  local label="$1"
+  local url="$2"
+  local output="$3"
+  local stderr_file="$TMP_DIR/${label//[^A-Za-z0-9_.-]/_}.curl.stderr"
+
+  printf "checking %s: %s\n" "$label" "$url" >&2
+  if curl \
+    --fail \
+    --silent \
+    --show-error \
+    --retry "$CURL_RETRIES" \
+    --retry-delay "$CURL_RETRY_DELAY_SECONDS" \
+    --retry-all-errors \
+    --connect-timeout "$CURL_CONNECT_TIMEOUT_SECONDS" \
+    --max-time "$CURL_MAX_TIME_SECONDS" \
+    "$url" >"$output" 2>"$stderr_file"; then
+    return 0
+  else
+    local status="$?"
+    printf "error: %s fetch failed after %s retries: %s\n" \
+      "$label" "$CURL_RETRIES" "$url" >&2
+    if [[ -s "$stderr_file" ]]; then
+      sed 's/^/curl: /' "$stderr_file" >&2
+    fi
+    return "$status"
+  fi
 }
 
 require_command curl
@@ -40,11 +67,11 @@ PROD_HEALTH="$TMP_DIR/prod-health.json"
 STAGING_VERIFY="$TMP_DIR/staging-events-verify.json"
 RELEASE_JSON="$TMP_DIR/release.json"
 
-fetch_json "$STAGING_URL/" "$STAGING_ROOT"
-fetch_json "$PROD_URL/" "$PROD_ROOT"
-fetch_json "$PROD_URL/readiness" "$PROD_READINESS"
-fetch_json "$PROD_URL/api/v1/health" "$PROD_HEALTH"
-fetch_json "$STAGING_URL/api/v1/events/verify" "$STAGING_VERIFY"
+fetch_json "staging root" "$STAGING_URL/" "$STAGING_ROOT"
+fetch_json "prod root" "$PROD_URL/" "$PROD_ROOT"
+fetch_json "prod readiness" "$PROD_URL/readiness" "$PROD_READINESS"
+fetch_json "prod api health" "$PROD_URL/api/v1/health" "$PROD_HEALTH"
+fetch_json "staging event-chain verify" "$STAGING_URL/api/v1/events/verify" "$STAGING_VERIFY"
 
 python3 - \
   "$RELEASE_TAG" \
