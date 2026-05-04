@@ -323,6 +323,45 @@ intent/finding/image-push evidence, policy decision, vote, human
 approval, execution-start/execution-success, and health-check event
 IDs.
 
+## Post-release proof acceptance
+
+Before cutting any future v0.6.x tag, run the read-only acceptance
+path against the latest archived release. These checks verify that the
+release proof is still navigable by an operator and still agrees with
+GitHub, git, and the live control plane.
+
+```bash
+cd /Users/jaydenpiao/Desktop/Quorum
+QUORUM_RELEASE_TAG=v0.6.6 scripts/check_console_proof.sh
+QUORUM_RELEASE_TAG=v0.6.6 scripts/check_release_proof_archive.sh
+QUORUM_RELEASE_TAG=v0.6.6 scripts/check_live_release.sh
+QUORUM_RELEASE_TAG=v0.6.6 scripts/check_phase6_gate.sh
+```
+
+Expected successful outputs include:
+
+- `console-proof-ok: https://quorum-staging.fly.dev/console?proposal_id=...#proposals`
+- `release-proof-archive-ok: v0.6.6`
+- `live-release-ok`
+
+`scripts/check_console_proof.sh` selects the latest executed
+`deploy-llm-agent` `fly.deploy` proposal targeting `quorum-prod` when
+`QUORUM_CONSOLE_PROOF_PROPOSAL_ID` is unset. It fails closed on version
+drift, a missing console shell or static JS, failed event-chain
+verification, wrong proposal author/action/target/status, missing
+policy/quorum/human approval, missing terminal execution, or missing
+passing prod health checks.
+
+`scripts/check_release_proof_archive.sh` compares
+`docs/releases/v0.6.6-proof.md` against the signed tag object, tagged
+commit, GitHub release URL, SBOM asset name/URL/digest, the handoff pointer,
+repo-map pointer, and live release monitor output. It fails
+closed if the durable archive drifts from release truth.
+
+Local browser smoke should use `http://127.0.0.1:8080/console` after
+starting `make dev`. Treat `http://127.0.0.1:8081/console` as stale
+unless you intentionally started uvicorn on port 8081.
+
 ## Review-voter acceptance proof
 
 Use this after the review-voter code is deployed when you need a

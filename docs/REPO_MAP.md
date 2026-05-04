@@ -5,7 +5,8 @@ the repo without scanning every file. It is updated as a blocker for
 any PR that moves / renames / adds top-level files or folders
 (see `AGENTS.md` §9).
 
-Last refreshed for the v0.6.6 release-proof archive pass.
+Last refreshed for the v0.6.7-candidate post-release proof reliability
+pass.
 
 ## Top level
 
@@ -18,7 +19,8 @@ Last refreshed for the v0.6.6 release-proof archive pass.
   the GitHub App actuator on Fly
 - `docs/DEMO_VIDEO.md` — recording runbook plus live operator proof
   helpers for GitHub fixture execution, LLM-authored prod deploy
-  proof, and review-voter acceptance proof
+  proof, review-voter acceptance proof, console proof smoke, and
+  release-proof archive verification
 - `llms.txt` — shortest file list for LLM navigation
 - `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`
 - `pyproject.toml`, `uv.lock` — Python packaging / locked deps;
@@ -263,9 +265,14 @@ files:
 - `tests/test_version_contract.py` — runtime/package/tracing version
   consistency checks
 - `tests/test_demo_recording_assets.py` — static coverage for the
-  recording runbook and active GitHub fixture demo helper
+  recording runbook, active GitHub fixture demo helper, and
+  post-release proof acceptance commands
 - `tests/test_phase6_gate_preflight.py` — static and fail-closed
   coverage for the read-only Phase 6 gate preflight script
+- `tests/test_console_proof_smoke.py` — static contract checks for
+  the read-only console proof deep-link smoke helper
+- `tests/test_release_proof_archive_check.py` — static contract
+  checks for the read-only release proof archive verifier
 
 Integration tests are marked `@pytest.mark.integration` and excluded
 from default CI; opt in with `pytest -m integration`.
@@ -297,6 +304,16 @@ from default CI; opt in with `pytest -m integration`.
   that writes `proof.json` and `proof.md` from staging/prod root
   metadata, event-chain verification, prod health, and the terminal
   `deploy-llm-agent` prod deploy proposal
+- `scripts/check_console_proof.sh` — read-only console proof smoke:
+  verifies release metadata, console shell/static JS, event-chain
+  verification, selected `deploy-llm-agent` prod deploy proposal,
+  policy/quorum/human approval, execution, and prod health checks; it
+  prints `console-proof-ok: <console_url>` on success
+- `scripts/check_release_proof_archive.sh` — read-only release proof
+  archive verifier: checks the signed tag object, tagged commit,
+  GitHub release/SBOM asset name, URL, digest, durable proof doc,
+  handoff/repo-map pointers, and live monitor result; it prints
+  `release-proof-archive-ok: <tag>` on success
 - `scripts/check_live_release.sh` — read-only monitor for the current
   tagged release: staging/prod version metadata, prod health, staging
   event-chain verification, release SBOM asset, and latest main

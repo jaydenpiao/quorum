@@ -213,6 +213,31 @@ def test_demo_video_documents_review_voter_proof_helper() -> None:
     assert "/console?proposal_id=" in text
 
 
+def test_demo_video_documents_post_release_proof_acceptance_path() -> None:
+    text = (ROOT / "docs" / "DEMO_VIDEO.md").read_text(encoding="utf-8")
+
+    assert "Post-release proof acceptance" in text
+    assert "scripts/check_console_proof.sh" in text
+    assert "scripts/check_release_proof_archive.sh" in text
+    assert "scripts/check_live_release.sh" in text
+    assert "scripts/check_phase6_gate.sh" in text
+    assert "QUORUM_RELEASE_TAG=v0.6.6" in text
+    assert "console-proof-ok:" in text
+    assert "release-proof-archive-ok:" in text
+    assert "live-release-ok" in text
+    assert "deploy-llm-agent" in text
+    assert "fly.deploy" in text
+    assert "quorum-prod" in text
+    assert "event-chain verification" in text
+    assert "signed tag object" in text
+    assert "SBOM asset name/URL/digest" in text
+    assert "handoff pointer" in text
+    assert "repo-map pointer" in text
+    assert "http://127.0.0.1:8080/console" in text
+    assert "http://127.0.0.1:8081/console" in text
+    assert "stale" in text
+
+
 def test_readme_demo_seed_matches_auth_and_demo_gate_contract() -> None:
     text = (ROOT / "README.md").read_text(encoding="utf-8")
 

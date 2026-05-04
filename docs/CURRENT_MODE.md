@@ -2,7 +2,8 @@
 
 ## Right now: single-threaded main-branch development
 
-Through the v0.6.6 release-prep line the project has stayed
+Through the v0.6.6 release/proof archive and the v0.6.7-candidate
+post-release proof reliability line, the project has stayed
 single-threaded on the main working branch. The POC vertical slice is
 stable; Phases 2–5 are complete.
 
@@ -18,6 +19,11 @@ That means:
 - no long-lived parallel branches
 - one PR at a time; wait for all 5 required CI checks green before
   merging
+- before any future v0.6.x tag, run the post-release acceptance path:
+  `scripts/check_console_proof.sh`,
+  `scripts/check_release_proof_archive.sh`,
+  `scripts/check_live_release.sh`, and
+  `scripts/check_phase6_gate.sh`
 
 ## Merge autonomy
 
