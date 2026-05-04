@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-__version__ = "0.6.5"
+__version__ = "0.6.6"
 
 _ALPHA_VERSION_RE = re.compile(r"^(\d+\.\d+\.\d+)a(\d+)$")
 
