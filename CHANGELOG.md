@@ -11,6 +11,17 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- `scripts/check_console_proof.sh`, a read-only post-release smoke
+  helper that validates a staging console proof deep link from existing
+  read surfaces: root version metadata, console shell/static JS,
+  event-chain verification, selected prod deploy proposal state,
+  policy/quorum/human approval, terminal execution, and prod health
+  checks.
+- `scripts/check_release_proof_archive.sh`, a read-only archive
+  verifier that compares the durable release proof doc, handoff
+  pointer, repo-map pointer, signed tag object, GitHub release/SBOM
+  metadata, SBOM digest, and live release monitor result.
+
 ### Changed
 
 ### Fixed
