@@ -11,6 +11,14 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [v0.6.6] — 2026-05-04
+
+### Added
+
 - Stable `docs/releases/v0.6.5-proof.md` archive for the signed tag,
   SBOM, image-push evidence, deploy proposal/execution IDs, health
   checks, proof capture, browser acceptance, live monitor result, and
@@ -26,6 +34,9 @@ artifact against that tag (see `.github/workflows/release.yml`).
   control-plane provenance IDs for the selected proposal, intent,
   finding/image-push evidence, policy decision, votes, human approval,
   execution, and health-check events.
+- Raised maintained dependency floors for FastAPI, SQLAlchemy,
+  structlog, pytest, and the Anthropic SDK after all required
+  Dependabot PR checks passed.
 
 ### Fixed
 
