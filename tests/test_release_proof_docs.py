@@ -12,6 +12,7 @@ PROOF_063 = ROOT / "docs" / "releases" / "v0.6.3-proof.md"
 PROOF_064 = ROOT / "docs" / "releases" / "v0.6.4-proof.md"
 PROOF_065 = ROOT / "docs" / "releases" / "v0.6.5-proof.md"
 PROOF_066 = ROOT / "docs" / "releases" / "v0.6.6-proof.md"
+PROOF_067 = ROOT / "docs" / "releases" / "v0.6.7-proof.md"
 HANDOFF = ROOT / "docs" / "SESSION_HANDOFF.md"
 
 
@@ -183,3 +184,32 @@ def test_session_handoff_points_to_v066_release_proof_archive() -> None:
     text = _text(HANDOFF)
 
     assert "docs/releases/v0.6.6-proof.md" in text
+
+
+def test_v067_release_proof_records_required_evidence() -> None:
+    text = _text(PROOF_067)
+
+    assert "v0.6.7" in text
+    assert "https://github.com/jaydenpiao/quorum/releases/tag/v0.6.7" in text
+    assert "quorum-v0.6.7.spdx.json" in text
+    assert "a3cd070c078a3ecc3d07cafb258e600489571681" in text
+    assert "ec203a6b9ff9d08a23c7b943ea6925a67f671883" in text
+    assert "25413091178" in text
+    assert "25413132393" in text
+    assert "evt_e4e6f4048669" in text
+    assert "imgpush_65490e728817" in text
+    assert "sha256:4538634f805762c9710c5312f8d51518a7cf858ab0c583b0ce211aa903e7b494" in text
+    assert "proposal_bab1a4a4913d" in text
+    assert "exec_3b7c27ac5b51" in text
+    assert "hcr_19e645dc9854" in text
+    assert "hcr_abfcd93bde5c" in text
+    assert "d81da497e4188ba00a22a46753cbe58bee62ddfa9a5e76252375528756a666a7" in text
+    assert "phase6-gate-closed: not before 2026-05-14" in text
+    assert "/tmp/quorum-proof.20260506T022737Z/proof.md" in text
+    assert "console-proof-ok" in text
+
+
+def test_session_handoff_points_to_v067_release_proof_archive() -> None:
+    text = _text(HANDOFF)
+
+    assert "docs/releases/v0.6.7-proof.md" in text
