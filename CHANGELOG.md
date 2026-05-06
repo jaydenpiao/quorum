@@ -30,6 +30,12 @@ artifact against that tag (see `.github/workflows/release.yml`).
   pointer, repo-map pointer, signed tag object, GitHub release/SBOM
   metadata, SBOM digest, and live release monitor result.
 
+### Fixed
+
+- Updated the locked `pip` package to a fixed release and removed the
+  temporary `pip-audit` CVE ignore, keeping dependency auditing strict
+  for the v0.6.7 release line.
+
 ## [v0.6.6] — 2026-05-04
 
 ### Added

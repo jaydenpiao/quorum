@@ -70,10 +70,7 @@ jobs:
           print(sysconfig.get_paths()["purelib"])
           PY
           )"
-          # CVE-2026-3219 currently has no fixed pip release on PyPI.
-          # Keep the audit strict for every other advisory and remove this
-          # ignore once pip publishes a fixed version.
-          uv run --no-sync pip-audit --strict --path "$SITE_PACKAGES" --ignore-vuln CVE-2026-3219
+          uv run --no-sync pip-audit --strict --path "$SITE_PACKAGES"
 
   typecheck:
     name: mypy
