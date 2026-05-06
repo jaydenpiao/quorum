@@ -283,7 +283,7 @@ Stop if any of these are false:
 Post-execution audit capture:
 
 ```bash
-QUORUM_RELEASE_TAG=v0.6.6 scripts/capture_operator_proof.sh
+QUORUM_RELEASE_TAG=v0.6.7 scripts/capture_operator_proof.sh
 ```
 
 Use this after a live execution proof succeeds. The helper is
@@ -332,16 +332,16 @@ GitHub, git, and the live control plane.
 
 ```bash
 cd /Users/jaydenpiao/Desktop/Quorum
-QUORUM_RELEASE_TAG=v0.6.6 scripts/check_console_proof.sh
-QUORUM_RELEASE_TAG=v0.6.6 scripts/check_release_proof_archive.sh
-QUORUM_RELEASE_TAG=v0.6.6 scripts/check_live_release.sh
-QUORUM_RELEASE_TAG=v0.6.6 scripts/check_phase6_gate.sh
+QUORUM_RELEASE_TAG=v0.6.7 scripts/check_console_proof.sh
+QUORUM_RELEASE_TAG=v0.6.7 scripts/check_release_proof_archive.sh
+QUORUM_RELEASE_TAG=v0.6.7 scripts/check_live_release.sh
+QUORUM_RELEASE_TAG=v0.6.7 scripts/check_phase6_gate.sh
 ```
 
 Expected successful outputs include:
 
 - `console-proof-ok: https://quorum-staging.fly.dev/console?proposal_id=...#proposals`
-- `release-proof-archive-ok: v0.6.6`
+- `release-proof-archive-ok: v0.6.7`
 - `live-release-ok`
 
 `scripts/check_console_proof.sh` selects the latest executed
@@ -353,7 +353,7 @@ policy/quorum/human approval, missing terminal execution, or missing
 passing prod health checks.
 
 `scripts/check_release_proof_archive.sh` compares
-`docs/releases/v0.6.6-proof.md` against the signed tag object, tagged
+`docs/releases/v0.6.7-proof.md` against the signed tag object, tagged
 commit, GitHub release URL, SBOM asset name/URL/digest, the handoff pointer,
 repo-map pointer, and live release monitor output. It fails
 closed if the durable archive drifts from release truth.

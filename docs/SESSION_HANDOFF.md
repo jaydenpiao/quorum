@@ -55,13 +55,19 @@ authoritative state of the project.
   archives remain at `docs/releases/v0.6.5-proof.md`,
   `docs/releases/v0.6.4-proof.md`, `docs/releases/v0.6.3-proof.md`,
   `docs/releases/v0.6.2-proof.md`, and `docs/releases/v0.6.1-proof.md`.
+- **Current release candidate:** `v0.6.7` is the proof-acceptance
+  release candidate dated 2026-05-06. It packages the post-v0.6.6
+  read-only console proof smoke, release-proof archive checker, and
+  readiness docs. The release remains proof/tooling-only: no API,
+  event-log, mutation route, proposal/vote shape, projection,
+  actuator, or `fly.deploy` LLM-voting behavior changes.
 - **Current post-v0.6.6 hardening state:** Phase 6 remains
   blocked until at least 2026-05-14 if the event schema and event
   payloads stay stable after the v0.6.3 LLM vote metadata work. The
   v0.6.6 reliability release keeps that boundary: no new event
   types, mutation routes, proposal fields, projection tables,
-  actuators, or `fly.deploy` LLM voting. The v0.6.7-candidate
-  proof-reliability line adds only read-only operator checks:
+  actuators, or `fly.deploy` LLM voting. The v0.6.7 proof-reliability
+  line adds only read-only operator checks:
   `scripts/check_console_proof.sh` validates the archived staging
   console proof deep link against live state, and
   `scripts/check_release_proof_archive.sh` compares the durable proof
@@ -806,8 +812,8 @@ Canonical order — load these before touching code:
 1. `AGENTS.md` — repo-wide operating rules and Definition of Done (binding).
 2. **This file** (`docs/SESSION_HANDOFF.md`).
 3. `docs/ROADMAP.md` — phase status with ✅/⏳/⬜/✂️ markers.
-4. `CHANGELOG.md` — every feature since bootstrap; `v0.6.6` is the
-   latest tagged and archived pre-Phase-6 reliability release.
+4. `CHANGELOG.md` — every feature since bootstrap; `v0.6.7` is the
+   current proof-acceptance release candidate.
 5. `docs/design/phase-4-github-actuator.md` — reference (done, but the patterns are reusable).
 6. `docs/design/llm-adapter.md` — reference.
 7. `docs/ARCHITECTURE.md` — current system picture including the Actuators section.
@@ -1001,7 +1007,7 @@ harness under `.claude/`. Codex and other agents can ignore them.
 
 - Phase 6 remains blocked until the documented event-schema stability
   window has elapsed. Run
-  `QUORUM_RELEASE_TAG=v0.6.6 scripts/check_phase6_gate.sh` before
+  `QUORUM_RELEASE_TAG=v0.6.7 scripts/check_phase6_gate.sh` before
   opening Phase 6; it codifies
   `docs/design/phase-6-gate-checklist.md` and should currently fail
   closed before 2026-05-14.
@@ -1016,10 +1022,10 @@ harness under `.claude/`. Codex and other agents can ignore them.
   archived release is:
 
   ```bash
-  QUORUM_RELEASE_TAG=v0.6.6 scripts/check_console_proof.sh
-  QUORUM_RELEASE_TAG=v0.6.6 scripts/check_release_proof_archive.sh
-  QUORUM_RELEASE_TAG=v0.6.6 scripts/check_live_release.sh
-  QUORUM_RELEASE_TAG=v0.6.6 scripts/check_phase6_gate.sh
+  QUORUM_RELEASE_TAG=v0.6.7 scripts/check_console_proof.sh
+  QUORUM_RELEASE_TAG=v0.6.7 scripts/check_release_proof_archive.sh
+  QUORUM_RELEASE_TAG=v0.6.7 scripts/check_live_release.sh
+  QUORUM_RELEASE_TAG=v0.6.7 scripts/check_phase6_gate.sh
   ```
 
   Prepare the next v0.6.x release only after enough reliability

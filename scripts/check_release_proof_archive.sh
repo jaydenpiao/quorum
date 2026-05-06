@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RELEASE_TAG="${QUORUM_RELEASE_TAG:-v0.6.6}"
+RELEASE_TAG="${QUORUM_RELEASE_TAG:-v0.6.7}"
 GITHUB_REPO="${QUORUM_GITHUB_REPO:-jaydenpiao/quorum}"
 PROOF_DOC="${QUORUM_RELEASE_PROOF_DOC:-docs/releases/${RELEASE_TAG}-proof.md}"
 MAIN_BRANCH="${QUORUM_MAIN_BRANCH:-main}"
