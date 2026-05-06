@@ -33,7 +33,7 @@ Agentic engineering becomes viable when an AI agent's actions are:
 
 Quorum is the minimal control plane that makes those guarantees real.
 
-## Core capabilities (v0.6.6)
+## Core capabilities (v0.6.7)
 
 - FastAPI control-plane service with typed domain entities (Intent, Finding, Proposal, Vote, PolicyDecision, ExecutionRecord, HealthCheckResult, RollbackRecord, HumanApprovalRequest, EventEnvelope).
 - Append-only JSONL event log with sha256 hash chain; tamper-evidence verified on startup and on demand.
@@ -59,7 +59,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md). Brief version:
 
 1. **Phases 2–3** ✅ — tamper-evident event log, typed health checks, authenticated API, locked CORS, rate limiting, Dockerfile, Postgres projection, observability (structlog + OpenTelemetry + Prometheus), hardened CI with SBOM.
 2. **Phase 4** ✅ — GitHub App actuator, LLM adapter via the Anthropic SDK, interactive console (SSE + forms), human-approval entity.
-3. **Phase 5** ✅ (first shipped in v0.5.0-alpha.1; polished in v0.6.0-alpha.1; operator-hardened in v0.6.1; trust-monitored in v0.6.2; LLM-voter-hardened in v0.6.3; operator-proof-hardened in v0.6.4; proof-reliability-hardened in v0.6.5; pre-Phase-6 reliability-hardened in v0.6.6) — Fly.io deployment with `fly.toml` + Fly Volume + readiness probe, `fly.deploy` actuator, deploy-llm-agent role, image-push CI, operator console execute/verify workflow, repeatable LLM-authored prod deploy proof, live release monitoring, policy-capped review-LLM voting for low-risk GitHub actions, repeatable review-voter proof capture, console proposal proof deep links, release/proof checklists for safe Phase 6 gating, and maintained dependency floors.
+3. **Phase 5** ✅ (first shipped in v0.5.0-alpha.1; polished in v0.6.0-alpha.1; operator-hardened in v0.6.1; trust-monitored in v0.6.2; LLM-voter-hardened in v0.6.3; operator-proof-hardened in v0.6.4; proof-reliability-hardened in v0.6.5; pre-Phase-6 reliability-hardened in v0.6.6; proof-acceptance-hardened in v0.6.7) — Fly.io deployment with `fly.toml` + Fly Volume + readiness probe, `fly.deploy` actuator, deploy-llm-agent role, image-push CI, operator console execute/verify workflow, repeatable LLM-authored prod deploy proof, live release monitoring, policy-capped review-LLM voting for low-risk GitHub actions, repeatable review-voter proof capture, console proposal proof deep links, release/proof checklists for safe Phase 6 gating, maintained dependency floors, and read-only post-release proof acceptance checks.
 4. **Phase 6** ⬜ — parallel development via git worktrees per [docs/PARALLEL_DEVELOPMENT.md](docs/PARALLEL_DEVELOPMENT.md). Gated on ≥2 weeks of event-schema stability.
 
 ## Quick start

@@ -52,7 +52,7 @@ def test_release_proof_archive_script_documents_operator_inputs() -> None:
     text = _text()
 
     assert "QUORUM_RELEASE_TAG" in text
-    assert "v0.6.6" in text
+    assert "v0.6.7" in text
     assert "QUORUM_GITHUB_REPO" in text
     assert "jaydenpiao/quorum" in text
     assert "QUORUM_RELEASE_PROOF_DOC" in text

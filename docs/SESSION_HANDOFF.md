@@ -55,13 +55,19 @@ authoritative state of the project.
   archives remain at `docs/releases/v0.6.5-proof.md`,
   `docs/releases/v0.6.4-proof.md`, `docs/releases/v0.6.3-proof.md`,
   `docs/releases/v0.6.2-proof.md`, and `docs/releases/v0.6.1-proof.md`.
+- **Current release candidate:** `v0.6.7` is the proof-acceptance
+  release candidate dated 2026-05-06. It packages the post-v0.6.6
+  read-only console proof smoke, release-proof archive checker, and
+  readiness docs. The release remains proof/tooling-only: no API,
+  event-log, mutation route, proposal/vote shape, projection,
+  actuator, or `fly.deploy` LLM-voting behavior changes.
 - **Current post-v0.6.6 hardening state:** Phase 6 remains
   blocked until at least 2026-05-14 if the event schema and event
   payloads stay stable after the v0.6.3 LLM vote metadata work. The
   v0.6.6 reliability release keeps that boundary: no new event
   types, mutation routes, proposal fields, projection tables,
-  actuators, or `fly.deploy` LLM voting. The v0.6.7-candidate
-  proof-reliability line adds only read-only operator checks:
+  actuators, or `fly.deploy` LLM voting. The v0.6.7 proof-reliability
+  line adds only read-only operator checks:
   `scripts/check_console_proof.sh` validates the archived staging
   console proof deep link against live state, and
   `scripts/check_release_proof_archive.sh` compares the durable proof
@@ -98,14 +104,13 @@ authoritative state of the project.
 - **Coverage:** 81.45% (gate floor: 60%).
 - **Type check:** `mypy --strict` clean across 50 source files.
 - **Required CI checks on `main`:** `lint + format + test`, `gitleaks`, `pip-audit`, `docker build`, `mypy`. All 5 pass on every PR in the series. The `gitleaks` check installs checksum-verified `gitleaks 8.30.1` directly instead of using the deprecated Node 20-backed `gitleaks/gitleaks-action`.
-- **pip-audit note:** CI temporarily ignores `CVE-2026-3219` because
-  it affects the latest published PyPI `pip` (`26.0.1`) and pip-audit
-  reports no fixed version. Keep `pip-audit --strict`; remove the
-  single ignore in `.github/workflows/ci.yml` once pip publishes a fix.
-  The audit syncs with `--no-install-project`, runs with `--no-sync`,
-  and restricts `pip-audit` to the venv `site-packages` path so the
-  first-party `quorum` package is not audited as an unpublished PyPI
-  dependency.
+- **pip-audit note:** CI is back to strict auditing with no CVE ignore.
+  The v0.6.7 release-prep line raised the locked `pip` package to a
+  fixed release after `pip-audit` reported `CVE-2026-6357` against
+  `pip 26.0.1`. Keep the audit install on `--no-install-project`, the
+  audit run on `--no-sync`, and the `--path "$SITE_PACKAGES"`
+  restriction so strict mode does not fail on the local unpublished
+  `quorum` package.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
 - **Merged PR count through the v0.6.7-candidate readiness refresh:** 147. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, #105 v0.6.0-alpha.1 release prep, #107 console execution-actionability hardening, #108 audit proof capture/read models, #109 image-push evidence retry hardening, #110 v0.6.1 hardening handoff refresh, #111 v0.6.1 release prep, #112 v0.6.1 release-proof handoff, #113 live release monitor, #114 v0.6.1 proof archive, #115 LLM voter design gate, #116 v0.6.2 release prep, #117 v0.6.2 proof archive, #118 agent capability gates, #119 LLM vote policy caps, #120 review-voter adapter support, #121 LLM vote console visibility, #122 v0.6.3 release prep, #123 v0.6.3 proof archive, #124 review-voter proof helper, #125 console proof deep links, #126 v0.6.4 release-readiness docs refresh, #127 v0.6.4 release prep, #128 v0.6.4 proof archive, #129 live monitor image-push status, #130 durable merge-autonomy docs, #131 operator proof links, #132 Phase 6 gate checklist, #133 v0.6.5 release prep, #134 v0.6.5 proof archive, #135 live monitor network resilience, #136 operator proof provenance, #137 Phase 6 gate preflight, #138 pytest floor, #139 Anthropic SDK floor, #140 FastAPI floor, #141 SQLAlchemy floor, #142 structlog floor, #143 v0.6.6 release prep, #144 v0.6.6 proof archive, #145 console proof smoke, #146 release proof archive checker, and #147 v0.6.7 readiness docs.
 - **Current operator alpha-polish state:** local bootstrap and
@@ -806,8 +811,8 @@ Canonical order — load these before touching code:
 1. `AGENTS.md` — repo-wide operating rules and Definition of Done (binding).
 2. **This file** (`docs/SESSION_HANDOFF.md`).
 3. `docs/ROADMAP.md` — phase status with ✅/⏳/⬜/✂️ markers.
-4. `CHANGELOG.md` — every feature since bootstrap; `v0.6.6` is the
-   latest tagged and archived pre-Phase-6 reliability release.
+4. `CHANGELOG.md` — every feature since bootstrap; `v0.6.7` is the
+   current proof-acceptance release candidate.
 5. `docs/design/phase-4-github-actuator.md` — reference (done, but the patterns are reusable).
 6. `docs/design/llm-adapter.md` — reference.
 7. `docs/ARCHITECTURE.md` — current system picture including the Actuators section.
@@ -915,13 +920,12 @@ harness under `.claude/`. Codex and other agents can ignore them.
     deploying the running Fly release. Treat `fly releases --json` and
     `fly machine status --display-config` as the source of truth for
     what is actually deployed.
-24. **[Repo-wide]** `pip-audit` currently ignores only
-    `CVE-2026-3219` in CI because the advisory affects the latest
-    published PyPI `pip` and has no fixed version. Do not add broad
-    ignores; remove this one as soon as a fixed pip release exists.
-    Keep the audit install on `--no-install-project`, the audit run on
-    `--no-sync`, and the `--path "$SITE_PACKAGES"` restriction so
-    strict mode does not fail on the local unpublished `quorum` package.
+24. **[Repo-wide]** Keep `pip-audit` strict with no broad CVE ignores.
+    If a future advisory hits `pip` or an audit tool dependency, first
+    try to update the locked package to a fixed release. Keep the audit
+    install on `--no-install-project`, the audit run on `--no-sync`,
+    and the `--path "$SITE_PACKAGES"` restriction so strict mode does
+    not fail on the local unpublished `quorum` package.
 25. **[Repo-wide]** Neon emits default `postgresql://` connection URIs.
     Quorum must normalize those to `postgresql+psycopg://` because the
     repo ships `psycopg`, not `psycopg2`. Keep runtime engine creation
@@ -1001,7 +1005,7 @@ harness under `.claude/`. Codex and other agents can ignore them.
 
 - Phase 6 remains blocked until the documented event-schema stability
   window has elapsed. Run
-  `QUORUM_RELEASE_TAG=v0.6.6 scripts/check_phase6_gate.sh` before
+  `QUORUM_RELEASE_TAG=v0.6.7 scripts/check_phase6_gate.sh` before
   opening Phase 6; it codifies
   `docs/design/phase-6-gate-checklist.md` and should currently fail
   closed before 2026-05-14.
@@ -1016,10 +1020,10 @@ harness under `.claude/`. Codex and other agents can ignore them.
   archived release is:
 
   ```bash
-  QUORUM_RELEASE_TAG=v0.6.6 scripts/check_console_proof.sh
-  QUORUM_RELEASE_TAG=v0.6.6 scripts/check_release_proof_archive.sh
-  QUORUM_RELEASE_TAG=v0.6.6 scripts/check_live_release.sh
-  QUORUM_RELEASE_TAG=v0.6.6 scripts/check_phase6_gate.sh
+  QUORUM_RELEASE_TAG=v0.6.7 scripts/check_console_proof.sh
+  QUORUM_RELEASE_TAG=v0.6.7 scripts/check_release_proof_archive.sh
+  QUORUM_RELEASE_TAG=v0.6.7 scripts/check_live_release.sh
+  QUORUM_RELEASE_TAG=v0.6.7 scripts/check_phase6_gate.sh
   ```
 
   Prepare the next v0.6.x release only after enough reliability
