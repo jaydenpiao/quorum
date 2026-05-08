@@ -19,12 +19,12 @@ cleanup() {
   if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     {
       printf "## Quorum live release monitor\n\n"
-      printf "- Release: `%s`\n" "$RELEASE_TAG"
-      printf "- Staging: `%s`\n" "$STAGING_URL"
-      printf "- Prod: `%s`\n" "$PROD_URL"
-      printf "- Repository: `%s`\n" "$GITHUB_REPO"
-      printf "- Main branch: `%s`\n" "$MAIN_BRANCH"
-      printf "- Result: `%s`\n" "$SUMMARY_STATUS"
+      printf -- "- Release: \`%s\`\n" "$RELEASE_TAG"
+      printf -- "- Staging: \`%s\`\n" "$STAGING_URL"
+      printf -- "- Prod: \`%s\`\n" "$PROD_URL"
+      printf -- "- Repository: \`%s\`\n" "$GITHUB_REPO"
+      printf -- "- Main branch: \`%s\`\n" "$MAIN_BRANCH"
+      printf -- "- Result: \`%s\`\n" "$SUMMARY_STATUS"
       if ((${#SUMMARY_LINES[@]} > 0)); then
         printf "\n### Checks\n"
         for line in "${SUMMARY_LINES[@]}"; do

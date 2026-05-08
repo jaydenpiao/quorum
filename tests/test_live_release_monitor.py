@@ -77,6 +77,10 @@ def test_live_release_monitor_writes_step_summary_without_secrets() -> None:
 
     assert "GITHUB_STEP_SUMMARY" in text
     assert "Quorum live release monitor" in text
+    assert 'printf -- "- Release: \\`%s\\`\\n"' in text
+    assert 'printf -- "- Result: \\`%s\\`\\n"' in text
+    assert 'printf "- Release: `%s`\\n"' not in text
+    assert 'printf "- Result: `%s`\\n"' not in text
     assert 'SUMMARY_STATUS="success"' in text
     assert "SUMMARY_LINES" in text
     assert "failure:" in text
