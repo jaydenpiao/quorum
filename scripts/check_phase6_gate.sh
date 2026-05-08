@@ -27,6 +27,7 @@ require_command() {
 check_latest_workflow() {
   local workflow="$1"
   local label="$2"
+  local current_main_sha="$3"
   local output="$TMP_DIR/${label}-run.json"
 
   gh run list \
@@ -37,14 +38,14 @@ check_latest_workflow() {
     --json databaseId,status,conclusion,headSha,url,createdAt \
     >"$output"
 
-  python3 - "$output" "$label" <<'PY'
+  python3 - "$output" "$label" "$current_main_sha" "$workflow" "$GITHUB_REPO" "$MAIN_BRANCH" "$RELEASE_TAG" <<'PY'
 from __future__ import annotations
 
 import json
 import sys
 from pathlib import Path
 
-path, label = sys.argv[1:]
+path, label, current_main_sha, workflow, github_repo, main_branch, release_tag = sys.argv[1:]
 runs = json.loads(Path(path).read_text(encoding="utf-8"))
 if not runs:
     raise SystemExit(f"phase6-gate-closed: no {label} runs found")
@@ -56,6 +57,21 @@ if run.get("status") != "completed" or run.get("conclusion") != "success":
         f"status={run.get('status')!r} conclusion={run.get('conclusion')!r} "
         f"url={run.get('url')!r}"
     )
+
+run_sha = str(run.get("headSha") or "")
+if run_sha != current_main_sha:
+    refresh = (
+        f"gh workflow run live-release-monitor.yml --repo {github_repo} "
+        f"--ref {main_branch} -f release_tag={release_tag}"
+        if workflow == "live-release-monitor.yml"
+        else f"wait for a fresh {workflow} run on {main_branch}"
+    )
+    raise SystemExit(
+        f"phase6-gate-closed: latest {label} run is stale for {main_branch}: "
+        f"run_sha={run_sha!r} current_main_sha={current_main_sha!r} "
+        f"url={run.get('url')!r}; refresh: {refresh}"
+    )
+
 print(
     f"phase6-gate-check: {label} ok "
     f"run={run.get('databaseId')} sha={run.get('headSha')} url={run.get('url')}"
@@ -64,14 +80,21 @@ PY
 }
 
 if [[ "$TODAY" < "$NOT_BEFORE" ]]; then
-  printf "phase6-gate-closed: not before %s (today=%s)\n" "$NOT_BEFORE" "$TODAY" >&2
+  printf "phase6-gate-closed: not before %s UTC (today_utc=%s; override dry-runs with QUORUM_PHASE6_TODAY=YYYY-MM-DD)\n" \
+    "$NOT_BEFORE" "$TODAY" >&2
   exit 1
 fi
 
 require_command gh
 require_command python3
 
-printf "phase6-gate-check: calendar ok today=%s not_before=%s\n" "$TODAY" "$NOT_BEFORE"
+CURRENT_MAIN_SHA="$(gh api "repos/${GITHUB_REPO}/branches/${MAIN_BRANCH}" --jq '.commit.sha')"
+if [[ -z "$CURRENT_MAIN_SHA" ]]; then
+  closed "could not resolve current main head for ${GITHUB_REPO}@${MAIN_BRANCH}"
+fi
+
+printf "phase6-gate-check: calendar ok today_utc=%s not_before_utc=%s\n" "$TODAY" "$NOT_BEFORE"
+printf "phase6-gate-check: current-main ok branch=%s sha=%s\n" "$MAIN_BRANCH" "$CURRENT_MAIN_SHA"
 
 SCHEMA_OUT="$TMP_DIR/schema-stability.out"
 SCHEMA_ERR="$TMP_DIR/schema-stability.err"
@@ -116,10 +139,10 @@ if ! grep -q "live-release-ok" "$LIVE_OUT"; then
 fi
 sed 's/^/live-release-monitor: /' "$LIVE_OUT"
 
-check_latest_workflow "live-release-monitor.yml" "live-release-monitor"
-check_latest_workflow "ci.yml" "ci"
-check_latest_workflow "security.yml" "security"
-check_latest_workflow "image-push.yml" "image-push"
+check_latest_workflow "live-release-monitor.yml" "live-release-monitor" "$CURRENT_MAIN_SHA"
+check_latest_workflow "ci.yml" "ci" "$CURRENT_MAIN_SHA"
+check_latest_workflow "security.yml" "security" "$CURRENT_MAIN_SHA"
+check_latest_workflow "image-push.yml" "image-push" "$CURRENT_MAIN_SHA"
 
 OPEN_PRS="$TMP_DIR/open-prs.json"
 gh pr list \
@@ -154,5 +177,5 @@ grep -Fq "$RELEASE_TAG" "$HANDOFF" || \
   closed "docs/SESSION_HANDOFF.md does not mention $RELEASE_TAG"
 printf "phase6-gate-check: proof archive ok path=%s\n" "$PROOF_DOC_REL"
 
-printf "phase6-gate-ready: %s release=%s repo=%s main=%s\n" \
+printf "phase6-gate-ready: %s UTC release=%s repo=%s main=%s\n" \
   "$TODAY" "$RELEASE_TAG" "$GITHUB_REPO" "$MAIN_BRANCH"

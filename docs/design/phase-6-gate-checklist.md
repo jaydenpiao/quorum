@@ -2,8 +2,8 @@
 
 Phase 6 stays blocked until the event schema and core payload shapes
 have been stable for at least two weeks. The earliest gate-open date is
-**2026-05-14**, assuming no event-schema or event-payload changes after
-the v0.6.3 LLM vote metadata work.
+**2026-05-14 UTC**, assuming no event-schema or event-payload changes
+after the v0.6.3 LLM vote metadata work.
 
 Run the read-only preflight before switching from single-threaded
 `main` work to the worktree model in
@@ -15,7 +15,9 @@ QUORUM_RELEASE_TAG=v0.6.7 scripts/check_phase6_gate.sh
 
 Before the calendar gate opens it must fail closed with
 `phase6-gate-closed`. On or after the not-before date it must print
-`phase6-gate-ready` before any Phase 6 worktree is created.
+`phase6-gate-ready` before any Phase 6 worktree is created. The script
+uses UTC dates; use `QUORUM_PHASE6_TODAY=YYYY-MM-DD` only for explicit
+dry runs.
 
 The latest checkpoint is
 `docs/design/phase-6-readiness-checkpoint.md`. It records the current
@@ -38,6 +40,10 @@ QUORUM_SCHEMA_STABILITY_ANCHOR_TAG=v0.6.3 scripts/check_event_schema_stability.s
   policy-decision, and image-push read shapes are stable.
 - Latest `main` has all 5 required checks green: `lint + format +
   test`, `gitleaks`, `pip-audit`, `docker build`, and `mypy`.
+- Latest `live-release-monitor.yml`, `ci.yml`, `security.yml`, and
+  `image-push.yml` runs are completed successfully for the current
+  `main` head. If the live monitor is stale, refresh it with
+  `gh workflow run live-release-monitor.yml --repo jaydenpiao/quorum --ref main -f release_tag=<latest>`.
 - `QUORUM_RELEASE_TAG=<latest> scripts/check_live_release.sh` passes
   against staging/prod, including release metadata, SBOM, prod health,
   event-chain verification, and latest `main` CI/security/image-push
