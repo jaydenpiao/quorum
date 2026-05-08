@@ -213,6 +213,8 @@ Last refreshed for the post-v0.6.7 Phase 6 readiness checkpoint pass.
 - `docs/design/phase-6-readiness-checkpoint.md` — 2026-05-08
   pre-Phase-6 checkpoint with current live proof status, latest
   workflow evidence, schema-stability preflight, and no-go triggers
+- `docs/design/phase-6-entry-plan.md` — planning-only entry plan for
+  safe first Phase 6 worktree lanes after `phase6-gate-ready`
 
 ## Tests — `tests/`
 
@@ -280,6 +282,9 @@ files:
 - `tests/test_phase6_readiness_checkpoint.py` — static checks that the
   readiness checkpoint, handoff, repo map, and gate checklist agree on
   latest release, gate date, proof commands, and no-go triggers
+- `tests/test_phase6_entry_plan.py` — static checks that the Phase 6
+  entry plan requires the gate, points to the worktree model, defines
+  safe first lanes, and blocks shared-core work without an owner
 - `tests/test_console_proof_smoke.py` — static contract checks for
   the read-only console proof deep-link smoke helper
 - `tests/test_release_proof_archive_check.py` — static contract

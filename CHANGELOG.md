@@ -19,6 +19,8 @@ artifact against that tag (see `.github/workflows/release.yml`).
   2026-05-08 gate-readiness checkpoint that records current live proof
   status, latest workflow runs, the non-current May 6 monitor failure,
   schema-stability evidence, and exact Phase 6 no-go triggers.
+- `docs/design/phase-6-entry-plan.md`, a planning-only entry plan for
+  the first safe Phase 6 worktree lanes after the gate opens.
 
 ### Changed
 

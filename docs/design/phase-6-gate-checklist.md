@@ -19,6 +19,9 @@ Before the calendar gate opens it must fail closed with
 uses UTC dates; use `QUORUM_PHASE6_TODAY=YYYY-MM-DD` only for explicit
 dry runs.
 
+When it opens, start from `docs/design/phase-6-entry-plan.md` before
+creating worktrees.
+
 The latest checkpoint is
 `docs/design/phase-6-readiness-checkpoint.md`. It records the current
 `v0.6.7` live proof status, latest main workflow runs, the non-current
@@ -78,6 +81,8 @@ QUORUM_SCHEMA_STABILITY_ANCHOR_TAG=v0.6.3 scripts/check_event_schema_stability.s
 - Keep the durable merge-autonomy rules from `AGENTS.md`: green PRs may
   merge autonomously, but only after local validation and all 5
   required checks pass.
+- Read `docs/design/phase-6-entry-plan.md` and choose one of its safe
+  first lanes.
 - Switch branch creation to `scripts/new_worktree.sh` and follow
   `docs/PARALLEL_DEVELOPMENT.md`.
 - Start with narrow lanes that avoid shared-core churn: console
