@@ -60,15 +60,16 @@ authoritative state of the project.
   stable after the v0.6.3 LLM vote metadata work. The v0.6.7 release
   keeps that boundary: no new event types, mutation routes, proposal
   fields, projection tables, actuators, or `fly.deploy` LLM voting.
-  The post-v0.6.6 proof-reliability line added only read-only operator
-  checks: `scripts/check_console_proof.sh` validates the archived
-  staging console proof deep link against live state, and
-  `scripts/check_release_proof_archive.sh` compares the durable proof
-  doc against the signed tag, GitHub release/SBOM metadata, handoff,
-  repo map, and live monitor truth. `scripts/check_phase6_gate.sh`
-  remains the required preflight before any switch to
-  `docs/PARALLEL_DEVELOPMENT.md`; on 2026-05-06 it correctly returned
-  `phase6-gate-closed: not before 2026-05-14`.
+  The post-v0.6.7 line remains reliability-only: live monitor
+  diagnostics now include bounded job runtime, labeled GitHub metadata
+  checks, and non-secret `$GITHUB_STEP_SUMMARY` output;
+  `scripts/check_event_schema_stability.sh` mechanically proves no
+  schema-sensitive files changed after the `v0.6.3` anchor; and
+  `docs/design/phase-6-readiness-checkpoint.md` records the 2026-05-08
+  gate-readiness evidence. `scripts/check_phase6_gate.sh` remains the
+  required preflight before any switch to
+  `docs/PARALLEL_DEVELOPMENT.md`; on 2026-05-08 it correctly returned
+  `phase6-gate-closed: not before 2026-05-14 (today=2026-05-08)`.
 - **Merge autonomy:** on 2026-05-01 the operator granted durable
   repo-wide merge autonomy for AI agents. Agents may merge validated
   green PRs without pausing for per-PR confirmation, including future
@@ -80,8 +81,10 @@ authoritative state of the project.
   maintenance PRs #138–#142, release-prep PR #143, proof-archive PR
   #144, console-proof smoke PR #145, release-proof archive-check PR
   #146, v0.6.7 readiness-docs PR #147, v0.6.7 release-prep PR #148,
-  and v0.6.7 proof-archive PR #149 preserve the Phase 6 boundary.
-  Every dependency, release, and proof-reliability PR merged only after
+  v0.6.7 proof-archive PR #149, live-monitor diagnostics PR #150,
+  event-schema-stability preflight PR #151, and Phase 6 readiness
+  checkpoint PR #152 preserve the Phase 6 boundary. Every dependency,
+  release, proof-reliability, and gate-readiness PR merged only after
   all five required PR checks were green, and each merge was followed
   by green `main` `ci`, `security`, and `image-push` workflow runs
   before the next step proceeded.
@@ -91,7 +94,7 @@ authoritative state of the project.
   console review-to-execute controls, the active GitHub fixture demo,
   the LLM-authored prod deploy proof helper, and the pinned gitleaks
   CLI security check.
-- **Test suite:** 503 passing + 13 integration-gated (excluded from CI
+- **Test suite:** 530 passing + 13 integration-gated (excluded from CI
   by default; opt-in with `pytest -m integration` against a live
   Postgres, Fly.io, or GitHub, with additional env gates for destructive
   tests).
@@ -101,12 +104,13 @@ authoritative state of the project.
 - **pip-audit note:** CI is back to strict auditing with no CVE ignore.
   The v0.6.7 release-prep line raised the locked `pip` package to a
   fixed release after `pip-audit` reported `CVE-2026-6357` against
-  `pip 26.0.1`. Keep the audit install on `--no-install-project`, the
-  audit run on `--no-sync`, and the `--path "$SITE_PACKAGES"`
-  restriction so strict mode does not fail on the local unpublished
-  `quorum` package.
+  `pip 26.0.1`. The post-v0.6.7 monitor-diagnostics line also raised
+  locked `Mako` after `pip-audit` reported `CVE-2026-44307`. Keep the
+  audit install on `--no-install-project`, the audit run on
+  `--no-sync`, and the `--path "$SITE_PACKAGES"` restriction so strict
+  mode does not fail on the local unpublished `quorum` package.
 - **Branch protection:** required PR, linear history, force-push disabled, conversation resolution required.
-- **Merged PR count through the v0.6.7 proof archive:** 149. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, #105 v0.6.0-alpha.1 release prep, #107 console execution-actionability hardening, #108 audit proof capture/read models, #109 image-push evidence retry hardening, #110 v0.6.1 hardening handoff refresh, #111 v0.6.1 release prep, #112 v0.6.1 release-proof handoff, #113 live release monitor, #114 v0.6.1 proof archive, #115 LLM voter design gate, #116 v0.6.2 release prep, #117 v0.6.2 proof archive, #118 agent capability gates, #119 LLM vote policy caps, #120 review-voter adapter support, #121 LLM vote console visibility, #122 v0.6.3 release prep, #123 v0.6.3 proof archive, #124 review-voter proof helper, #125 console proof deep links, #126 v0.6.4 release-readiness docs refresh, #127 v0.6.4 release prep, #128 v0.6.4 proof archive, #129 live monitor image-push status, #130 durable merge-autonomy docs, #131 operator proof links, #132 Phase 6 gate checklist, #133 v0.6.5 release prep, #134 v0.6.5 proof archive, #135 live monitor network resilience, #136 operator proof provenance, #137 Phase 6 gate preflight, #138 pytest floor, #139 Anthropic SDK floor, #140 FastAPI floor, #141 SQLAlchemy floor, #142 structlog floor, #143 v0.6.6 release prep, #144 v0.6.6 proof archive, #145 console proof smoke, #146 release proof archive checker, #147 v0.6.7 readiness docs, #148 v0.6.7 release prep, and #149 v0.6.7 proof archive.
+- **Merged PR count through the post-v0.6.7 readiness checkpoint:** 152. Phase 5 added #50 design doc, #54 fly.toml + /readiness (replaced auto-closed #51), #52 fly.deploy actuator, #53 mid-phase handoff, #55 deploy-llm-agent, #56 image-push CI, #57 CHANGELOG + v0.5.0-alpha.1 handoff, #58 release-workflow fix, #59 `make clean-worktrees`, #61 runtime `flyctl` hardening, #62 image-push staging/prod follow-up, #63 pinned-flyctl release-list compatibility, #64 staging bootstrap handoff/docs, #65 opt-in live Fly deploy/rollback integration coverage, #66 same-app Fly deploy guard, #67 peer-controller deploy evidence, #68 Fly release digest wording, #69 Neon URL normalization, #70 Neon Fly bootstrap evidence, #71 GitHub App bootstrap helper, #72 live GitHub actuator Fly proof, #73 image-push evidence events, #74 image-push evidence proof handoff, #75 LLM proposal dispatch envelope fix, #76 deploy-agent health-check prompt contract, #77 health-checked deploy-agent proof handoff, #78 API/executor health-check gate for `fly.deploy`, #79 LLM prompt hash audit metadata, #80 opt-in live GitHub actuator rollback coverage, #81 LLM adapter Prometheus metrics, #82 deploy-agent same-control-plane proposal guard, #83 handoff refresh for the live guard proof, #84 docs-only image-push skip, #85 final handoff refresh, #93 alpha operator polish, #94 live deploy guard proof hardening, #95 external staging verification proof mode, #96 Fly platform digest proof correction, #97 live prod proof handoff, #98 Fly runtime state refresh, #99 GitHub Actions Node 24-ready pin refresh, #100 dependency lower-bound + lock sync, #101 maintenance state refresh, #102 pinned `uv` toolchain, #103 uv toolchain handoff refresh, #104 pinned gitleaks CLI, #105 v0.6.0-alpha.1 release prep, #107 console execution-actionability hardening, #108 audit proof capture/read models, #109 image-push evidence retry hardening, #110 v0.6.1 hardening handoff refresh, #111 v0.6.1 release prep, #112 v0.6.1 release-proof handoff, #113 live release monitor, #114 v0.6.1 proof archive, #115 LLM voter design gate, #116 v0.6.2 release prep, #117 v0.6.2 proof archive, #118 agent capability gates, #119 LLM vote policy caps, #120 review-voter adapter support, #121 LLM vote console visibility, #122 v0.6.3 release prep, #123 v0.6.3 proof archive, #124 review-voter proof helper, #125 console proof deep links, #126 v0.6.4 release-readiness docs refresh, #127 v0.6.4 release prep, #128 v0.6.4 proof archive, #129 live monitor image-push status, #130 durable merge-autonomy docs, #131 operator proof links, #132 Phase 6 gate checklist, #133 v0.6.5 release prep, #134 v0.6.5 proof archive, #135 live monitor network resilience, #136 operator proof provenance, #137 Phase 6 gate preflight, #138 pytest floor, #139 Anthropic SDK floor, #140 FastAPI floor, #141 SQLAlchemy floor, #142 structlog floor, #143 v0.6.6 release prep, #144 v0.6.6 proof archive, #145 console proof smoke, #146 release proof archive checker, #147 v0.6.7 readiness docs, #148 v0.6.7 release prep, #149 v0.6.7 proof archive, #150 live monitor timeout diagnostics, #151 event schema stability preflight, and #152 Phase 6 readiness checkpoint.
 - **Current operator alpha-polish state:** local bootstrap and
   validation now run on the same locked `uv`-managed Python path CI
   uses. `make install` recreates `.venv` on managed CPython 3.12 and
