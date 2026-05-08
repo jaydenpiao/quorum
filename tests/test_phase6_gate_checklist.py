@@ -34,6 +34,7 @@ def test_phase6_gate_checklist_records_required_gates() -> None:
     assert "docs/releases/" in text
     assert "docs/PARALLEL_DEVELOPMENT.md" in text
     assert "docs/design/phase-6-readiness-checkpoint.md" in text
+    assert "docs/design/phase-6-entry-plan.md" in text
 
 
 def test_phase6_gate_checklist_records_no_go_and_fallback_rules() -> None:
@@ -51,8 +52,11 @@ def test_phase6_gate_checklist_records_no_go_and_fallback_rules() -> None:
 def test_handoff_and_repo_map_point_to_phase6_gate_checklist() -> None:
     path = "docs/design/phase-6-gate-checklist.md"
     checkpoint_path = "docs/design/phase-6-readiness-checkpoint.md"
+    entry_plan_path = "docs/design/phase-6-entry-plan.md"
 
     assert path in _text(HANDOFF)
     assert path in _text(REPO_MAP)
     assert checkpoint_path in _text(HANDOFF)
     assert checkpoint_path in _text(REPO_MAP)
+    assert entry_plan_path in _text(HANDOFF)
+    assert entry_plan_path in _text(REPO_MAP)
