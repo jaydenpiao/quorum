@@ -22,6 +22,7 @@ jobs:
   check:
     name: check live release
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     env:
       GH_TOKEN: ${{ github.token }}
       QUORUM_RELEASE_TAG: v0.6.7

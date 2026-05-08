@@ -45,8 +45,10 @@ def test_live_release_monitor_retries_transient_network_errors() -> None:
 def test_live_release_monitor_checks_github_release_and_main_status() -> None:
     text = _text(SCRIPT)
 
+    assert "checking GitHub release metadata" in text
     assert "gh release view" in text
     assert "quorum-${RELEASE_TAG}.spdx.json" in text
+    assert "checking latest %s workflow" in text
     assert "gh run list" in text
     assert "ci.yml" in text
     assert "security.yml" in text
@@ -64,6 +66,18 @@ def test_live_release_monitor_workflow_runs_without_secrets() -> None:
     assert "GH_TOKEN: ${{ github.token }}" in text
     assert "QUORUM_RELEASE_TAG: v0.6.7" in text
     assert "scripts/check_live_release.sh" in text
+    assert "timeout-minutes:" in text
     assert "secrets." not in text
     assert "actions: read" in text
     assert "contents: read" in text
+
+
+def test_live_release_monitor_writes_step_summary_without_secrets() -> None:
+    text = _text(SCRIPT)
+
+    assert "GITHUB_STEP_SUMMARY" in text
+    assert "Quorum live release monitor" in text
+    assert 'SUMMARY_STATUS="success"' in text
+    assert "SUMMARY_LINES" in text
+    assert "failure:" in text
+    assert "secrets." not in text

@@ -12,13 +12,33 @@ CURL_CONNECT_TIMEOUT_SECONDS="${QUORUM_MONITOR_CURL_CONNECT_TIMEOUT_SECONDS:-10}
 CURL_MAX_TIME_SECONDS="${QUORUM_MONITOR_CURL_MAX_TIME_SECONDS:-30}"
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/quorum-live-release.XXXXXX")"
+SUMMARY_STATUS="failed"
+SUMMARY_LINES=()
 
 cleanup() {
+  if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    {
+      printf "## Quorum live release monitor\n\n"
+      printf "- Release: `%s`\n" "$RELEASE_TAG"
+      printf "- Staging: `%s`\n" "$STAGING_URL"
+      printf "- Prod: `%s`\n" "$PROD_URL"
+      printf "- Repository: `%s`\n" "$GITHUB_REPO"
+      printf "- Main branch: `%s`\n" "$MAIN_BRANCH"
+      printf "- Result: `%s`\n" "$SUMMARY_STATUS"
+      if ((${#SUMMARY_LINES[@]} > 0)); then
+        printf "\n### Checks\n"
+        for line in "${SUMMARY_LINES[@]}"; do
+          printf -- "- %s\n" "$line"
+        done
+      fi
+    } >>"$GITHUB_STEP_SUMMARY"
+  fi
   rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
 
 die() {
+  SUMMARY_LINES+=("failure: $*")
   printf "error: %s\n" "$*" >&2
   exit 1
 }
@@ -47,6 +67,7 @@ fetch_json() {
     return 0
   else
     local status="$?"
+    SUMMARY_LINES+=("$label: failed after $CURL_RETRIES retries")
     printf "error: %s fetch failed after %s retries: %s\n" \
       "$label" "$CURL_RETRIES" "$url" >&2
     if [[ -s "$stderr_file" ]]; then
@@ -72,6 +93,7 @@ fetch_json "prod root" "$PROD_URL/" "$PROD_ROOT"
 fetch_json "prod readiness" "$PROD_URL/readiness" "$PROD_READINESS"
 fetch_json "prod api health" "$PROD_URL/api/v1/health" "$PROD_HEALTH"
 fetch_json "staging event-chain verify" "$STAGING_URL/api/v1/events/verify" "$STAGING_VERIFY"
+SUMMARY_LINES+=("HTTP checks: staging/prod metadata, prod readiness, prod health, and staging event-chain verified")
 
 python3 - \
   "$RELEASE_TAG" \
@@ -124,6 +146,7 @@ require_ok(staging_verify, "staging /api/v1/events/verify")
 PY
 
 EXPECTED_ASSET="quorum-${RELEASE_TAG}.spdx.json"
+printf "checking GitHub release metadata: %s in %s\n" "$RELEASE_TAG" "$GITHUB_REPO" >&2
 gh release view "$RELEASE_TAG" \
   --repo "$GITHUB_REPO" \
   --json tagName,isDraft,assets \
@@ -151,12 +174,14 @@ assets = {asset.get("name") for asset in release.get("assets", []) if isinstance
 if expected_asset not in assets:
     raise SystemExit(f"error: missing release SBOM asset {expected_asset!r}")
 PY
+SUMMARY_LINES+=("GitHub release metadata: $EXPECTED_ASSET present")
 
 check_latest_workflow() {
   local workflow="$1"
   local label="$2"
   local output="$TMP_DIR/${label}-run.json"
 
+  printf "checking latest %s workflow: %s on %s\n" "$label" "$workflow" "$MAIN_BRANCH" >&2
   gh run list \
     --repo "$GITHUB_REPO" \
     --workflow "$workflow" \
@@ -185,6 +210,7 @@ if run.get("status") != "completed" or run.get("conclusion") != "success":
         f"url={run.get('url')!r}"
     )
 PY
+  SUMMARY_LINES+=("latest $label workflow: completed/success")
 }
 
 check_latest_workflow "ci.yml" "ci"
@@ -193,5 +219,6 @@ check_latest_workflow "security.yml" "security"
 # monitor only requires the image supply workflow itself to be green.
 check_latest_workflow "image-push.yml" "image-push"
 
+SUMMARY_STATUS="success"
 printf "live-release-ok: %s staging=%s prod=%s repo=%s main=%s\n" \
   "$RELEASE_TAG" "$STAGING_URL" "$PROD_URL" "$GITHUB_REPO" "$MAIN_BRANCH"
