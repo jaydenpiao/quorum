@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RELEASE_TAG="${QUORUM_RELEASE_TAG:-v0.6.7}"
+RELEASE_TAG="${QUORUM_RELEASE_TAG:-v0.6.8}"
 NOT_BEFORE="${QUORUM_PHASE6_NOT_BEFORE:-2026-05-14}"
 TODAY="${QUORUM_PHASE6_TODAY:-$(date -u +%F)}"
 GITHUB_REPO="${QUORUM_GITHUB_REPO:-jaydenpiao/quorum}"

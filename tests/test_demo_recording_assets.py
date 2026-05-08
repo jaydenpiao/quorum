@@ -221,7 +221,7 @@ def test_demo_video_documents_post_release_proof_acceptance_path() -> None:
     assert "scripts/check_release_proof_archive.sh" in text
     assert "scripts/check_live_release.sh" in text
     assert "scripts/check_phase6_gate.sh" in text
-    assert "QUORUM_RELEASE_TAG=v0.6.7" in text
+    assert "QUORUM_RELEASE_TAG=v0.6.8" in text
     assert "console-proof-ok:" in text
     assert "release-proof-archive-ok:" in text
     assert "live-release-ok" in text

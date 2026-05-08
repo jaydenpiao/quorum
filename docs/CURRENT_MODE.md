@@ -2,7 +2,7 @@
 
 ## Right now: single-threaded main-branch development
 
-Through the v0.6.7 release-prep line, the project has stayed
+Through the v0.6.8 release-prep line, the project has stayed
 single-threaded on the main working branch. The POC vertical slice is
 stable; Phases 2–5 are complete.
 

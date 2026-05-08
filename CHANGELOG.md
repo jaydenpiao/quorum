@@ -11,6 +11,12 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- _None yet._
+
+## [v0.6.8] — 2026-05-09
+
+### Added
+
 - `scripts/check_event_schema_stability.sh`, a read-only Phase 6
   preflight that fails if schema-sensitive event/model/projection,
   Alembic, or example payload files changed after the configured

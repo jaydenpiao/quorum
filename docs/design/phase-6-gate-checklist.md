@@ -10,7 +10,7 @@ Run the read-only preflight before switching from single-threaded
 `docs/PARALLEL_DEVELOPMENT.md`:
 
 ```bash
-QUORUM_RELEASE_TAG=v0.6.7 scripts/check_phase6_gate.sh
+QUORUM_RELEASE_TAG=v0.6.8 scripts/check_phase6_gate.sh
 ```
 
 Before the calendar gate opens it must fail closed with

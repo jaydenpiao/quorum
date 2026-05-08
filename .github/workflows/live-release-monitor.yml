@@ -6,7 +6,7 @@ on:
       release_tag:
         description: Release tag to verify
         required: false
-        default: v0.6.7
+        default: v0.6.8
   schedule:
     - cron: "17 */6 * * *"
 
@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 12
     env:
       GH_TOKEN: ${{ github.token }}
-      QUORUM_RELEASE_TAG: v0.6.7
+      QUORUM_RELEASE_TAG: v0.6.8
     steps:
       - uses: actions/checkout@v6
 

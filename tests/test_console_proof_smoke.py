@@ -54,7 +54,7 @@ def test_console_proof_script_documents_operator_inputs() -> None:
     assert "QUORUM_CONSOLE_PROOF_API" in text
     assert "https://quorum-staging.fly.dev" in text
     assert "QUORUM_RELEASE_TAG" in text
-    assert "v0.6.7" in text
+    assert "v0.6.8" in text
     assert "QUORUM_CONSOLE_PROOF_PROPOSAL_ID" in text
     assert "QUORUM_CONSOLE_PROOF_EXPECT_AGENT" in text
     assert "deploy-llm-agent" in text
