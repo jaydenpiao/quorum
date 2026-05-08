@@ -5,7 +5,7 @@ This checkpoint records the current pre-Phase-6 state after the
 PRs. It is a readiness record, not approval to start Phase 6.
 
 Phase 6 remains closed until `scripts/check_phase6_gate.sh` prints
-`phase6-gate-ready` on or after **2026-05-14**.
+`phase6-gate-ready` on or after **2026-05-14 UTC**.
 
 ## Current Verdict
 
@@ -17,6 +17,10 @@ Phase 6 remains closed until `scripts/check_phase6_gate.sh` prints
 - Future-date dry run with `QUORUM_PHASE6_TODAY=2026-05-14` reached
   `phase6-gate-ready` after the schema-stability, live release,
   workflow, open-PR, proof-archive, and handoff checks passed.
+- After the gate-freshness hardening, `scripts/check_phase6_gate.sh` treats
+  `QUORUM_PHASE6_TODAY` as a UTC dry-run override and requires the
+  latest live-monitor, CI, security, and image-push runs to match the
+  current `main` head before it can print `phase6-gate-ready`.
 
 ## Live Proof Status
 

@@ -48,7 +48,9 @@ def test_phase6_gate_preflight_fails_closed_before_not_before_date() -> None:
     output = result.stdout + result.stderr
     assert result.returncode != 0
     assert "phase6-gate-closed" in output
-    assert "not before 2026-05-14" in output
+    assert "not before 2026-05-14 UTC" in output
+    assert "today_utc=2026-05-03" in output
+    assert "QUORUM_PHASE6_TODAY=YYYY-MM-DD" in output
 
 
 def test_phase6_gate_preflight_codifies_required_checks() -> None:
@@ -58,14 +60,26 @@ def test_phase6_gate_preflight_codifies_required_checks() -> None:
     assert "QUORUM_PHASE6_NOT_BEFORE" in text
     assert "QUORUM_PHASE6_TODAY" in text
     assert "2026-05-14" in text
+    assert "date -u +%F" in text
+    assert "not_before_utc" in text
+    assert "today_utc" in text
+    assert "QUORUM_PHASE6_TODAY=YYYY-MM-DD" in text
     assert "scripts/check_event_schema_stability.sh" in text
     assert "schema-stability-ok" in text
     assert "QUORUM_SCHEMA_STABILITY_ANCHOR_TAG" in text
     assert "QUORUM_SCHEMA_STABILITY_BASE_REF" in text
     assert "scripts/check_live_release.sh" in text
     assert "live-release-ok" in text
+    assert "CURRENT_MAIN_SHA" in text
+    assert 'gh api "repos/${GITHUB_REPO}/branches/${MAIN_BRANCH}"' in text
     assert "gh run list" in text
+    assert "current_main_sha" in text
+    assert "headSha" in text
+    assert "run_sha != current_main_sha" in text
+    assert "latest {label} run is stale" in text
     assert "live-release-monitor.yml" in text
+    assert "gh workflow run live-release-monitor.yml --repo {github_repo}" in text
+    assert "--ref {main_branch} -f release_tag={release_tag}" in text
     assert "ci.yml" in text
     assert "security.yml" in text
     assert "image-push.yml" in text
@@ -81,10 +95,11 @@ def test_phase6_gate_runs_schema_stability_after_calendar_gate() -> None:
     text = _text(SCRIPT)
 
     calendar_index = text.index("phase6-gate-check: calendar ok")
+    main_sha_index = text.index("phase6-gate-check: current-main ok")
     schema_index = text.index("scripts/check_event_schema_stability.sh")
     live_monitor_index = text.index("scripts/check_live_release.sh")
 
-    assert calendar_index < schema_index < live_monitor_index
+    assert calendar_index < main_sha_index < schema_index < live_monitor_index
 
 
 def test_phase6_gate_preflight_is_documented_as_phase6_switch_gate() -> None:

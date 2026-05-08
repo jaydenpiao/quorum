@@ -25,6 +25,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
 - `scripts/check_phase6_gate.sh` now requires the schema-stability
   preflight after the calendar gate opens and before live release /
   workflow checks can mark Phase 6 ready.
+- `scripts/check_phase6_gate.sh` now labels gate dates as UTC and
+  requires the latest live-monitor, CI, security, and image-push runs
+  to match the current `main` head before printing
+  `phase6-gate-ready`.
 
 ### Fixed
 
