@@ -15,6 +15,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Fixed
 
+- Live release monitor diagnostics now include bounded job runtime,
+  labeled GitHub metadata checks, and a non-secret Actions step
+  summary; the locked Mako transitive dependency was also raised to the
+  current fixed release after `pip-audit` reported `CVE-2026-44307`.
+
 ## [v0.6.7] — 2026-05-06
 
 ### Added
