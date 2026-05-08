@@ -15,6 +15,10 @@ artifact against that tag (see `.github/workflows/release.yml`).
   preflight that fails if schema-sensitive event/model/projection,
   Alembic, or example payload files changed after the configured
   stability anchor.
+- `docs/design/phase-6-readiness-checkpoint.md`, a concise
+  2026-05-08 gate-readiness checkpoint that records current live proof
+  status, latest workflow runs, the non-current May 6 monitor failure,
+  schema-stability evidence, and exact Phase 6 no-go triggers.
 
 ### Changed
 

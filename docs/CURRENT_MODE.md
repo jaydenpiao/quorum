@@ -23,6 +23,11 @@ That means:
   `scripts/check_release_proof_archive.sh`,
   `scripts/check_live_release.sh`, and
   `scripts/check_phase6_gate.sh`
+- before any Phase 6 worktree, require
+  `scripts/check_event_schema_stability.sh` to pass from the
+  `v0.6.3` schema anchor and then require
+  `QUORUM_RELEASE_TAG=<latest> scripts/check_phase6_gate.sh` to print
+  `phase6-gate-ready`
 
 ## Merge autonomy
 
@@ -58,6 +63,8 @@ all of the following are true:
 
 - `QUORUM_RELEASE_TAG=<latest> scripts/check_phase6_gate.sh` prints
   `phase6-gate-ready`
+- `scripts/check_event_schema_stability.sh` prints
+  `schema-stability-ok` from the `v0.6.3` anchor
 - event schema has been stable for ≥2 weeks (no new event types in
   that window)
 - proposal schema is stable

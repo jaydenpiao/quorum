@@ -91,5 +91,7 @@ def test_phase6_gate_preflight_is_documented_as_phase6_switch_gate() -> None:
     for path in (CHECKLIST, CURRENT_MODE, HANDOFF, REPO_MAP):
         text = _text(path)
         assert "scripts/check_phase6_gate.sh" in text
+        assert "scripts/check_event_schema_stability.sh" in text
 
     assert "docs/PARALLEL_DEVELOPMENT.md" in _text(CHECKLIST)
+    assert "docs/design/phase-6-readiness-checkpoint.md" in _text(CHECKLIST)

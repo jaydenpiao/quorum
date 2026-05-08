@@ -5,7 +5,7 @@ the repo without scanning every file. It is updated as a blocker for
 any PR that moves / renames / adds top-level files or folders
 (see `AGENTS.md` §9).
 
-Last refreshed for the v0.6.7 release-proof archive pass.
+Last refreshed for the post-v0.6.7 Phase 6 readiness checkpoint pass.
 
 ## Top level
 
@@ -210,6 +210,9 @@ Last refreshed for the v0.6.7 release-proof archive pass.
 - `docs/design/fly-deployment.md` — Phase 5 Fly.io design
 - `docs/design/phase-6-gate-checklist.md` — criteria, no-go/reset
   triggers, and worktree switch procedure for opening Phase 6
+- `docs/design/phase-6-readiness-checkpoint.md` — 2026-05-08
+  pre-Phase-6 checkpoint with current live proof status, latest
+  workflow evidence, schema-stability preflight, and no-go triggers
 
 ## Tests — `tests/`
 
@@ -271,6 +274,12 @@ files:
   post-release proof acceptance commands
 - `tests/test_phase6_gate_preflight.py` — static and fail-closed
   coverage for the read-only Phase 6 gate preflight script
+- `tests/test_event_schema_stability_preflight.py` — static and
+  dynamic checks for the schema-stability anchor script required by
+  the Phase 6 gate
+- `tests/test_phase6_readiness_checkpoint.py` — static checks that the
+  readiness checkpoint, handoff, repo map, and gate checklist agree on
+  latest release, gate date, proof commands, and no-go triggers
 - `tests/test_console_proof_smoke.py` — static contract checks for
   the read-only console proof deep-link smoke helper
 - `tests/test_release_proof_archive_check.py` — static contract
@@ -320,10 +329,15 @@ from default CI; opt in with `pytest -m integration`.
   tagged release: staging/prod version metadata, prod health, staging
   event-chain verification, release SBOM asset, and latest main
   CI/security/image-push status
+- `scripts/check_event_schema_stability.sh` — read-only Phase 6
+  schema-stability preflight that fails if schema-sensitive
+  event/model/projection, Alembic, or example payload files changed
+  after the configured anchor tag, default `v0.6.3`
 - `scripts/check_phase6_gate.sh` — read-only Phase 6 gate preflight:
-  fail before 2026-05-14, require live release monitor and latest main
-  workflow success, require durable proof/handoff pointers, and print
-  `phase6-gate-ready` only when the switch to
+  fail before 2026-05-14, require schema-stability preflight, live
+  release monitor and latest main workflow success, require durable
+  proof/handoff pointers, and print `phase6-gate-ready` only when the
+  switch to
   `docs/PARALLEL_DEVELOPMENT.md` is allowed
 
 ## CI / GitHub — `.github/`

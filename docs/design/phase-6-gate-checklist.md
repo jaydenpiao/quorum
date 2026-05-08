@@ -17,11 +17,23 @@ Before the calendar gate opens it must fail closed with
 `phase6-gate-closed`. On or after the not-before date it must print
 `phase6-gate-ready` before any Phase 6 worktree is created.
 
+The latest checkpoint is
+`docs/design/phase-6-readiness-checkpoint.md`. It records the current
+`v0.6.7` live proof status, latest main workflow runs, the non-current
+May 6 monitor failure, and the schema-stability preflight evidence.
+
 ## Open Criteria
 
 - Event schema has been stable for at least 14 days: no new event
   types, no event payload field changes, and no reducer/projector
   dispatch changes that alter replay semantics.
+- The mechanical schema-stability preflight passes after the calendar
+  gate opens:
+
+```bash
+QUORUM_SCHEMA_STABILITY_ANCHOR_TAG=v0.6.3 scripts/check_event_schema_stability.sh
+```
+
 - Core proposal, vote, execution, rollback, health-check, approval,
   policy-decision, and image-push read shapes are stable.
 - Latest `main` has all 5 required checks green: `lint + format +
@@ -31,7 +43,9 @@ Before the calendar gate opens it must fail closed with
   event-chain verification, and latest `main` CI/security/image-push
   status.
 - `QUORUM_RELEASE_TAG=<latest> scripts/check_phase6_gate.sh` prints
-  `phase6-gate-ready`.
+  `phase6-gate-ready`. This script runs
+  `scripts/check_event_schema_stability.sh` after the calendar gate and
+  before live release / workflow checks.
 - Durable release proof exists under `docs/releases/` for the latest
   deployed release, and `docs/SESSION_HANDOFF.md` points to it.
 - No unmerged PR is modifying shared-core files listed in
@@ -42,6 +56,10 @@ Before the calendar gate opens it must fail closed with
 - Any new event type, event payload shape change, proposal/vote schema
   change, projection migration that changes replay/read semantics, or
   reducer/projector dispatch change resets the 14-day clock.
+- Any schema-sensitive change detected by
+  `scripts/check_event_schema_stability.sh` blocks Phase 6 until the
+  change is reviewed as non-impacting or the stability anchor/date is
+  intentionally reset.
 - Any live event-chain verification failure blocks Phase 6 until root
   cause is fixed and documented.
 - Any failing required `main` check blocks Phase 6 until the failure is

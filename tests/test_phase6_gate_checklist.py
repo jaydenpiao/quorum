@@ -29,14 +29,18 @@ def test_phase6_gate_checklist_records_required_gates() -> None:
     assert "docker build" in text
     assert "mypy" in text
     assert "scripts/check_live_release.sh" in text
+    assert "scripts/check_event_schema_stability.sh" in text
+    assert "QUORUM_SCHEMA_STABILITY_ANCHOR_TAG=v0.6.3" in text
     assert "docs/releases/" in text
     assert "docs/PARALLEL_DEVELOPMENT.md" in text
+    assert "docs/design/phase-6-readiness-checkpoint.md" in text
 
 
 def test_phase6_gate_checklist_records_no_go_and_fallback_rules() -> None:
     text = _text(CHECKLIST)
 
     assert "resets the 14-day clock" in text
+    assert "schema-sensitive change" in text
     assert "live event-chain verification failure" in text
     assert "Stay single-threaded on `main`" in text
     assert "v0.6.x hardening PRs" in text
@@ -46,6 +50,9 @@ def test_phase6_gate_checklist_records_no_go_and_fallback_rules() -> None:
 
 def test_handoff_and_repo_map_point_to_phase6_gate_checklist() -> None:
     path = "docs/design/phase-6-gate-checklist.md"
+    checkpoint_path = "docs/design/phase-6-readiness-checkpoint.md"
 
     assert path in _text(HANDOFF)
     assert path in _text(REPO_MAP)
+    assert checkpoint_path in _text(HANDOFF)
+    assert checkpoint_path in _text(REPO_MAP)
