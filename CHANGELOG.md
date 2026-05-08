@@ -11,7 +11,16 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ### Added
 
+- `scripts/check_event_schema_stability.sh`, a read-only Phase 6
+  preflight that fails if schema-sensitive event/model/projection,
+  Alembic, or example payload files changed after the configured
+  stability anchor.
+
 ### Changed
+
+- `scripts/check_phase6_gate.sh` now requires the schema-stability
+  preflight after the calendar gate opens and before live release /
+  workflow checks can mark Phase 6 ready.
 
 ### Fixed
 

@@ -58,6 +58,10 @@ def test_phase6_gate_preflight_codifies_required_checks() -> None:
     assert "QUORUM_PHASE6_NOT_BEFORE" in text
     assert "QUORUM_PHASE6_TODAY" in text
     assert "2026-05-14" in text
+    assert "scripts/check_event_schema_stability.sh" in text
+    assert "schema-stability-ok" in text
+    assert "QUORUM_SCHEMA_STABILITY_ANCHOR_TAG" in text
+    assert "QUORUM_SCHEMA_STABILITY_BASE_REF" in text
     assert "scripts/check_live_release.sh" in text
     assert "live-release-ok" in text
     assert "gh run list" in text
@@ -71,6 +75,16 @@ def test_phase6_gate_preflight_codifies_required_checks() -> None:
     assert "quorum-${RELEASE_TAG}.spdx.json" in text
     assert "phase6-gate-closed" in text
     assert "phase6-gate-ready" in text
+
+
+def test_phase6_gate_runs_schema_stability_after_calendar_gate() -> None:
+    text = _text(SCRIPT)
+
+    calendar_index = text.index("phase6-gate-check: calendar ok")
+    schema_index = text.index("scripts/check_event_schema_stability.sh")
+    live_monitor_index = text.index("scripts/check_live_release.sh")
+
+    assert calendar_index < schema_index < live_monitor_index
 
 
 def test_phase6_gate_preflight_is_documented_as_phase6_switch_gate() -> None:

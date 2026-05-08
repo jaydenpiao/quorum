@@ -73,6 +73,27 @@ require_command python3
 
 printf "phase6-gate-check: calendar ok today=%s not_before=%s\n" "$TODAY" "$NOT_BEFORE"
 
+SCHEMA_OUT="$TMP_DIR/schema-stability.out"
+SCHEMA_ERR="$TMP_DIR/schema-stability.err"
+if ! (
+  cd "$ROOT_DIR"
+  QUORUM_SCHEMA_STABILITY_ANCHOR_TAG="${QUORUM_SCHEMA_STABILITY_ANCHOR_TAG:-v0.6.3}" \
+    QUORUM_SCHEMA_STABILITY_BASE_REF="${QUORUM_SCHEMA_STABILITY_BASE_REF:-HEAD}" \
+    scripts/check_event_schema_stability.sh
+) >"$SCHEMA_OUT" 2>"$SCHEMA_ERR"; then
+  if [[ -s "$SCHEMA_ERR" ]]; then
+    sed 's/^/schema-stability: /' "$SCHEMA_ERR" >&2
+  fi
+  if [[ -s "$SCHEMA_OUT" ]]; then
+    sed 's/^/schema-stability: /' "$SCHEMA_OUT" >&2
+  fi
+  closed "scripts/check_event_schema_stability.sh failed"
+fi
+if ! grep -q "schema-stability-ok" "$SCHEMA_OUT"; then
+  closed "scripts/check_event_schema_stability.sh did not print schema-stability-ok"
+fi
+sed 's/^/schema-stability: /' "$SCHEMA_OUT"
+
 LIVE_OUT="$TMP_DIR/live-release.out"
 LIVE_ERR="$TMP_DIR/live-release.err"
 if ! (
