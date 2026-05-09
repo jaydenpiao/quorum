@@ -9,9 +9,11 @@ artifact against that tag (see `.github/workflows/release.yml`).
 
 ## [Unreleased]
 
-### Added
+### Fixed
 
-- _None yet._
+- GitHub Actions live-release-monitor summary formatting now escapes
+  Markdown backticks and uses `printf --`, preventing the read-only
+  monitor from failing after a successful live health check.
 
 ## [v0.6.8] — 2026-05-09
 
