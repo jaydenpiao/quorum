@@ -10,14 +10,21 @@ authoritative state of the project.
 
 ## Current state (as of the handoff)
 
-- **Release candidate:** `v0.6.8` is prepared with package/runtime
-  version `0.6.8` and display/tag version `v0.6.8`. It packages the
+- **Last tagged release:** [`v0.6.8`](https://github.com/jaydenpiao/quorum/releases/tag/v0.6.8) —
+  final pre-Phase-6 readiness release. Package/runtime version is
+  `0.6.8`; public display/tag version is `v0.6.8`. It packages the
   post-v0.6.7 live-monitor diagnostics, schema-stability preflight,
   Phase 6 readiness checkpoint, gate-freshness diagnostics, Phase 6
-  entry plan, and the Mako audit fix. It is not considered the latest
-  archived release until the signed tag, GitHub release/SBOM, live
-  deploy proof, and `docs/releases/v0.6.8-proof.md` are complete.
-- **Last tagged release:** [`v0.6.7`](https://github.com/jaydenpiao/quorum/releases/tag/v0.6.7) —
+  entry plan, and the Mako audit fix. Release workflow run
+  [`25565035775`](https://github.com/jaydenpiao/quorum/actions/runs/25565035775)
+  succeeded on the signed tag and published SBOM asset
+  [`quorum-v0.6.8.spdx.json`](https://github.com/jaydenpiao/quorum/releases/download/v0.6.8/quorum-v0.6.8.spdx.json)
+  with digest
+  `sha256:6c00e42d31b37d882ee45f6089b9fd353742cdd104c6cc61793075447ebfc7a6`.
+  The signed tag object is
+  `f258b0fb85e6934726678a29e09213798cf6eb34` and points at merge
+  commit `69374b1a10a900ddb3cb4d2229658da8f8d9ed88`.
+- **Previous tagged release:** [`v0.6.7`](https://github.com/jaydenpiao/quorum/releases/tag/v0.6.7) —
   proof-reliability release. Package/runtime version is `0.6.7`;
   public display/tag version is `v0.6.7`. It packages the post-v0.6.6
   read-only console proof smoke, release-proof archive checker,
@@ -31,43 +38,28 @@ authoritative state of the project.
   The signed tag object is
   `a3cd070c078a3ecc3d07cafb258e600489571681` and points at merge
   commit `ec203a6b9ff9d08a23c7b943ea6925a67f671883`.
-- **Previous tagged release:** [`v0.6.6`](https://github.com/jaydenpiao/quorum/releases/tag/v0.6.6) —
-  pre-Phase-6 reliability release. Package/runtime version is `0.6.6`;
-  public display/tag version is `v0.6.6`. It packages the post-v0.6.5
-  live-monitor network resilience, enriched operator proof provenance,
-  read-only Phase 6 gate preflight, and dependency-floor maintenance
-  for FastAPI, SQLAlchemy, structlog, pytest, and the Anthropic SDK.
-  Release workflow run
-  [`25312642654`](https://github.com/jaydenpiao/quorum/actions/runs/25312642654)
-  succeeded on the signed tag and published SBOM asset
-  [`quorum-v0.6.6.spdx.json`](https://github.com/jaydenpiao/quorum/releases/download/v0.6.6/quorum-v0.6.6.spdx.json)
-  with digest
-  `sha256:3a1c139830923db7160ad7de2af54d622a862d295f9e64c1b15aa28e1d99b1a3`.
-  The signed tag object is
-  `5e3e079d5e3c50ddc61b5a78633e7b5f4248d80f` and points at merge
-  commit `8adaa3d16edf1eba54fcf3c8eef69e61dabaa047`.
 - **Current deployed release proof:** staging and prod both report
-  `display_version=v0.6.7`. The live proof captured
-  `/tmp/quorum-proof.20260506T022737Z/proof.json`, selected
-  `proposal_bab1a4a4913d` / `exec_3b7c27ac5b51`, verified prod
+  `display_version=v0.6.8`. The live proof captured
+  `/tmp/quorum-proof.20260509T053811Z/proof.json`, selected
+  `proposal_1c968fc7eb1d` / `exec_32aad5b85dfd`, verified prod
   `/readiness` and `/api/v1/health` with `ok=true`, and verified the
-  staging event chain with `event_count=269` and last hash
-  `d81da497e4188ba00a22a46753cbe58bee62ddfa9a5e76252375528756a666a7`.
-  The proof used manual image-push run `25413132393`, image-push
-  evidence `evt_e4e6f4048669` / `imgpush_65490e728817`, external
-  staging verification `finding_4ae338e76de9`, and prod health checks
-  `hcr_19e645dc9854` / `hcr_abfcd93bde5c`. The durable release/deploy
-  evidence archive is `docs/releases/v0.6.7-proof.md`; previous proof
-  archives remain at `docs/releases/v0.6.6-proof.md`,
-  `docs/releases/v0.6.5-proof.md`, `docs/releases/v0.6.4-proof.md`,
-  `docs/releases/v0.6.3-proof.md`, `docs/releases/v0.6.2-proof.md`,
-  and `docs/releases/v0.6.1-proof.md`.
-- **Current post-v0.6.7 hardening state:** Phase 6 remains blocked
+  staging event chain with `event_count=291` and last hash
+  `85adff4f97a5bc141eb3720aa4cfd0ab9371fed94b1aa075a78e8985f4f642f8`.
+  The proof used manual image-push run `25565198669`, image-push
+  evidence `evt_4803f0976165` / `imgpush_9d884cb0c9d5`, external
+  staging verification `finding_f6bf1d769bc5`, and prod health checks
+  `hcr_b21754a2cb01` / `hcr_ee6fed61fef3`. The durable release/deploy
+  evidence archive is `docs/releases/v0.6.8-proof.md`; previous proof
+  archives remain at `docs/releases/v0.6.7-proof.md`,
+  `docs/releases/v0.6.6-proof.md`, `docs/releases/v0.6.5-proof.md`,
+  `docs/releases/v0.6.4-proof.md`, `docs/releases/v0.6.3-proof.md`,
+  `docs/releases/v0.6.2-proof.md`, and `docs/releases/v0.6.1-proof.md`.
+- **Current post-v0.6.8 hardening state:** Phase 6 remains blocked
   until at least 2026-05-14 if the event schema and event payloads stay
-  stable after the v0.6.3 LLM vote metadata work. The v0.6.7 release
+  stable after the v0.6.3 LLM vote metadata work. The v0.6.8 release
   keeps that boundary: no new event types, mutation routes, proposal
   fields, projection tables, actuators, or `fly.deploy` LLM voting.
-  The post-v0.6.7 line remains reliability-only: live monitor
+  The post-v0.6.8 line remains reliability-only: live monitor
   diagnostics now include bounded job runtime, labeled GitHub metadata
   checks, and non-secret `$GITHUB_STEP_SUMMARY` output;
   `scripts/check_event_schema_stability.sh` mechanically proves no
@@ -78,8 +70,14 @@ authoritative state of the project.
   shared-core/event-schema work blocked until a coordinating owner is
   assigned. `scripts/check_phase6_gate.sh` remains the required
   preflight before any switch to
-  `docs/PARALLEL_DEVELOPMENT.md`; on 2026-05-08 it correctly returned
-  `phase6-gate-closed: not before 2026-05-14 (today=2026-05-08)`.
+  `docs/PARALLEL_DEVELOPMENT.md`; on 2026-05-09 UTC it correctly
+  returned `phase6-gate-closed: not before 2026-05-14 UTC
+  (today_utc=2026-05-09; override dry-runs with
+  QUORUM_PHASE6_TODAY=YYYY-MM-DD)`. With
+  `docs/releases/v0.6.8-proof.md` present, a 2026-05-14 dry-run reaches
+  calendar, schema stability, live monitor, current-main workflow
+  freshness, open-PR checks, proof-archive validation, and prints
+  `phase6-gate-ready`.
 - **Merge autonomy:** on 2026-05-01 the operator granted durable
   repo-wide merge autonomy for AI agents. Agents may merge validated
   green PRs without pausing for per-PR confirmation, including future
@@ -94,8 +92,9 @@ authoritative state of the project.
   v0.6.7 proof-archive PR #149, live-monitor diagnostics PR #150,
   event-schema-stability preflight PR #151, and Phase 6 readiness
   checkpoint PR #152, gate-freshness diagnostics PR #153, Phase 6
-  entry-plan PR #154, and v0.6.8 release-prep PR #155 preserve the
-  Phase 6 boundary. Every dependency, release, proof-reliability, and
+  entry-plan PR #154, v0.6.8 release-prep PR #155, and
+  live-monitor summary-format fix PR #156 preserve the Phase 6
+  boundary. Every dependency, release, proof-reliability, and
   gate-readiness PR merged only after all five required PR checks were
   green, and each merge was followed by green `main` `ci`, `security`,
   and `image-push` workflow runs before the next step proceeded.
