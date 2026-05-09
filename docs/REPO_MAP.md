@@ -5,7 +5,7 @@ the repo without scanning every file. It is updated as a blocker for
 any PR that moves / renames / adds top-level files or folders
 (see `AGENTS.md` §9).
 
-Last refreshed for the v0.6.8 release-prep pass.
+Last refreshed for the v0.6.8 proof-archive pass.
 
 ## Top level
 
@@ -202,6 +202,10 @@ Last refreshed for the v0.6.8 release-prep pass.
 - `docs/releases/v0.6.7-proof.md` — durable release/deploy proof
   archive for the `v0.6.7` tag, proof reliability release, Phase 6
   gate result, console proof smoke, and live prod execution
+- `docs/releases/v0.6.8-proof.md` — durable release/deploy proof
+  archive for the `v0.6.8` tag, final pre-Phase-6 readiness release,
+  live monitor recovery, Phase 6 gate result, console proof smoke, and
+  live prod execution
 - `docs/design/postgres-projection.md` — projection architecture
 - `docs/design/phase-4-github-actuator.md` — GitHub actuator design
 - `docs/design/llm-adapter.md` — LLM adapter design
